@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大時鐘</title>
     <style>
-        body, html {
+        /* 確保 html 和 body 填滿整個螢幕 */
+        html, body {
             margin: 0;
             padding: 0;
             height: 100%;
@@ -17,9 +18,12 @@
             justify-content: center;
             align-items: center;
         }
+
+        /* 時鐘樣式 */
         #clock {
-            font-size: 30vw;
+            font-size: 20vw;
             text-align: center;
+            line-height: 1; /* 避免文字上下偏移 */
         }
     </style>
 </head>
