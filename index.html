@@ -35,7 +35,6 @@
             var now = new Date();
             var hours = now.getHours();
             var minutes = now.getMinutes();
-            var seconds = now.getSeconds();
 
             // 補零函數
             function pad(n) {
@@ -44,12 +43,11 @@
 
             hours = pad(hours);
             minutes = pad(minutes);
-         
 
-            document.getElementById('clock').textContent = hours + ':' + minutes + ':' + seconds;
+            document.getElementById('clock').textContent = hours + ':' + minutes;
         }
 
-        setInterval(updateClock, 1000);
+        setInterval(updateClock, 60000); // 每分鐘更新一次
         updateClock(); // 初始化時鐘
     </script>
 </body>
