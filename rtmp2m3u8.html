@@ -1,4 +1,18 @@
-ffmpeg -i rtsp://125.227.47.238:554/ch01 -c:v libx264 -c:a aac -f hls -hls_time 2 -hls_list_size 5 -hls_flags delete_segments stream.m3u8
-<video controls>
-  <source src="stream.m3u8" type="application/x-mpegURL">
-</video>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.1/dist/ffmpeg.min.js"></script>
+<video id="player" controls></video>
+<script>
+  const { createFFmpeg, fetchFile } = FFmpeg;
+  const ffmpeg = createFFmpeg({ log: true });
+  
+  (async () => {
+    await ffmpeg.load();
+    ffmpeg.setLogger(({ type, message }) => {
+      console.log(message);
+    });
+    ffmpeg.FS('writeFile', 'input', await fetchFile('rtsp://125.227.47.238:554/ch01'));
+    await ffmpeg.run('-i', 'input', '-f', 'webm', 'output.webm');
+    const data = ffmpeg.FS('readFile', 'output.webm');
+    const video = document.getElementById('player');
+    video.src = URL.createObjectURL(new Blob([data.buffer], { type: 'video/webm' }));
+  })();
+</script>
