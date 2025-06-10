@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>全螢幕倒數計時器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #000;
+            color: white;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* 主選單樣式 */
+        #menu-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            height: 100%;
+        }
+        
+        .title {
+            font-size: 2.2rem;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+        }
+        
+        .time-btn {
+            padding: 28px 10px;
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #007AFF, #0062CC);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .time-btn:active {
+            transform: scale(0.96);
+            background: linear-gradient(135deg, #0062CC, #0050A3);
+        }
+        
+        .current-time {
+            font-size: 1.5rem;
+            color: #aaa;
+            margin-top: auto;
+            padding-bottom: 15px;
+            text-align: center;
+        }
+        
+        /* 倒數畫面樣式 */
+        #countdown-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 100;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .countdown-display {
+            font-size: 40vw;
+            font-weight: 900;
+            line-height: 0.85;
+            text-align: center;
+            margin-top: 15vh;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            width: 100%;
+            padding: 0 20px;
+        }
+        
+        .button-container {
+            width: 100%;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: center;
+            gap: 15px; /* 按鈕間距 */
+        }
+        
+        .stop-btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #FF3B30, #E60000);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 5px 15px rgba(255, 59, 48, 0.4);
+            width: 100%;
+            max-width: 150px; /* 調整按鈕寬度 */
+        }
+        
+        .restart-btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #34C759, #2CAE4B);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.4rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 5px 15px rgba(52, 199, 89, 0.4);
+            width: 100%;
+            max-width: 150px; /* 調整按鈕寬度 */
+        }
+        
+        .stop-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #E60000, #CC0000);
+        }
+        
+        .restart-btn:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #2CAE4B, #259E41);
+        }
+        
+        /* 閃爍動畫 */
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .flashing {
+            animation: flash 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 主選單畫面 -->
+        <div id="menu-screen">
+            <h1 class="title">請選擇倒數時間</h1>
+            
+            <div class="button-grid">
+                <button class="time-btn" data-time="180">3:00</button>
+                <button class="time-btn" data-time="150">2:30</button>
+                <button class="time-btn" data-time="120">2:00</button>
+                <button class="time-btn" data-time="90">1:30</button>
+                <button class="time-btn" data-time="60">1:00</button>
+                <button class="time-btn" data-time="30">0:30</button>
+                <button class="time-btn" data-time="20">0:20</button>
+                <button class="time-btn" data-time="10">0:10</button>
+            </div>
+            
+            <div class="current-time" id="current-time"></div>
+        </div>
+        
+        <!-- 倒數畫面 -->
+        <div id="countdown-screen">
+            <div class="countdown-display" id="countdown-display"></div>
+            <div class="button-container">
+                <button class="restart-btn" id="restart-btn">重新倒數</button>
+                <button class="stop-btn" id="stop-btn">停止</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素
+        const currentTimeEl = document.getElementById('current-time');
+        const countdownDisplayEl = document.getElementById('countdown-display');
+        const countdownScreenEl = document.getElementById('countdown-screen');
+        const menuScreenEl = document.getElementById('menu-screen');
+        const stopBtnEl = document.getElementById('stop-btn');
+        const restartBtnEl = document.getElementById('restart-btn');
+        const timeButtons = document.querySelectorAll('.time-btn');
+        
+        // 變數
+        let timer = null;
+        let endTime = 0;
+        let isCountdownFinished = false;
+        let wakeLock = null;
+        let originalDuration = 0; // 儲存原始倒數時間
+        
+        // 初始化
+        function init() {
+            updateCurrentTime();
+            setupEventListeners();
+            setInterval(updateCurrentTime, 1000);
+            requestWakeLock();
+        }
+        
+        // 請求保持屏幕喚醒
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock was released');
+                    });
+                    console.log('Screen Wake Lock is active');
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        }
+        
+        // 更新當前時間
+        function updateCurrentTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleTimeString('zh-TW', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+        
+        // 設置事件監聽
+        function setupEventListeners() {
+            // 時間按鈕點擊
+            timeButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const seconds = parseInt(btn.dataset.time);
+                    originalDuration = seconds; // 儲存原始時間
+                    startCountdown(seconds);
+                });
+            });
+            
+            // 停止按鈕
+            stopBtnEl.addEventListener('click', stopCountdown);
+            
+            // 重新倒數按鈕
+            restartBtnEl.addEventListener('click', restartCountdown);
+            
+            // 防止滾動
+            document.addEventListener('touchmove', (e) => {
+                if (countdownScreenEl.style.display === 'flex') {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+            
+            // 當頁面可見性變化時重新請求喚醒鎖
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState === 'visible' && countdownScreenEl.style.display === 'flex') {
+                    await requestWakeLock();
+                }
+            });
+        }
+        
+        // 開始倒數
+        function startCountdown(seconds) {
+            // 重置狀態
+            isCountdownFinished = false;
+            countdownDisplayEl.classList.remove('flashing');
+            
+            // 切換畫面
+            menuScreenEl.style.display = 'none';
+            countdownScreenEl.style.display = 'flex';
+            
+            // 請求保持屏幕喚醒
+            requestWakeLock();
+            
+            // 清除舊計時器
+            if (timer) clearInterval(timer);
+            endTime = Date.now() + seconds * 1000;
+            
+            // 立即更新一次
+            updateCountdown();
+            
+            // 設置定時器
+            timer = setInterval(updateCountdown, 200);
+        }
+        
+        // 重新倒數
+        function restartCountdown() {
+            if (originalDuration > 0) {
+                startCountdown(originalDuration);
+            }
+        }
+        
+        // 更新倒數顯示
+        function updateCountdown() {
+            if (isCountdownFinished) return;
+            
+            const now = Date.now();
+            const remaining = Math.max(0, endTime - now);
+            const seconds = Math.ceil(remaining / 1000);
+            
+            if (seconds <= 0) {
+                countdownFinished();
+                return;
+            }
+            
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            
+            // 更新顯示
+            countdownDisplayEl.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            
+            // 更新樣式
+            updateCountdownStyle(seconds);
+        }
+        
+        // 倒數完成
+        function countdownFinished() {
+            clearInterval(timer);
+            isCountdownFinished = true;
+            
+            // 顯示 0:00 並開始閃爍
+            countdownDisplayEl.textContent = "0:00";
+            countdownDisplayEl.style.color = '#FF3B30';
+            countdownDisplayEl.classList.add('flashing');
+        }
+        
+        // 更新倒數樣式
+        function updateCountdownStyle(seconds) {
+            if (seconds <= 10) {
+                countdownDisplayEl.style.color = '#FF3B30';
+                countdownDisplayEl.style.textShadow = '0 0 25px rgba(255, 59, 48, 0.6)';
+            } else if (seconds <= 30) {
+                countdownDisplayEl.style.color = '#FF9500';
+                countdownDisplayEl.style.textShadow = '0 0 25px rgba(255, 149, 0, 0.6)';
+            } else {
+                countdownDisplayEl.style.color = '#FFFFFF';
+                countdownDisplayEl.style.textShadow = '0 0 20px rgba(255, 255, 255, 0.3)';
+            }
+        }
+        
+        // 停止倒數
+        function stopCountdown() {
+            clearInterval(timer);
+            returnToMenu();
+            
+            // 釋放喚醒鎖
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                });
+            }
+        }
+        
+        // 返回主選單
+        function returnToMenu() {
+            countdownScreenEl.style.display = 'none';
+            menuScreenEl.style.display = 'flex';
+            countdownDisplayEl.classList.remove('flashing');
+            isCountdownFinished = false;
+        }
+        
+        // 初始化應用
+        init();
+    </script>
+</body>
+</html>
