@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 影音對時播放器 (專業修復版)</title>
+    <style>
+        :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; --accent: #0a84ff; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .container { width: 100%; max-width: 500px; background: var(--card); border-radius: 24px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); box-sizing: border-box; }
+        
+        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 10px 0; font-weight: bold; }
+        #media-container { width: 100%; background: #000; border-radius: 12px; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+        /* 確保音軌控制器在 iOS 上寬度正確 */
+        audio, video { width: 100%; display: block; outline: none; }
+        
+        #active-subtitle { min-height: 60px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 18px; margin: 10px 0; color: #ffd60a; }
+        #searchBar { width: 100%; padding: 12px; border-radius: 10px; border: none; background: #3a3a3c; color: white; margin-bottom: 10px; box-sizing: border-box; }
+        #transcript-list { height: 250px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 15px; padding: 5px; scroll-behavior: smooth; }
+        
+        .subtitle-item { display: flex; align-items: flex-start; padding: 12px; border-bottom: 1px solid #3a3a3c; cursor: pointer; }
+        .subtitle-item input[type="checkbox"] { width: 20px; height: 20px; margin-right: 12px; margin-top: 2px; flex-shrink: 0; }
+        .subtitle-content { flex: 1; font-size: 15px; color: #aeaeb2; }
+        .subtitle-item.highlight { background: rgba(48,209,88,0.15); border-radius: 8px; }
+        .subtitle-item.highlight .subtitle-content { color: var(--primary); font-weight: bold; }
+
+        .btn { border: none; border-radius: 12px; font-weight: bold; cursor: pointer; width: 100%; padding: 15px; }
+        .start-btn { background: var(--primary); color: black; margin-top: 20px; }
+        .share-btn { background: var(--accent); color: white; margin-top: 15px; }
+
+        #edit-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg); z-index: 999; display: none; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        #edit-area { flex: 1; background: #2c2c2e; color: white; border: 1px solid #3a3a3c; border-radius: 15px; padding: 15px; font-size: 16px; margin-bottom: 15px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="setup-ui">
+        <h2 style="text-align:center;">影音同步對時</h2>
+        <label style="font-size:13px; color:#8e8e93;">1. 選擇檔案 (支援 m4a, wav, mp4, mov)</label>
+        <input type="file" id="mediaFile" accept="video/*,audio/*,.m4a,.wav,audio/x-wav,audio/wav,audio/x-m4a" onchange="triggerDetect()">
+        
+        <label style="font-size:13px; color:#8e8e93; margin-top:10px; display:block;">2. 選擇字幕 (SRT/TXT)</label>
+        <input type="file" id="srtFile" accept=".srt,.txt" onchange="triggerDetect()">
+        
+        <div id="timeHint" style="font-size:12px; color:var(--primary); text-align:center; margin:10px 0;">等待選取...</div>
+        <input type="text" id="startTime" value="00:00:00" style="width:100%; padding:10px; background:#3a3a3c; color:white; border:none; border-radius:8px; text-align:center;">
+        <button class="btn start-btn" onclick="startPlayer()">進入播放與選取</button>
+    </div>
+
+    <div id="player-ui" class="hidden">
+        <div id="wall-time">00:00:00</div>
+        <div id="media-container" id="mediaWrapper">
+            </div>
+        <div id="active-subtitle">準備就緒</div>
+        <input type="text" id="searchBar" placeholder="🔍 搜尋內容..." oninput="filterSubtitles()">
+        <div id="transcript-list"></div>
+        <button class="btn share-btn" onclick="openShareEditor()">📤 編輯並分享勾選內容</button>
+        <button onclick="location.reload()" style="margin-top:15px; background:none; border:none; color:#666; width:100%;">重新載入</button>
+    </div>
+</div>
+
+<div id="edit-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+        <button onclick="closeShareEditor()" style="background:none; border:none; color:var(--accent); font-size:16px; font-weight:bold;">← 返回</button>
+        <h3 style="margin:0;">編輯分享</h3>
+        <div style="width:40px;"></div>
+    </div>
+    <textarea id="edit-area"></textarea>
+    <button class="btn start-btn" onclick="executeShare()">透過 LINE 分享 / 拷貝文字</button>
+</div>
+
+<script>
+    let transcript = [];
+    let baseSeconds = 0;
+    let activeMedia = null;
+
+    function parseFileName(name) {
+        if (!name) return null;
+        const aikoMatch = name.match(/at\s(\d{2})\.(\d{2})\.(\d{2})/i);
+        if (aikoMatch) return `${aikoMatch[1]}:${aikoMatch[2]}:${aikoMatch[3]}`;
+        const bmMatch = name.match(/_(\d{4})(\d{4,6})_/);
+        if (bmMatch) {
+            const timePart = bmMatch[2];
+            return `${timePart.substring(0,2)}:${timePart.substring(2,4)}:${timePart.substring(4,6) || '00'}`;
+        }
+        return null;
+    }
+
+    function triggerDetect() {
+        const m = document.getElementById('mediaFile').files[0];
+        const s = document.getElementById('srtFile').files[0];
+        const time = parseFileName(s?.name) || parseFileName(m?.name);
+        if (time) {
+            document.getElementById('startTime').value = time;
+            document.getElementById('timeHint').innerText = "✅ 偵測到起始時間：" + time;
+        }
+    }
+
+    async function startPlayer() {
+        const mFile = document.getElementById('mediaFile').files[0];
+        const sFile = document.getElementById('srtFile').files[0];
+        if (!mFile || !sFile) return alert("請選取影音與字幕檔");
+
+        baseSeconds = timeToSeconds(document.getElementById('startTime').value);
+        const srtText = await sFile.text();
+        parseSRT(srtText);
+
+        const container = document.getElementById('media-container');
+        container.innerHTML = '';
+        
+        // 關鍵技術：偵測檔案類型並選用對應標籤
+        const isAudio = mFile.type.startsWith('audio') || mFile.name.toLowerCase().endsWith('.m4a') || mFile.name.toLowerCase().endsWith('.wav');
+        activeMedia = document.createElement(isAudio ? 'audio' : 'video');
+        activeMedia.controls = true;
+        activeMedia.playsInline = true;
+        activeMedia.src = URL.createObjectURL(mFile);
+        container.appendChild(activeMedia);
+
+        document.getElementById('setup-ui').classList.add('hidden');
+        document.getElementById('player-ui').classList.remove('hidden');
+        
+        initSync(activeMedia);
+    }
+
+    function parseSRT(data) {
+        const regex = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
+        const list = document.getElementById('transcript-list');
+        list.innerHTML = '';
+        transcript = [];
+        let match;
+        while ((match = regex.exec(data)) !== null) {
+            const start = timeToSeconds(match[2].replace(',', '.'));
+            const text = match[4].replace(/\n/g, ' ').trim();
+            const wall = formatTime(baseSeconds + start);
+            const idx = transcript.length;
+            transcript.push({ start, end: timeToSeconds(match[3].replace(',', '.')), text, wall });
+
+            const div = document.createElement('div');
+            div.className = 'subtitle-item';
+            div.id = `sub-${idx}`;
+            div.innerHTML = `<input type="checkbox" id="chk-${idx}" onclick="event.stopPropagation()"><div class="subtitle-content" onclick="seekTo(${start})"><small style="color:var(--accent)">[${wall}]</small><br>${text}</div>`;
+            list.appendChild(div);
+        }
+    }
+
+    function seekTo(s) { activeMedia.currentTime = s; activeMedia.play(); }
+
+    function initSync(m) {
+        m.ontimeupdate = () => {
+            const ct = m.currentTime;
+            document.getElementById('wall-time').innerText = formatTime(baseSeconds + ct);
+            const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
+            if (idx !== -1) {
+                document.getElementById('active-subtitle').innerText = transcript[idx].text;
+                document.querySelectorAll('.subtitle-item').forEach((el, i) => {
+                    if (i === idx) {
+                        el.classList.add('highlight');
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else { el.classList.remove('highlight'); }
+                });
+            }
+        };
+    }
+
+    function openShareEditor() {
+        const selected = transcript.filter((_, i) => document.getElementById(`chk-${i}`).checked).map(t => `[${t.wall}] ${t.text}`);
+        if (selected.length === 0) return alert("請先勾選字幕");
+        document.getElementById('edit-area').value = selected.join('\n');
+        document.getElementById('edit-overlay').style.display = 'flex';
+    }
+
+    function closeShareEditor() { document.getElementById('edit-overlay').style.display = 'none'; }
+
+    async function executeShare() {
+        const text = document.getElementById('edit-area').value;
+        if (navigator.share) { await navigator.share({ text: text }).catch(() => {}); }
+        else { navigator.clipboard.writeText(text); alert("已複製到剪貼簿"); }
+    }
+
+    function timeToSeconds(t) {
+        const p = t.split(':');
+        return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0);
+    }
+
+    function formatTime(s) {
+        const h = Math.floor(s / 3600) % 24, m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60);
+        return [h, m, sec].map(v => v.toString().padStart(2, '0')).join(':');
+    }
+
+    function filterSubtitles() {
+        const q = document.getElementById('searchBar').value.toLowerCase();
+        transcript.forEach((item, i) => {
+            document.getElementById(`sub-${i}`).style.display = item.text.toLowerCase().includes(q) ? "flex" : "none";
+        });
+    }
+</script>
+</body>
+</html>
