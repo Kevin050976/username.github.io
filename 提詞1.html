@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>專業語音提詞機</title>
+    <style>
+        /* 基礎版面設定：暗黑模式 */
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* 頂部固定控制列 */
+        #controls {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: #1e1e1e;
+            padding: 15px 20px;
+            box-sizing: border-box;
+            z-index: 100;
+            border-bottom: 2px solid #333;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            font-size: 18px;
+            padding: 10px 20px;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        #editBtn { background-color: #6c757d; }
+        #startBtn { background-color: #007bff; }
+        #startBtn.listening { background-color: #dc3545; }
+
+        /* 計時器樣式 */
+        #timer {
+            font-size: 32px;
+            font-weight: bold;
+            color: #ffeb3b; /* 醒目的黃色 */
+            font-family: monospace;
+            letter-spacing: 2px;
+        }
+
+        #status {
+            width: 100%;
+            margin-top: 10px;
+            font-size: 15px;
+            color: #aaaaaa;
+            text-align: center;
+        }
+
+        /* 主要內容區域 (留出頂部空間) */
+        #main-content {
+            margin-top: 130px;
+            padding: 20px;
+            padding-bottom: 80vh;
+        }
+
+        /* 編輯區 (Textarea) */
+        #editArea {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 60vh;
+            background-color: #2a2a2a;
+            color: #ffffff;
+            font-size: 24px;
+            padding: 15px;
+            border: 1px solid #555;
+            border-radius: 8px;
+            box-sizing: border-box;
+            line-height: 1.5;
+            resize: vertical;
+        }
+
+        /* 提詞機展示區 */
+        #prompterArea {
+            display: none; /* 預設隱藏，切換模式後顯示 */
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .line {
+            font-size: 42px;
+            line-height: 1.6;
+            margin-bottom: 40px;
+            opacity: 0.3;
+            transition: all 0.3s ease;
+        }
+
+        .line.active {
+            opacity: 1;
+            color: #4caf50; /* 當前段落變成綠色 */
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <div class="btn-group">
+            <button id="editBtn">切換到提詞機</button>
+            <button id="startBtn" style="display: none;">啟動收音與防休眠</button>
+        </div>
+        <div id="timer">00:00</div>
+        <div id="status">請在下方編輯您的演講稿。分段請按「Enter」換行。</div>
+    </div>
+
+    <div id="main-content">
+        <div id="editArea">
+            <textarea id="scriptInput">在這裡貼上您的演講稿。
+每一行會變成提詞機的一個段落。
+請使用 Enter 鍵來換行。
+距離如果太遠，用平板麥克風會收音不良。
+建議您戴上藍牙耳機來確保收音準確！
+祝您錄影順利！</textarea>
+        </div>
+
+        <div id="prompterArea"></div>
+    </div>
+
+    <script>
+        // DOM 元素取得
+        const editBtn = document.getElementById('editBtn');
+        const startBtn = document.getElementById('startBtn');
+        const statusText = document.getElementById('status');
+        const timerDisplay = document.getElementById('timer');
+        const editArea = document.getElementById('editArea');
+        const prompterArea = document.getElementById('prompterArea');
+        const scriptInput = document.getElementById('scriptInput');
+
+        // 狀態變數
+        let isEditing = true;
+        let isListening = false;
+        let wakeLock = null;
+        let linesDOM = [];
+        let currentIndex = 0;
+
+        // 計時器變數
+        let timerInterval = null;
+        let secondsElapsed = 0;
+        let hasStartedSpeaking = false;
+
+        // 1. 編輯與提詞機模式切換
+        editBtn.addEventListener('click', () => {
+            if (isEditing) {
+                // 進入提詞機模式
+                const text = scriptInput.value;
+                // 用換行符號切割，並過濾掉空白行
+                const lines = text.split('\n').filter(line => line.trim() !== '');
+                
+                if (lines.length === 0) {
+                    alert("請輸入講稿內容！");
+                    return;
+                }
+
+                // 產生提詞機 HTML
+                prompterArea.innerHTML = '';
+                lines.forEach((lineText, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'line' + (index === 0 ? ' active' : '');
+                    div.innerText = lineText;
+                    prompterArea.appendChild(div);
+                });
+
+                linesDOM = document.querySelectorAll('.line');
+                currentIndex = 0;
+
+                editArea.style.display = 'none';
+                prompterArea.style.display = 'block';
+                startBtn.style.display = 'inline-block';
+                editBtn.textContent = "返回編輯";
+                statusText.textContent = "提詞機已準備就緒。點擊「啟動收音」以開始。";
+                isEditing = false;
+            } else {
+                // 返回編輯模式
+                if (isListening) stopRecognition();
+                editArea.style.display = 'block';
+                prompterArea.style.display = 'none';
+                startBtn.style.display = 'none';
+                editBtn.textContent = "切換到提詞機";
+                statusText.textContent = "編輯模式：可隨時修改您的講稿。";
+                resetTimer();
+                isEditing = true;
+            }
+        });
+
+        // 2. 螢幕防休眠 (Wake Lock API)
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('螢幕防休眠已啟動');
+                } catch (err) {
+                    console.error('螢幕防休眠啟動失敗:', err);
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => {
+                    wakeLock = null;
+                    console.log('螢幕防休眠已解除');
+                });
+            }
+        }
+
+        // 若切換視窗再切回來，重新請求防休眠
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                requestWakeLock();
+            }
+        });
+
+        // 3. 計時器邏輯
+        function updateTimerDisplay() {
+            const minutes = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+            const seconds = String(secondsElapsed % 60).padStart(2, '0');
+            timerDisplay.textContent = `${minutes}:${seconds}`;
+        }
+
+        function startTimer() {
+            if (timerInterval) return; // 避免重複啟動
+            timerInterval = setInterval(() => {
+                secondsElapsed++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+
+        function resetTimer() {
+            stopTimer();
+            secondsElapsed = 0;
+            hasStartedSpeaking = false;
+            updateTimerDisplay();
+        }
+
+        // 4. 語音辨識邏輯
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+
+        if (!SpeechRecognition) {
+            alert("您的瀏覽器不支援語音辨識，請在 Android 平板上使用 Google Chrome 瀏覽器。");
+        } else {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'zh-TW';
+            recognition.continuous = true;
+            recognition.interimResults = false;
+
+            startBtn.addEventListener('click', () => {
+                if (!isListening) {
+                    recognition.start();
+                    requestWakeLock(); // 按下啟動時，請求螢幕防休眠
+                } else {
+                    stopRecognition();
+                }
+            });
+
+            recognition.onstart = () => {
+                isListening = true;
+                startBtn.textContent = "停止收音與計時";
+                startBtn.classList.add('listening');
+                statusText.textContent = "正在聆聽... (開口說話即自動開始計時)";
+                linesDOM[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            };
+
+            recognition.onend = () => {
+                if (isListening) {
+                    recognition.start(); // 自動重啟以保持監聽
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error("語音辨識錯誤:", event.error);
+                if (event.error === 'not-allowed') {
+                    statusText.textContent = "錯誤：麥克風權限被拒絕。";
+                    stopRecognition();
+                }
+            };
+
+            recognition.onresult = (event) => {
+                // 【觸發計時器】只要接收到第一次語音結果，且計時器未啟動，就開始計時
+                if (!hasStartedSpeaking) {
+                    hasStartedSpeaking = true;
+                    startTimer();
+                }
+
+                const lastResultIndex = event.results.length - 1;
+                const transcript = event.results[lastResultIndex][0].transcript.trim();
+                statusText.textContent = `聽到：${transcript}`;
+
+                if (currentIndex < linesDOM.length - 1) {
+                    const nextLineText = linesDOM[currentIndex + 1].innerText;
+                    
+                    // 模糊比對演算法
+                    const cleanTranscript = transcript.replace(/[，。！？、\s]/g, '');
+                    const cleanNextLine = nextLineText.replace(/[，。！？、\s]/g, '');
+
+                    let matchFound = false;
+                    for (let i = 0; i <= cleanTranscript.length - 3; i++) {
+                        const chunk = cleanTranscript.substr(i, 3);
+                        if (cleanNextLine.includes(chunk)) {
+                            matchFound = true;
+                            break;
+                        }
+                    }
+
+                    if (matchFound) {
+                        linesDOM[currentIndex].classList.remove('active');
+                        currentIndex++;
+                        linesDOM[currentIndex].classList.add('active');
+                        linesDOM[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                } else {
+                    statusText.textContent = "講稿已結束。";
+                }
+            };
+        }
+
+        function stopRecognition() {
+            isListening = false;
+            if (recognition) recognition.stop();
+            startBtn.textContent = "啟動收音與防休眠";
+            startBtn.classList.remove('listening');
+            statusText.textContent = "收音與計時已暫停。";
+            stopTimer(); // 停止計時
+            releaseWakeLock(); // 解除防休眠
+        }
+    </script>
+</body>
+</html>
