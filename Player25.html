@@ -3,35 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 影音校對播放器 (固定視窗版)</title>
+    <title>AI 影音校對播放器 (完美置中滾動版)</title>
     <style>
         :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; --accent: #0a84ff; }
         
-        /* --- 核心修正：鎖死 body 高度，杜絕整個網頁上下跳動 --- */
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; justify-content: center; height: 100vh; height: 100dvh; overflow: hidden; }
         
-        /* 容器改成彈性佈局，填滿畫面 */
         .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--card); padding: 20px; box-sizing: border-box; }
         
-        /* PC 端模擬手機外觀 */
         @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
 
-        /* 設定與播放介面都改為彈性容器 */
         #setup-ui { overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
-        #player-ui { flex: 1; display: flex; flex-direction: column; overflow: hidden; } /* overflow: hidden 確保只有內部能滾動 */
+        #player-ui { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
         #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
         #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
         video, audio { width: 100%; max-height: 250px; display: block; }
         
-        /* 打點標籤樣式 (加上 user-select: none 防止拖曳時反白文字) */
         #marker-container::-webkit-scrollbar { display: none; }
         #marker-container { display:none; overflow-x:auto; gap:8px; margin-top:15px; padding-bottom:5px; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex-shrink: 0; user-select: none; cursor: grab; }
         #marker-container:active { cursor: grabbing; }
         .marker-btn { background: #1c1c1e; color: var(--primary); padding: 8px 14px; border-radius: 10px; font-size: 14px; white-space: nowrap; border: 1px solid var(--primary); cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: "Menlo", monospace; }
         .marker-btn:active { background: rgba(48, 209, 88, 0.2); }
 
-        /* --- 核心修正：讓字幕區塊自動填滿剩下空間 --- */
         .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; }
         
         .subtitle-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; }
@@ -68,7 +62,8 @@
         <input type="text" id="startTime" value="00:00:00">
         <button class="btn" style="background:#444; color:#fff" onclick="resetTime()">重置</button>
     </div>
-    <div style="flex:1"></div> <button class="btn btn-main" onclick="startApp()">開始播放</button>
+    <div style="flex:1"></div>
+    <button class="btn btn-main" onclick="startApp()">開始播放</button>
 </div>
 
 <div class="container hidden" id="player-ui">
@@ -127,7 +122,6 @@
         return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':'); 
     }
 
-    // --- 核心修正：讓 PC 端可以用滑鼠拖曳橫向滾動條 ---
     function enableDragScroll(slider) {
         let isDown = false;
         let startX;
@@ -145,10 +139,9 @@
             if (!isDown) return;
             e.preventDefault();
             const x = e.pageX - slider.offsetLeft;
-            const walk = (x - startX) * 2; // 調整拖曳速度
+            const walk = (x - startX) * 2;
             slider.scrollLeft = scrollLeft - walk;
         });
-        // 支援 PC 滾輪左右滑動
         slider.addEventListener('wheel', (e) => {
             if (e.deltaY !== 0) {
                 e.preventDefault();
@@ -170,7 +163,6 @@
         document.getElementById('media-container').innerHTML = '';
         document.getElementById('media-container').appendChild(v);
 
-        // --- 處理打點檔 ---
         const markerContainer = document.getElementById('marker-container');
         markerContainer.innerHTML = '';
         if (mkFile) {
@@ -201,11 +193,10 @@
             });
             if (hasMarkers) {
                 markerContainer.style.display = 'flex';
-                enableDragScroll(markerContainer); // 綁定 PC 滑鼠拖曳功能
+                enableDragScroll(markerContainer);
             }
         }
 
-        // --- 處理字幕檔 ---
         const list = document.getElementById('list-container');
         list.innerHTML = ''; transcript = [];
         if (sFile) {
@@ -231,7 +222,7 @@
         document.getElementById('setup-ui').classList.add('hidden');
         document.getElementById('player-ui').classList.remove('hidden');
 
-        // --- 核心修正：精準計算內部滾動條，取代粗暴的 scrollIntoView ---
+        // --- 核心修正：精準的相對座標滾動算法 ---
         v.ontimeupdate = () => {
             const ct = v.currentTime;
             document.getElementById('wall-time').innerText = secToHms(baseSeconds + ct);
@@ -242,9 +233,9 @@
                         if (i === idx) {
                             if (!el.classList.contains('highlight')) {
                                 el.classList.add('highlight');
-                                // 只有在播放中才自動滾動，且使用精確的 scrollTop 算法
+                                // 計算元素相對父容器的正確距離，減去一半高度使其置中
                                 if (!v.paused) {
-                                    const scrollTarget = el.offsetTop - list.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
+                                    const scrollTarget = el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
                                     list.scrollTop = scrollTarget;
                                 }
                             }
@@ -257,7 +248,6 @@
         };
     }
 
-    // --- 編輯與分享功能 ---
     function openEdit(i) { document.getElementById('mainMedia').pause(); editIdx = i; document.getElementById('edit-text').value = transcript[i].text; document.getElementById('edit-modal').style.display = 'flex'; }
     function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
     function saveEdit() {
