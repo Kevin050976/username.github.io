@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 影音校對播放器 (含打點功能)</title>
+    <title>AI 影音校對播放器 (修復打點跳轉)</title>
     <style>
         :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; --accent: #0a84ff; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
@@ -36,13 +36,13 @@
 
 <div class="container" id="setup-ui">
     <h3 style="text-align:center">影音校對工具</h3>
-    <label style="font-size:12px; color:#aaa">選取影音 (M4A/MOV/MP4)</label>
+    <label style="font-size:12px; color:#aaa">1. 選取影音 (M4A/MOV/MP4)</label>
     <input type="file" id="mediaFile" accept="video/*,audio/*,.m4a,.mov" onchange="autoDetect(this)" style="width:100%; margin:10px 0">
     
-    <label style="font-size:12px; color:#aaa">選取字幕 (.srt)</label>
+    <label style="font-size:12px; color:#aaa">2. 選取字幕 (.srt) [選填]</label>
     <input type="file" id="srtFile" accept=".srt" onchange="autoDetect(this)" style="width:100%; margin:10px 0">
     
-    <label style="font-size:12px; color:#aaa">選取打點檔 (.txt) [選填]</label>
+    <label style="font-size:12px; color:#aaa">3. 選取打點檔 (.txt) [選填]</label>
     <input type="file" id="markerFile" accept=".txt" onchange="autoDetect(this)" style="width:100%; margin:10px 0">
     
     <label style="font-size:12px; color:#aaa">真實起始時間 (HH:mm:ss)</label>
@@ -89,25 +89,46 @@
 
     function autoDetect(input) {
         const name = input.files[0]?.name || "";
-        // 格式 1: at 20.08.55
         let m1 = name.match(/at\s(\d{2})\.(\d{2})\.(\d{2})/i);
         if (m1) return document.getElementById('startTime').value = `${m1[1]}:${m1[2]}:${m1[3]}`;
         
-        // 格式 2: A001_0201200855_C001 (抓中間 10 位數的最後 6 位)
         let m2 = name.match(/_(\d{4})(\d{2})(\d{2})(\d{2})_/);
         if (m2) return document.getElementById('startTime').value = `${m2[2]}:${m2[3]}:${m2[4]}`;
     }
 
     function resetTime() { document.getElementById('startTime').value = "00:00:00"; }
 
+    // 【核心修正】更聰明的時間轉換器：解決 00:10 被誤認為 10 分鐘的問題
+    function hmsToSec(t) {
+        const p = t.split(':');
+        if (p.length === 3) {
+            return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0); // HH:mm:ss
+        } else if (p.length === 2) {
+            return parseInt(p[0]) * 60 + parseFloat(p[1] || 0); // mm:ss
+        } else {
+            return parseFloat(p[0] || 0); // ss
+        }
+    }
+
+    function secToHms(s) { 
+        const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60); 
+        return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':'); 
+    }
+
     async function startApp() {
         const mFile = document.getElementById('mediaFile').files[0];
         const sFile = document.getElementById('srtFile').files[0];
         const mkFile = document.getElementById('markerFile').files[0];
-        if (!mFile || !sFile) return alert("請選取影音與字幕檔案");
+        if (!mFile) return alert("請至少選取一個影音檔！");
 
         baseSeconds = hmsToSec(document.getElementById('startTime').value);
         
+        // 提早建立播放器元素，讓打點按鈕可以準確綁定跳轉功能
+        const v = document.createElement(mFile.name.toLowerCase().endsWith('.m4a') ? 'audio' : 'video');
+        v.id = 'mainMedia'; v.controls = true; v.playsInline = true; v.src = URL.createObjectURL(mFile);
+        document.getElementById('media-container').innerHTML = '';
+        document.getElementById('media-container').appendChild(v);
+
         // --- 處理打點檔 (.txt) ---
         const markerContainer = document.getElementById('marker-container');
         markerContainer.innerHTML = '';
@@ -116,18 +137,23 @@
             const lines = mkText.split('\n');
             const timeRegex = /(?:(?:(\d{1,2}):))?(\d{1,2}):(\d{2})(?:\.\d+)?/;
             let hasMarkers = false;
+            let autoCount = 1;
             
             lines.forEach(line => {
                 const match = line.match(timeRegex);
                 if (match) {
                     let rawTime = match[0];
-                    let text = line.replace(rawTime, '').replace(/\[|\]/g, '').trim() || '標記點';
-                    let tSec = hmsToSec(rawTime);
+                    // 【核心修正】若行內只有數字，自動補上「標記點 X」
+                    let text = line.replace(rawTime, '').replace(/\[|\]/g, '').trim();
+                    if (!text) {
+                        text = `標記點 ${autoCount}`;
+                        autoCount++;
+                    }
                     
+                    let tSec = hmsToSec(rawTime);
                     let relSec = tSec;
                     let wallStr = '';
                     
-                    // 智能判斷：若 txt 內的時間大於起始時間，視為牆上真實時間；否則視為相對時間
                     if (tSec >= baseSeconds && baseSeconds > 0) {
                         relSec = tSec - baseSeconds;
                         wallStr = secToHms(tSec);
@@ -137,7 +163,8 @@
 
                     const btn = document.createElement('button');
                     btn.className = 'marker-btn';
-                    btn.onclick = () => { document.getElementById('mainMedia').currentTime = relSec; document.getElementById('mainMedia').play(); };
+                    // 直接操控影片進度
+                    btn.onclick = () => { v.currentTime = relSec; v.play(); };
                     btn.innerHTML = `📍 [${wallStr}] ${text}`;
                     markerContainer.appendChild(btn);
                     hasMarkers = true;
@@ -147,48 +174,47 @@
         }
 
         // --- 處理字幕檔 (.srt) ---
-        const srtText = await sFile.text();
         const list = document.getElementById('list-container');
         list.innerHTML = ''; transcript = [];
-        const reg = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
-        let m;
-        while ((m = reg.exec(srtText)) !== null) {
-            const start = hmsToSec(m[2].replace(',', '.'));
-            const text = m[4].replace(/\n/g, ' ').trim();
-            const wall = secToHms(baseSeconds + start);
-            const idx = transcript.length;
-            transcript.push({ start, end: hmsToSec(m[3].replace(',', '.')), text, wall });
+        if (sFile) {
+            const srtText = await sFile.text();
+            const reg = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
+            let m;
+            while ((m = reg.exec(srtText)) !== null) {
+                const start = hmsToSec(m[2].replace(',', '.'));
+                const text = m[4].replace(/\n/g, ' ').trim();
+                const wall = secToHms(baseSeconds + start);
+                const idx = transcript.length;
+                transcript.push({ start, end: hmsToSec(m[3].replace(',', '.')), text, wall });
 
-            const div = document.createElement('div');
-            div.className = 'subtitle-item';
-            div.id = `sub-${idx}`;
-            div.onclick = (e) => { if(e.target.type !== 'checkbox') { v.currentTime = start; v.play(); } };
-            div.innerHTML = `<input type="checkbox" id="chk-${idx}"><span style="flex:1" id="t-${idx}"><small style="color:var(--primary)">[${wall}]</small> ${text}</span><span style="color:var(--accent);font-size:12px" onclick="event.stopPropagation();openEdit(${idx})">編輯</span>`;
-            list.appendChild(div);
+                const div = document.createElement('div');
+                div.className = 'subtitle-item';
+                div.id = `sub-${idx}`;
+                div.onclick = (e) => { if(e.target.type !== 'checkbox') { v.currentTime = start; v.play(); } };
+                div.innerHTML = `<input type="checkbox" id="chk-${idx}"><span style="flex:1" id="t-${idx}"><small style="color:var(--primary)">[${wall}]</small> ${text}</span><span style="color:var(--accent);font-size:12px" onclick="event.stopPropagation();openEdit(${idx})">編輯</span>`;
+                list.appendChild(div);
+            }
         }
 
-        // --- 處理影音播放 ---
-        const v = document.createElement(mFile.name.toLowerCase().endsWith('.m4a') ? 'audio' : 'video');
-        v.id = 'mainMedia'; v.controls = true; v.playsInline = true; v.src = URL.createObjectURL(mFile);
-        document.getElementById('media-container').innerHTML = '';
-        document.getElementById('media-container').appendChild(v);
         document.getElementById('setup-ui').classList.add('hidden');
         document.getElementById('player-ui').classList.remove('hidden');
 
         v.ontimeupdate = () => {
             const ct = v.currentTime;
             document.getElementById('wall-time').innerText = secToHms(baseSeconds + ct);
-            const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
-            if (idx !== -1) {
-                document.querySelectorAll('.subtitle-item').forEach((el, i) => {
-                    el.classList.toggle('highlight', i === idx);
-                    if (i === idx && !v.paused) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                });
+            if(transcript.length > 0) {
+                const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
+                if (idx !== -1) {
+                    document.querySelectorAll('.subtitle-item').forEach((el, i) => {
+                        el.classList.toggle('highlight', i === idx);
+                        if (i === idx && !v.paused) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
+                }
             }
         };
     }
 
-    // --- 編輯與分享功能 (維持原樣) ---
+    // --- 編輯與分享功能 ---
     function openEdit(i) { document.getElementById('mainMedia').pause(); editIdx = i; document.getElementById('edit-text').value = transcript[i].text; document.getElementById('edit-modal').style.display = 'flex'; }
     function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
     function saveEdit() {
@@ -210,9 +236,6 @@
         if (navigator.share) await navigator.share({ text: txt }).catch(() => {});
         else { navigator.clipboard.writeText(txt); alert("已複製"); }
     }
-
-    function hmsToSec(t) { const p = t.split(':'); return parseInt(p[0])*3600 + parseInt(p[1])*60 + parseFloat(p[2]||0); }
-    function secToHms(s) { const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60); return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':'); }
 </script>
 </body>
 </html>
