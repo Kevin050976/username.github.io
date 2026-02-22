@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>專業語音提詞機</title>
     <style>
-        /* 基礎版面設定：暗黑模式 */
         body {
             background-color: #121212;
             color: #ffffff;
@@ -15,7 +14,6 @@
             overflow-x: hidden;
         }
 
-        /* 頂部固定控制列 */
         #controls {
             position: fixed;
             top: 0;
@@ -53,31 +51,30 @@
         #startBtn { background-color: #007bff; }
         #startBtn.listening { background-color: #dc3545; }
 
-        /* 計時器樣式 */
         #timer {
             font-size: 32px;
             font-weight: bold;
-            color: #ffeb3b; /* 醒目的黃色 */
+            color: #ffeb3b;
             font-family: monospace;
             letter-spacing: 2px;
         }
 
+        /* 讓狀態列更醒目，方便您觀察到底聽到了什麼字 */
         #status {
             width: 100%;
             margin-top: 10px;
-            font-size: 15px;
-            color: #aaaaaa;
+            font-size: 16px;
+            color: #00ffcc;
             text-align: center;
+            font-weight: bold;
         }
 
-        /* 主要內容區域 (留出頂部空間) */
         #main-content {
             margin-top: 130px;
             padding: 20px;
             padding-bottom: 80vh;
         }
 
-        /* 編輯區 (Textarea) */
         #editArea {
             width: 100%;
             max-width: 800px;
@@ -98,9 +95,8 @@
             resize: vertical;
         }
 
-        /* 提詞機展示區 */
         #prompterArea {
-            display: none; /* 預設隱藏，切換模式後顯示 */
+            display: none;
             max-width: 800px;
             margin: 0 auto;
         }
@@ -115,7 +111,7 @@
 
         .line.active {
             opacity: 1;
-            color: #4caf50; /* 當前段落變成綠色 */
+            color: #4caf50;
             font-weight: bold;
         }
     </style>
@@ -140,12 +136,10 @@
 建議您戴上藍牙耳機來確保收音準確！
 祝您錄影順利！</textarea>
         </div>
-
         <div id="prompterArea"></div>
     </div>
 
     <script>
-        // DOM 元素取得
         const editBtn = document.getElementById('editBtn');
         const startBtn = document.getElementById('startBtn');
         const statusText = document.getElementById('status');
@@ -154,24 +148,19 @@
         const prompterArea = document.getElementById('prompterArea');
         const scriptInput = document.getElementById('scriptInput');
 
-        // 狀態變數
         let isEditing = true;
         let isListening = false;
         let wakeLock = null;
         let linesDOM = [];
         let currentIndex = 0;
 
-        // 計時器變數
         let timerInterval = null;
         let secondsElapsed = 0;
         let hasStartedSpeaking = false;
 
-        // 1. 編輯與提詞機模式切換
         editBtn.addEventListener('click', () => {
             if (isEditing) {
-                // 進入提詞機模式
                 const text = scriptInput.value;
-                // 用換行符號切割，並過濾掉空白行
                 const lines = text.split('\n').filter(line => line.trim() !== '');
                 
                 if (lines.length === 0) {
@@ -179,7 +168,6 @@
                     return;
                 }
 
-                // 產生提詞機 HTML
                 prompterArea.innerHTML = '';
                 lines.forEach((lineText, index) => {
                     const div = document.createElement('div');
@@ -198,7 +186,6 @@
                 statusText.textContent = "提詞機已準備就緒。點擊「啟動收音」以開始。";
                 isEditing = false;
             } else {
-                // 返回編輯模式
                 if (isListening) stopRecognition();
                 editArea.style.display = 'block';
                 prompterArea.style.display = 'none';
@@ -210,35 +197,26 @@
             }
         });
 
-        // 2. 螢幕防休眠 (Wake Lock API)
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('螢幕防休眠已啟動');
-                } catch (err) {
-                    console.error('螢幕防休眠啟動失敗:', err);
-                }
+                } catch (err) {}
             }
         }
 
         function releaseWakeLock() {
             if (wakeLock !== null) {
-                wakeLock.release().then(() => {
-                    wakeLock = null;
-                    console.log('螢幕防休眠已解除');
-                });
+                wakeLock.release().then(() => { wakeLock = null; });
             }
         }
 
-        // 若切換視窗再切回來，重新請求防休眠
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible') {
                 requestWakeLock();
             }
         });
 
-        // 3. 計時器邏輯
         function updateTimerDisplay() {
             const minutes = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
             const seconds = String(secondsElapsed % 60).padStart(2, '0');
@@ -246,7 +224,7 @@
         }
 
         function startTimer() {
-            if (timerInterval) return; // 避免重複啟動
+            if (timerInterval) return;
             timerInterval = setInterval(() => {
                 secondsElapsed++;
                 updateTimerDisplay();
@@ -265,7 +243,6 @@
             updateTimerDisplay();
         }
 
-        // 4. 語音辨識邏輯
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         let recognition = null;
 
@@ -275,12 +252,13 @@
             recognition = new SpeechRecognition();
             recognition.lang = 'zh-TW';
             recognition.continuous = true;
-            recognition.interimResults = false;
+            // 【重要修改】改為 true，開啟即時文字辨識，反應更快速
+            recognition.interimResults = true; 
 
             startBtn.addEventListener('click', () => {
                 if (!isListening) {
                     recognition.start();
-                    requestWakeLock(); // 按下啟動時，請求螢幕防休眠
+                    requestWakeLock();
                 } else {
                     stopRecognition();
                 }
@@ -296,53 +274,68 @@
 
             recognition.onend = () => {
                 if (isListening) {
-                    recognition.start(); // 自動重啟以保持監聽
+                    recognition.start();
                 }
             };
 
             recognition.onerror = (event) => {
-                console.error("語音辨識錯誤:", event.error);
                 if (event.error === 'not-allowed') {
-                    statusText.textContent = "錯誤：麥克風權限被拒絕。";
                     stopRecognition();
                 }
             };
 
             recognition.onresult = (event) => {
-                // 【觸發計時器】只要接收到第一次語音結果，且計時器未啟動，就開始計時
                 if (!hasStartedSpeaking) {
                     hasStartedSpeaking = true;
                     startTimer();
                 }
 
-                const lastResultIndex = event.results.length - 1;
-                const transcript = event.results[lastResultIndex][0].transcript.trim();
+                // 將即時辨識的字串組合起來
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    transcript += event.results[i][0].transcript;
+                }
+                transcript = transcript.trim();
+                
+                // 顯示目前聽到的文字，如果卡住，您可以看這裡確認平板到底聽到了什麼
                 statusText.textContent = `聽到：${transcript}`;
 
-                if (currentIndex < linesDOM.length - 1) {
-                    const nextLineText = linesDOM[currentIndex + 1].innerText;
-                    
-                    // 模糊比對演算法
-                    const cleanTranscript = transcript.replace(/[，。！？、\s]/g, '');
-                    const cleanNextLine = nextLineText.replace(/[，。！？、\s]/g, '');
+                const cleanTranscript = transcript.replace(/[，。！？、\s]/g, '');
+                
+                // 如果講不到2個字，先不比對
+                if (cleanTranscript.length < 2) return; 
 
+                // 【重要修改】智慧跳行邏輯 (Lookahead)
+                // 允許往下尋找 3 行，避免漏唸一行就卡死
+                let matchedIndex = -1;
+                let maxLookahead = Math.min(3, linesDOM.length - 1 - currentIndex);
+                
+                for (let offset = 1; offset <= maxLookahead; offset++) {
+                    let checkIndex = currentIndex + offset;
+                    const cleanNextLine = linesDOM[checkIndex].innerText.replace(/[，。！？、\s]/g, '');
+                    
                     let matchFound = false;
-                    for (let i = 0; i <= cleanTranscript.length - 3; i++) {
-                        const chunk = cleanTranscript.substr(i, 3);
+                    // 【重要修改】只要連續 2 個字一樣就算過關
+                    for (let i = 0; i <= cleanTranscript.length - 2; i++) {
+                        const chunk = cleanTranscript.substr(i, 2);
                         if (cleanNextLine.includes(chunk)) {
                             matchFound = true;
                             break;
                         }
                     }
-
+                    
                     if (matchFound) {
-                        linesDOM[currentIndex].classList.remove('active');
-                        currentIndex++;
-                        linesDOM[currentIndex].classList.add('active');
-                        linesDOM[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        matchedIndex = checkIndex;
+                        break; // 找到最接近的下一行就停止尋找
                     }
-                } else {
-                    statusText.textContent = "講稿已結束。";
+                }
+
+                // 如果有找到匹配的行數，就執行滾動
+                if (matchedIndex !== -1) {
+                    linesDOM[currentIndex].classList.remove('active');
+                    currentIndex = matchedIndex; // 直接跳到匹配的那一行
+                    linesDOM[currentIndex].classList.add('active');
+                    linesDOM[currentIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
             };
         }
@@ -353,8 +346,8 @@
             startBtn.textContent = "啟動收音與防休眠";
             startBtn.classList.remove('listening');
             statusText.textContent = "收音與計時已暫停。";
-            stopTimer(); // 停止計時
-            releaseWakeLock(); // 解除防休眠
+            stopTimer();
+            releaseWakeLock();
         }
     </script>
 </body>
