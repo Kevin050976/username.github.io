@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 影音校對播放器 (固定視窗版)</title>
+    <style>
+        :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; --accent: #0a84ff; }
+        
+        /* --- 核心修正：鎖死 body 高度，杜絕整個網頁上下跳動 --- */
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; justify-content: center; height: 100vh; height: 100dvh; overflow: hidden; }
+        
+        /* 容器改成彈性佈局，填滿畫面 */
+        .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--card); padding: 20px; box-sizing: border-box; }
+        
+        /* PC 端模擬手機外觀 */
+        @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
+
+        /* 設定與播放介面都改為彈性容器 */
+        #setup-ui { overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+        #player-ui { flex: 1; display: flex; flex-direction: column; overflow: hidden; } /* overflow: hidden 確保只有內部能滾動 */
+
+        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
+        #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+        video, audio { width: 100%; max-height: 250px; display: block; }
+        
+        /* 打點標籤樣式 (加上 user-select: none 防止拖曳時反白文字) */
+        #marker-container::-webkit-scrollbar { display: none; }
+        #marker-container { display:none; overflow-x:auto; gap:8px; margin-top:15px; padding-bottom:5px; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex-shrink: 0; user-select: none; cursor: grab; }
+        #marker-container:active { cursor: grabbing; }
+        .marker-btn { background: #1c1c1e; color: var(--primary); padding: 8px 14px; border-radius: 10px; font-size: 14px; white-space: nowrap; border: 1px solid var(--primary); cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: "Menlo", monospace; }
+        .marker-btn:active { background: rgba(48, 209, 88, 0.2); }
+
+        /* --- 核心修正：讓字幕區塊自動填滿剩下空間 --- */
+        .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; }
+        
+        .subtitle-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
+        
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 12px; background: #3a3a3c; color: #fff; border: none; border-radius: 10px; font-size: 16px; text-align: center; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+        .btn-main { background: var(--primary); color: #000; width: 100%; font-size: 17px; margin-top: 10px; }
+        .btn-back { background: none; color: var(--accent); font-size: 16px; margin-bottom: 5px; padding: 0; text-align: left; }
+        
+        #edit-modal, #share-overlay { position: fixed; inset: 0; display: none; flex-direction: column; z-index: 1000; }
+        #edit-modal { background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+        #share-overlay { background: var(--bg); padding: 20px; }
+        textarea { width: 100%; height: 120px; background: #000; color: var(--primary); border: 1px solid var(--primary); border-radius: 10px; padding: 10px; font-size: 18px; box-sizing: border-box; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="setup-ui">
+    <h3 style="text-align:center; margin-top:0;">影音校對工具</h3>
+    <label style="font-size:12px; color:#aaa">1. 選取影音 (M4A/MOV/MP4)</label>
+    <input type="file" id="mediaFile" accept="video/*,audio/*,.m4a,.mov" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">2. 選取字幕 (.srt) [選填]</label>
+    <input type="file" id="srtFile" accept=".srt" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">3. 選取打點檔 (.txt) [選填]</label>
+    <input type="file" id="markerFile" accept=".txt" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">真實起始時間 (HH:mm:ss)</label>
+    <div class="input-group">
+        <input type="text" id="startTime" value="00:00:00">
+        <button class="btn" style="background:#444; color:#fff" onclick="resetTime()">重置</button>
+    </div>
+    <div style="flex:1"></div> <button class="btn btn-main" onclick="startApp()">開始播放</button>
+</div>
+
+<div class="container hidden" id="player-ui">
+    <button class="btn-back" onclick="location.reload()">〈 更換檔案</button>
+    <div id="wall-time">00:00:00</div>
+    <div id="media-container"></div>
+    
+    <div id="marker-container"></div>
+    
+    <div class="list-container" id="list-container"></div>
+    <button class="btn btn-main" style="background:var(--accent); color:#fff; margin-top:15px;" onclick="openShare()">預覽並分享</button>
+</div>
+
+<div id="edit-modal">
+    <div class="container" style="height:auto; max-height:80vh;">
+        <h3 style="margin-top:0">修改內容</h3>
+        <textarea id="edit-text"></textarea>
+        <div style="display:flex; gap:10px; margin-top:15px">
+            <button class="btn" style="flex:1; background:#444; color:#fff" onclick="closeEdit()">取消</button>
+            <button class="btn" style="flex:1; background:var(--primary); color:#000" onclick="saveEdit()">儲存</button>
+        </div>
+    </div>
+</div>
+
+<div id="share-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center">
+        <button onclick="closeShare()" style="background:none; border:none; color:var(--accent); font-size:18px">〈 返回</button>
+        <b>分享總覽</b>
+        <button onclick="doShare()" style="background:none; border:none; color:var(--accent); font-size:18px; font-weight:bold">發送</button>
+    </div>
+    <div id="preview-box" style="flex:1; background:#000; margin:15px 0; padding:15px; border-radius:12px; overflow-y:auto; white-space:pre-wrap; color:#ccc; border:1px solid #3a3a3c;"></div>
+</div>
+
+<script>
+    let transcript = [], baseSeconds = 0, editIdx = -1;
+
+    function autoDetect(input) {
+        const name = input.files[0]?.name || "";
+        let m1 = name.match(/at\s(\d{2})\.(\d{2})\.(\d{2})/i);
+        if (m1) return document.getElementById('startTime').value = `${m1[1]}:${m1[2]}:${m1[3]}`;
+        let m2 = name.match(/_(\d{4})(\d{2})(\d{2})(\d{2})_/);
+        if (m2) return document.getElementById('startTime').value = `${m2[2]}:${m2[3]}:${m2[4]}`;
+    }
+
+    function resetTime() { document.getElementById('startTime').value = "00:00:00"; }
+
+    function hmsToSec(t) {
+        const p = t.split(':');
+        if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0);
+        else if (p.length === 2) return parseInt(p[0]) * 60 + parseFloat(p[1] || 0);
+        else return parseFloat(p[0] || 0);
+    }
+
+    function secToHms(s) { 
+        const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60); 
+        return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':'); 
+    }
+
+    // --- 核心修正：讓 PC 端可以用滑鼠拖曳橫向滾動條 ---
+    function enableDragScroll(slider) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true;
+            slider.style.cursor = 'grabbing';
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 2; // 調整拖曳速度
+            slider.scrollLeft = scrollLeft - walk;
+        });
+        // 支援 PC 滾輪左右滑動
+        slider.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                slider.scrollLeft += e.deltaY;
+            }
+        });
+    }
+
+    async function startApp() {
+        const mFile = document.getElementById('mediaFile').files[0];
+        const sFile = document.getElementById('srtFile').files[0];
+        const mkFile = document.getElementById('markerFile').files[0];
+        if (!mFile) return alert("請至少選取一個影音檔！");
+
+        baseSeconds = hmsToSec(document.getElementById('startTime').value);
+        
+        const v = document.createElement(mFile.name.toLowerCase().endsWith('.m4a') ? 'audio' : 'video');
+        v.id = 'mainMedia'; v.controls = true; v.playsInline = true; v.src = URL.createObjectURL(mFile);
+        document.getElementById('media-container').innerHTML = '';
+        document.getElementById('media-container').appendChild(v);
+
+        // --- 處理打點檔 ---
+        const markerContainer = document.getElementById('marker-container');
+        markerContainer.innerHTML = '';
+        if (mkFile) {
+            const mkText = await mkFile.text();
+            const lines = mkText.split('\n');
+            const timeRegex = /(?:(?:(\d{1,2}):))?(\d{1,2}):(\d{2})(?:\.\d+)?/;
+            let hasMarkers = false;
+            let autoCount = 1;
+            
+            lines.forEach(line => {
+                const match = line.match(timeRegex);
+                if (match) {
+                    let rawTime = match[0];
+                    let text = line.replace(rawTime, '').replace(/\[|\]/g, '').trim();
+                    if (!text) { text = `標記點 ${autoCount}`; autoCount++; }
+                    
+                    let tSec = hmsToSec(rawTime);
+                    let relSec = tSec >= baseSeconds && baseSeconds > 0 ? tSec - baseSeconds : tSec;
+                    let wallStr = tSec >= baseSeconds && baseSeconds > 0 ? secToHms(tSec) : secToHms(baseSeconds + tSec);
+
+                    const btn = document.createElement('button');
+                    btn.className = 'marker-btn';
+                    btn.onclick = () => { v.currentTime = relSec; v.play(); };
+                    btn.innerHTML = `📍 [${wallStr}] ${text}`;
+                    markerContainer.appendChild(btn);
+                    hasMarkers = true;
+                }
+            });
+            if (hasMarkers) {
+                markerContainer.style.display = 'flex';
+                enableDragScroll(markerContainer); // 綁定 PC 滑鼠拖曳功能
+            }
+        }
+
+        // --- 處理字幕檔 ---
+        const list = document.getElementById('list-container');
+        list.innerHTML = ''; transcript = [];
+        if (sFile) {
+            const srtText = await sFile.text();
+            const reg = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
+            let m;
+            while ((m = reg.exec(srtText)) !== null) {
+                const start = hmsToSec(m[2].replace(',', '.'));
+                const text = m[4].replace(/\n/g, ' ').trim();
+                const wall = secToHms(baseSeconds + start);
+                const idx = transcript.length;
+                transcript.push({ start, end: hmsToSec(m[3].replace(',', '.')), text, wall });
+
+                const div = document.createElement('div');
+                div.className = 'subtitle-item';
+                div.id = `sub-${idx}`;
+                div.onclick = (e) => { if(e.target.type !== 'checkbox') { v.currentTime = start; v.play(); } };
+                div.innerHTML = `<input type="checkbox" id="chk-${idx}"><span style="flex:1" id="t-${idx}"><small style="color:var(--primary)">[${wall}]</small> ${text}</span><span style="color:var(--accent);font-size:12px" onclick="event.stopPropagation();openEdit(${idx})">編輯</span>`;
+                list.appendChild(div);
+            }
+        }
+
+        document.getElementById('setup-ui').classList.add('hidden');
+        document.getElementById('player-ui').classList.remove('hidden');
+
+        // --- 核心修正：精準計算內部滾動條，取代粗暴的 scrollIntoView ---
+        v.ontimeupdate = () => {
+            const ct = v.currentTime;
+            document.getElementById('wall-time').innerText = secToHms(baseSeconds + ct);
+            if(transcript.length > 0) {
+                const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
+                if (idx !== -1) {
+                    document.querySelectorAll('.subtitle-item').forEach((el, i) => {
+                        if (i === idx) {
+                            if (!el.classList.contains('highlight')) {
+                                el.classList.add('highlight');
+                                // 只有在播放中才自動滾動，且使用精確的 scrollTop 算法
+                                if (!v.paused) {
+                                    const scrollTarget = el.offsetTop - list.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
+                                    list.scrollTop = scrollTarget;
+                                }
+                            }
+                        } else {
+                            el.classList.remove('highlight');
+                        }
+                    });
+                }
+            }
+        };
+    }
+
+    // --- 編輯與分享功能 ---
+    function openEdit(i) { document.getElementById('mainMedia').pause(); editIdx = i; document.getElementById('edit-text').value = transcript[i].text; document.getElementById('edit-modal').style.display = 'flex'; }
+    function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
+    function saveEdit() {
+        const val = document.getElementById('edit-text').value;
+        transcript[editIdx].text = val;
+        document.getElementById(`t-${editIdx}`).innerHTML = `<small style="color:var(--primary)">[${transcript[editIdx].wall}]</small> ${val}`;
+        closeEdit(); document.getElementById('mainMedia').play();
+    }
+
+    function openShare() {
+        const sel = transcript.filter((_, i) => document.getElementById(`chk-${i}`).checked).map(t => `[${t.wall}] ${t.text}`);
+        if (sel.length === 0) return alert("請勾選字幕");
+        document.getElementById('preview-box').innerText = sel.join('\n');
+        document.getElementById('share-overlay').style.display = 'flex';
+    }
+    function closeShare() { document.getElementById('share-overlay').style.display = 'none'; }
+    async function doShare() {
+        const txt = document.getElementById('preview-box').innerText;
+        if (navigator.share) await navigator.share({ text: txt }).catch(() => {});
+        else { navigator.clipboard.writeText(txt); alert("已複製"); }
+    }
+</script>
+</body>
+</html>
