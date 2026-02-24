@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackmagic 懸浮打點器 (防凍結版)</title>
+    <title>Blackmagic 懸浮打點器 V4 (強制核心版)</title>
     <style>
         body {
             background-color: #000;
@@ -19,15 +19,16 @@
             padding: 20px;
             box-sizing: border-box;
         }
-        h1 { font-size: 24px; margin-bottom: 10px; color: #888; }
+        h1 { font-size: 24px; margin-bottom: 5px; color: #888; }
+        p { font-size: 12px; color: #555; margin-bottom: 20px; }
         
         #preview-container {
             margin-bottom: 30px;
             border: 2px solid #333;
             border-radius: 16px;
             overflow: hidden;
-            width: 300px;
-            height: 100px;
+            width: 280px; /* 稍微縮小減輕負擔 */
+            height: 94px;
             background: #1c1c1e;
             position: relative;
         }
@@ -53,7 +54,7 @@
         .status { margin-top: 20px; color: #888; font-size: 14px; }
         .count-badge { background: #ff453a; padding: 2px 8px; border-radius: 10px; color: white; font-weight: bold; }
         
-        /* 增加一個狀態燈 */
+        /* 狀態指示燈 */
         .live-indicator {
             width: 10px; height: 10px; border-radius: 50%; background: #333;
             display: inline-block; margin-right: 5px;
@@ -63,20 +64,20 @@
 </head>
 <body>
 
-    <h1>懸浮打點時鐘 V3</h1>
-    <div style="font-size:12px; color:#555; margin-bottom: 20px;">防凍結音訊引擎已就緒</div>
+    <h1>懸浮打點時鐘 V4</h1>
+    <p>setInterval 核心 + 系統暫停過濾</p>
 
-    <canvas id="clockCanvas" width="600" height="200" style="display:none;"></canvas>
+    <canvas id="clockCanvas" width="560" height="188" style="display:none;"></canvas>
 
     <div id="preview-container">
         <video id="clockVideo" muted playsinline autoplay></video>
     </div>
 
     <div class="btn-group">
-        <button id="startPipBtn">啟動 (音訊保活 + PiP)</button>
+        <button id="startPipBtn">啟動懸浮時鐘</button>
         <div class="status">
             <span id="liveDot" class="live-indicator"></span>
-            目前記錄點數：<span id="markCount" class="count-badge">0</span>
+            有效打點：<span id="markCount" class="count-badge">0</span>
         </div>
         <button id="downloadBtn">下載紀錄檔 (.txt)</button>
         <button id="clearBtn">清除重來</button>
@@ -96,7 +97,8 @@
         let isFlashing = false;
         let audioContext = null;
 
-        // 1. 繪圖邏輯
+        // --- 核心修正 1：改用 setInterval 強制繪圖 ---
+        // 即使在背景，這比 requestAnimationFrame 更有機會存活
         function drawClock() {
             ctx.fillStyle = isFlashing ? '#ff453a' : '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -109,97 +111,93 @@
             const timeStr = `${h}:${m}:${s}.${ms}`;
 
             ctx.fillStyle = isFlashing ? '#000000' : '#32d74b';
-            ctx.font = 'bold 110px -apple-system, sans-serif';
+            ctx.font = 'bold 100px -apple-system, sans-serif'; // 字體稍微調小適應
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(timeStr, canvas.width / 2, canvas.height / 2);
-
-            requestAnimationFrame(drawClock);
         }
         
-        // 啟動繪圖與串流
-        drawClock();
-        const stream = canvas.captureStream(30);
+        // 每 50ms 更新一次 (20 FPS)，降低系統負擔但保持流暢
+        setInterval(drawClock, 50);
+
+        // 綁定 Stream
+        const stream = canvas.captureStream(20);
         video.srcObject = stream;
 
-        // --- 【核心技術：音訊保活引擎】 ---
+        // --- 音訊保活 (維持不變，這很重要) ---
         function initAudioKeepAlive() {
             if (!audioContext) {
-                // 創建音訊上下文
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioContext = new AudioContext();
             }
+            if (audioContext.state === 'suspended') audioContext.resume();
 
-            // 恢復上下文 (因為有時會被掛起)
-            if (audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-
-            // 建立一個聽不到的振盪器 (Oscillator)
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
-
             oscillator.type = 'sine';
-            oscillator.frequency.value = 1; // 1Hz (極低頻)
-            gainNode.gain.value = 0.001; // 極小音量 (幾乎靜音，但不能是 0)
-
+            oscillator.frequency.value = 1; 
+            gainNode.gain.value = 0.001; 
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-
             oscillator.start();
-            console.log("Audio Keep-Alive Started");
-            liveDot.classList.add('active'); // 亮綠燈
+            liveDot.classList.add('active');
         }
 
-        // 2. 按鈕啟動流程
+        // --- 啟動按鈕 ---
         startPipBtn.addEventListener('click', () => {
-            // A. 啟動音訊保活 (這能防止背景變灰)
             initAudioKeepAlive();
-
-            // B. 處理影片播放
             video.muted = true;
+            
             video.play().then(() => {
-                 // C. 嘗試進入 PiP
                 if (!document.pictureInPictureElement && video.readyState >= 1) {
-                   video.requestPictureInPicture().catch(e => console.error(e));
+                   video.requestPictureInPicture().catch(console.error);
                 }
-            }).catch(e => {
-                alert("播放被阻擋，請再按一次");
-            });
-
-            // 同步備用方案
-            setTimeout(() => {
-                if (!document.pictureInPictureElement) {
-                    video.requestPictureInPicture().catch(err => console.log(err));
-                }
-            }, 100);
+            }).catch(e => alert("請再按一次啟動"));
         });
 
-        // 3. 監聽暫停來打點
+        // --- 核心修正 2：智慧打點過濾系統 ---
+        let lastMarkTime = 0; // 防止連點
+
         video.addEventListener('pause', () => {
-            if (document.pictureInPictureElement) {
-                // 記錄
-                const now = new Date();
-                const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
-                marks.push(timeStr);
-                
-                // UI 更新
-                countSpan.innerText = marks.length;
-                downloadBtn.style.display = 'block';
+            // 只有在 PiP 模式下才處理
+            if (!document.pictureInPictureElement) return;
 
-                // 閃爍
-                isFlashing = true;
-                setTimeout(() => { isFlashing = false; }, 200);
+            // 嘗試立刻恢復播放
+            const playPromise = video.play();
 
-                // 立刻恢復播放 (確保時鐘繼續走)
-                video.play();
-                
-                // 確保音訊引擎還活著
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    // ★ 成功恢復播放 = 這是用戶點擊造成的暫停 ★
+                    // 因為如果是系統強制暫停，這裡的 play() 通常會失敗或被擋住
+                    registerMark();
+                }).catch(error => {
+                    // ★ 恢復失敗 = 這是系統強制搶佔資源 ★
+                    // Blackmagic Cam 搶走了 Audio Focus，導致我們無法播放
+                    // 這種情況下，我們【不】記錄打點，避免計數亂跳
+                    console.log("系統強制暫停，忽略此次訊號");
+                });
             }
         });
+
+        function registerMark() {
+            const nowTime = Date.now();
+            // 冷卻時間檢查：0.5秒內不重複打點 (避免雙擊誤判)
+            if (nowTime - lastMarkTime < 500) return; 
+            
+            lastMarkTime = nowTime;
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
+            marks.push(timeStr);
+            
+            // 更新介面
+            countSpan.innerText = marks.length;
+            downloadBtn.style.display = 'block';
+
+            // 閃爍效果
+            isFlashing = true;
+            setTimeout(() => { isFlashing = false; }, 200);
+        }
 
         // 下載與清除
         downloadBtn.addEventListener('click', () => {
@@ -218,12 +216,14 @@
         });
 
         clearBtn.addEventListener('click', () => {
-            if(confirm("清除紀錄？")) marks = []; countSpan.innerText = '0'; downloadBtn.style.display = 'none';
+            if(confirm("清除紀錄？")) {
+                marks = []; countSpan.innerText = '0'; downloadBtn.style.display = 'none';
+            }
         });
 
-        // 頁面可見性改變時，再次確保 Audio 活著
+        // 頁面喚醒時重啟 Audio
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && audioContext && audioContext.state === 'suspended') {
+            if (document.visibilityState === 'visible' && audioContext?.state === 'suspended') {
                 audioContext.resume();
             }
         });
