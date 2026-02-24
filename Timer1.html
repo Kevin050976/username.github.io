@@ -3,51 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackmagic 打點器 V5 (暴力版)</title>
+    <title>BMC 戰術打點器 V6</title>
     <style>
         body {
-            background-color: #000;
-            color: #fff;
+            background-color: #000; color: #fff;
             font-family: -apple-system, sans-serif;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             height: 100vh; margin: 0; padding: 20px;
         }
-        
-        #preview-box {
+        .preview-box {
             border: 2px solid #333; border-radius: 12px;
-            width: 280px; height: 94px; background: #1c1c1e;
+            width: 260px; height: 90px; background: #111;
             margin-bottom: 20px; overflow: hidden;
         }
-        
         video { width: 100%; height: 100%; object-fit: cover; display: block; }
-
         button {
-            padding: 20px 40px; font-size: 20px; font-weight: bold;
-            border: none; border-radius: 12px; cursor: pointer; width: 100%; max-width: 300px;
-            margin-bottom: 15px;
+            padding: 20px; font-size: 18px; font-weight: bold; width: 100%; max-width: 300px;
+            border: none; border-radius: 12px; cursor: pointer; margin-bottom: 15px;
         }
-        
-        #startBtn { background-color: #32d74b; color: black; } 
-        #dlBtn { background-color: #0a84ff; color: white; display: none; }
-        
-        .status { color: #888; font-size: 14px; margin-bottom: 10px; }
-        #log { color: #ff453a; font-size: 12px; height: 20px; }
+        #startBtn { background: #32d74b; color: #000; }
+        #dlBtn { background: #0a84ff; color: #fff; display: none; }
+        .status { color: #888; font-size: 14px; margin-bottom: 5px; }
+        #log { color: #666; font-size: 12px; height: 20px; margin-bottom: 10px;}
     </style>
 </head>
 <body>
 
-    <h2 style="color:#666;">V5 暴力啟動版</h2>
-    <div id="log"></div>
+    <h2 style="color:#666;">V6 戰術匿蹤版</h2>
+    <div class="status">有效打點：<span id="cnt" style="color:#fff; font-weight:bold; font-size:20px;">0</span></div>
+    <div id="log">系統就緒</div>
 
-    <canvas id="cvs" width="560" height="188" style="display:none;"></canvas>
+    <canvas id="cvs" width="300" height="100" style="display:none;"></canvas>
 
-    <div id="preview-box">
+    <div class="preview-box">
         <video id="vid" muted playsinline autoplay></video>
     </div>
 
-    <div class="status">目前點數：<span id="cnt" style="color:#fff; font-weight:bold;">0</span></div>
-
-    <button id="startBtn">💥 點我強制懸浮</button>
+    <button id="startBtn">啟動懸浮 (MediaSession)</button>
     <button id="dlBtn">下載紀錄</button>
 
     <script>
@@ -62,94 +54,105 @@
         let marks = [];
         let isFlash = false;
         let audioCtx = null;
+        let lastMarkTime = 0;
 
-        // --- 1. 頁面一載入就開始畫圖與播放 (不等按鈕) ---
+        // 1. 低功耗繪圖 (FPS 10) - 避免被 iOS 判定佔用太多 GPU
         function draw() {
             ctx.fillStyle = isFlash ? '#ff453a' : '#000';
             ctx.fillRect(0, 0, cvs.width, cvs.height);
             
             const now = new Date();
+            // 簡化顯示，只顯示到秒，節省運算
             const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
 
             ctx.fillStyle = isFlash ? '#000' : '#32d74b';
-            ctx.font = 'bold 100px -apple-system';
+            ctx.font = 'bold 50px -apple-system'; // 字體縮小
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
             ctx.fillText(timeStr, cvs.width/2, cvs.height/2);
         }
-        setInterval(draw, 50); // 強制 20fps 更新
+        setInterval(draw, 100); // 100ms = 10 FPS (極低功耗)
 
         // 綁定串流
-        const stream = cvs.captureStream(30);
+        const stream = cvs.captureStream(10); // 設定 10 FPS
         vid.srcObject = stream;
-        
-        // 嘗試自動播放 (Safari 可能會擋，但試試無妨)
-        vid.play().catch(() => {}); 
+        vid.play().catch(()=>{});
 
-        // --- 2. 音訊保活 (防凍結) ---
+        // 2. 音訊保活 (必要的邪惡)
         function wakeLock() {
             if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if(audioCtx.state === 'suspended') audioCtx.resume();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.frequency.value = 1; gain.gain.value = 0.001;
+            osc.frequency.value = 10; // 稍微提高頻率避免被當作雜訊過濾
+            gain.gain.value = 0.001;
             osc.connect(gain); gain.connect(audioCtx.destination);
             osc.start();
         }
 
-        // --- 3. 按鈕事件：暴力執行 ---
-        startBtn.addEventListener('click', function() {
-            logDiv.innerText = "正在啟動...";
+        // 3. 核心功能：記錄邏輯
+        function recordMark(source) {
+            // A. 背景過濾：如果 Safari 在背景 (你看不到網頁)，絕對不紀錄！
+            // 這解決了「離開 App 計數增加」的 Bug
+            if (document.visibilityState === 'hidden' && !document.pictureInPictureElement) {
+                console.log("背景誤觸，忽略");
+                return;
+            }
+
+            // B. 冷卻過濾：1秒內不重複紀錄
+            const nowTime = Date.now();
+            if (nowTime - lastMarkTime < 1000) return;
+            lastMarkTime = nowTime;
+
+            // 執行紀錄
+            const now = new Date();
+            const t = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
+            marks.push(t);
             
-            // A. 立刻喚醒音訊
+            // UI 反饋
+            cntSpan.innerText = marks.length;
+            dlBtn.style.display = 'block';
+            logDiv.innerText = `打點成功 (${source}): ${t}`;
+            
+            isFlash = true;
+            setTimeout(() => isFlash = false, 200);
+
+            // 如果是暫停觸發的，立刻恢復播放
+            if(vid.paused) vid.play().catch(()=>{});
+        }
+
+        // 4. 啟動按鈕
+        startBtn.addEventListener('click', () => {
             wakeLock();
-
-            // B. 確保影片播放 (如果還沒播)
             vid.muted = true;
-            vid.play(); 
-
-            // C. 【關鍵】直接請求 PiP，不等待 play() 的結果
-            // 這是避免 NotAllowedError 的唯一解法
-            try {
-                if (vid.requestPictureInPicture) {
-                    vid.requestPictureInPicture().catch(err => {
-                        logDiv.innerText = "失敗: " + err.message;
-                        alert("啟動失敗原因：" + err.message);
+            
+            vid.play().then(() => {
+                // 註冊 MediaSession (讓你可以用控制中心的按鈕打點)
+                if ("mediaSession" in navigator) {
+                    navigator.mediaSession.metadata = new MediaMetadata({
+                        title: "打點錄製中",
+                        artist: "點擊快進/快退來打點",
+                        album: "Blackmagic Tool"
                     });
+                    // 綁定「下一首」和「上一首」按鈕作為打點觸發器
+                    navigator.mediaSession.setActionHandler('nexttrack', () => recordMark('MediaBtn'));
+                    navigator.mediaSession.setActionHandler('previoustrack', () => recordMark('MediaBtn'));
+                    navigator.mediaSession.setActionHandler('play', () => { vid.play(); recordMark('PlayBtn'); });
+                    navigator.mediaSession.setActionHandler('pause', () => recordMark('PauseBtn'));
+                }
+
+                if (vid.requestPictureInPicture) {
+                    vid.requestPictureInPicture().catch(e => alert("PiP 失敗: " + e.message));
                 } else if (vid.webkitSetPresentationMode) {
-                    // iOS 特有 API
                     vid.webkitSetPresentationMode('picture-in-picture');
                 }
-            } catch (e) {
-                logDiv.innerText = "錯誤: " + e;
-            }
+            });
         });
 
-        // --- 4. 打點邏輯 (防止連點) ---
-        let lastTime = 0;
+        // 5. 監聽暫停 (作為備用打點觸發)
         vid.addEventListener('pause', () => {
-            // 只在 PiP 模式下運作
-            if (!document.pictureInPictureElement && !vid.webkitPresentationMode === 'picture-in-picture') return;
-            
-            // 嘗試恢復播放
-            const p = vid.play();
-            if (p) {
-                p.then(() => {
-                    // 只有成功恢復播放，才算有效點擊
-                    const now = Date.now();
-                    if (now - lastTime < 500) return; // 冷卻
-                    lastTime = now;
-
-                    const d = new Date();
-                    const t = d.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(d.getMilliseconds()/100));
-                    marks.push(t);
-                    cntSpan.innerText = marks.length;
-                    dlBtn.style.display = 'block';
-                    
-                    isFlash = true;
-                    setTimeout(() => isFlash = false, 200);
-                }).catch(() => {
-                    console.log("系統強制暫停，忽略");
-                });
+            // 只有在 PiP 模式下才算數
+            if (document.pictureInPictureElement || vid.webkitPresentationMode === 'picture-in-picture') {
+                recordMark('PauseEvent');
             }
         });
 
@@ -160,6 +163,16 @@
             const a = document.createElement('a');
             a.href = u; a.download = 'marks.txt';
             document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        });
+
+        // 頁面切換時嘗試修復
+        document.addEventListener('visibilitychange', () => {
+             if (document.visibilityState === 'visible') {
+                 // 回到 Safari 時，重整 log
+                 logDiv.innerText = "已回到 Safari，請下載紀錄";
+                 // 確保 Audio 活著
+                 if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+             }
         });
     </script>
 </body>
