@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Blackmagic 懸浮打點器</title>
+    <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        h1 { font-size: 24px; margin-bottom: 10px; color: #888; }
+        
+        /* 預覽區域 */
+        #preview-container {
+            margin-bottom: 30px;
+            border: 2px solid #333;
+            border-radius: 16px;
+            overflow: hidden;
+            width: 300px;
+            height: 100px;
+            background: #1c1c1e;
+        }
+        
+        /* 操作按鈕區 */
+        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px; }
+        
+        button {
+            padding: 18px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.96); }
+        
+        #startPipBtn { background-color: #32d74b; color: black; } /* iOS Green */
+        #downloadBtn { background-color: #0a84ff; color: white; display: none; } /* iOS Blue */
+        #clearBtn { background-color: #ff453a; color: white; margin-top: 10px; } /* iOS Red */
+
+        .status { margin-top: 20px; color: #888; font-size: 14px; }
+        .count-badge { background: #ff453a; padding: 2px 8px; border-radius: 10px; color: white; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <h1>懸浮打點時鐘</h1>
+
+    <canvas id="clockCanvas" width="600" height="200" style="display:none;"></canvas>
+
+    <div id="preview-container">
+        <video id="clockVideo" muted playsinline autoplay style="width: 100%; height: 100%; object-fit: cover;"></video>
+    </div>
+
+    <div class="btn-group">
+        <button id="startPipBtn">步驟 1: 開啟懸浮時鐘</button>
+        <div class="status">目前記錄點數：<span id="markCount" class="count-badge">0</span></div>
+        <button id="downloadBtn">步驟 2: 下載紀錄檔 (.txt)</button>
+        <button id="clearBtn">清除重來</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('clockCanvas');
+        const ctx = canvas.getContext('2d');
+        const video = document.getElementById('clockVideo');
+        const startPipBtn = document.getElementById('startPipBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const countSpan = document.getElementById('markCount');
+
+        let marks = []; // 儲存打點時間的陣列
+        let isFlashing = false; // 控制打點時的閃爍效果
+
+        // --- A. 繪製時鐘與閃爍邏輯 ---
+        function drawClock() {
+            // 背景色 (一般為黑，打點時閃爍為紅)
+            ctx.fillStyle = isFlashing ? '#ff453a' : '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const now = new Date();
+            // 格式化時間 HH:mm:ss.SS
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            // 取得前兩位毫秒
+            const ms = String(Math.floor(now.getMilliseconds() / 10)).padStart(2, '0');
+            const timeStr = `${h}:${m}:${s}.${ms}`;
+
+            // 繪製文字
+            ctx.fillStyle = isFlashing ? '#000000' : '#32d74b'; // 打點時文字變黑，平時綠色
+            ctx.font = 'bold 110px -apple-system, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(timeStr, canvas.width / 2, canvas.height / 2);
+
+            requestAnimationFrame(drawClock);
+        }
+        drawClock(); // 啟動繪圖循環
+
+        // --- B. 將 Canvas 串流給 Video ---
+        const stream = canvas.captureStream(30); // 30 FPS
+        video.srcObject = stream;
+
+        // --- C. 啟動 PiP (必須由用戶手勢觸發) ---
+        startPipBtn.addEventListener('click', async () => {
+            try {
+                // 確保影片在播放
+                await video.play();
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else {
+                    await video.requestPictureInPicture();
+                }
+            } catch (err) {
+                alert("啟動失敗，請確認在 Safari 開啟：" + err);
+            }
+        });
+
+        // --- D. 【核心駭客】監聽 PiP 的「暫停」來觸發打點 ---
+        video.addEventListener('pause', () => {
+            // 只有在 PiP 模式下，暫停才算打點 (避免網頁端操作誤觸)
+            if (document.pictureInPictureElement) {
+                // 1. 記錄時間
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100)); // 與之前格式統一
+                marks.push(timeStr);
+                
+                // 2. 更新計數器與按鈕
+                countSpan.innerText = marks.length;
+                downloadBtn.style.display = 'block';
+
+                // 3. 觸發視覺閃爍 (維持 0.2 秒)
+                isFlashing = true;
+                setTimeout(() => { isFlashing = false; }, 200);
+
+                // 4. 【關鍵】立刻恢復播放，讓時鐘繼續跑
+                video.play(); 
+            }
+        });
+
+        // --- E. 下載檔案 ---
+        downloadBtn.addEventListener('click', () => {
+            if (marks.length === 0) {
+                alert("還沒有任何紀錄喔！");
+                return;
+            }
+            // 產生檔案內容
+            const content = marks.join('\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            // 產生當下檔名
+            const now = new Date();
+            const filename = `CamMarks_${now.getHours()}${now.getMinutes()}.txt`;
+
+            // 觸發下載
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // --- F. 清除重置 ---
+        clearBtn.addEventListener('click', () => {
+            if(confirm("確定要清除所有紀錄嗎？")) {
+                marks = [];
+                countSpan.innerText = '0';
+                downloadBtn.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
