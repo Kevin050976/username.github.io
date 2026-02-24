@@ -3,229 +3,163 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Blackmagic 懸浮打點器 V4 (強制核心版)</title>
+    <title>Blackmagic 打點器 V5 (暴力版)</title>
     <style>
         body {
             background-color: #000;
             color: #fff;
             font-family: -apple-system, sans-serif;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; margin: 0; padding: 20px;
         }
-        h1 { font-size: 24px; margin-bottom: 5px; color: #888; }
-        p { font-size: 12px; color: #555; margin-bottom: 20px; }
         
-        #preview-container {
-            margin-bottom: 30px;
-            border: 2px solid #333;
-            border-radius: 16px;
-            overflow: hidden;
-            width: 280px; /* 稍微縮小減輕負擔 */
-            height: 94px;
-            background: #1c1c1e;
-            position: relative;
+        #preview-box {
+            border: 2px solid #333; border-radius: 12px;
+            width: 280px; height: 94px; background: #1c1c1e;
+            margin-bottom: 20px; overflow: hidden;
         }
         
         video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px; }
-        
         button {
-            padding: 18px;
-            font-size: 18px;
-            font-weight: 600;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
+            padding: 20px 40px; font-size: 20px; font-weight: bold;
+            border: none; border-radius: 12px; cursor: pointer; width: 100%; max-width: 300px;
+            margin-bottom: 15px;
         }
-        button:active { transform: scale(0.96); }
         
-        #startPipBtn { background-color: #32d74b; color: black; } 
-        #downloadBtn { background-color: #0a84ff; color: white; display: none; }
-        #clearBtn { background-color: #ff453a; color: white; margin-top: 10px; }
+        #startBtn { background-color: #32d74b; color: black; } 
+        #dlBtn { background-color: #0a84ff; color: white; display: none; }
         
-        .status { margin-top: 20px; color: #888; font-size: 14px; }
-        .count-badge { background: #ff453a; padding: 2px 8px; border-radius: 10px; color: white; font-weight: bold; }
-        
-        /* 狀態指示燈 */
-        .live-indicator {
-            width: 10px; height: 10px; border-radius: 50%; background: #333;
-            display: inline-block; margin-right: 5px;
-        }
-        .live-indicator.active { background: #32d74b; box-shadow: 0 0 8px #32d74b; }
+        .status { color: #888; font-size: 14px; margin-bottom: 10px; }
+        #log { color: #ff453a; font-size: 12px; height: 20px; }
     </style>
 </head>
 <body>
 
-    <h1>懸浮打點時鐘 V4</h1>
-    <p>setInterval 核心 + 系統暫停過濾</p>
+    <h2 style="color:#666;">V5 暴力啟動版</h2>
+    <div id="log"></div>
 
-    <canvas id="clockCanvas" width="560" height="188" style="display:none;"></canvas>
+    <canvas id="cvs" width="560" height="188" style="display:none;"></canvas>
 
-    <div id="preview-container">
-        <video id="clockVideo" muted playsinline autoplay></video>
+    <div id="preview-box">
+        <video id="vid" muted playsinline autoplay></video>
     </div>
 
-    <div class="btn-group">
-        <button id="startPipBtn">啟動懸浮時鐘</button>
-        <div class="status">
-            <span id="liveDot" class="live-indicator"></span>
-            有效打點：<span id="markCount" class="count-badge">0</span>
-        </div>
-        <button id="downloadBtn">下載紀錄檔 (.txt)</button>
-        <button id="clearBtn">清除重來</button>
-    </div>
+    <div class="status">目前點數：<span id="cnt" style="color:#fff; font-weight:bold;">0</span></div>
+
+    <button id="startBtn">💥 點我強制懸浮</button>
+    <button id="dlBtn">下載紀錄</button>
 
     <script>
-        const canvas = document.getElementById('clockCanvas');
-        const ctx = canvas.getContext('2d');
-        const video = document.getElementById('clockVideo');
-        const startPipBtn = document.getElementById('startPipBtn');
-        const downloadBtn = document.getElementById('downloadBtn');
-        const clearBtn = document.getElementById('clearBtn');
-        const countSpan = document.getElementById('markCount');
-        const liveDot = document.getElementById('liveDot');
+        const cvs = document.getElementById('cvs');
+        const ctx = cvs.getContext('2d');
+        const vid = document.getElementById('vid');
+        const startBtn = document.getElementById('startBtn');
+        const dlBtn = document.getElementById('dlBtn');
+        const cntSpan = document.getElementById('cnt');
+        const logDiv = document.getElementById('log');
 
         let marks = [];
-        let isFlashing = false;
-        let audioContext = null;
+        let isFlash = false;
+        let audioCtx = null;
 
-        // --- 核心修正 1：改用 setInterval 強制繪圖 ---
-        // 即使在背景，這比 requestAnimationFrame 更有機會存活
-        function drawClock() {
-            ctx.fillStyle = isFlashing ? '#ff453a' : '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
-            const ms = String(Math.floor(now.getMilliseconds() / 10)).padStart(2, '0');
-            const timeStr = `${h}:${m}:${s}.${ms}`;
-
-            ctx.fillStyle = isFlashing ? '#000000' : '#32d74b';
-            ctx.font = 'bold 100px -apple-system, sans-serif'; // 字體稍微調小適應
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(timeStr, canvas.width / 2, canvas.height / 2);
-        }
-        
-        // 每 50ms 更新一次 (20 FPS)，降低系統負擔但保持流暢
-        setInterval(drawClock, 50);
-
-        // 綁定 Stream
-        const stream = canvas.captureStream(20);
-        video.srcObject = stream;
-
-        // --- 音訊保活 (維持不變，這很重要) ---
-        function initAudioKeepAlive() {
-            if (!audioContext) {
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                audioContext = new AudioContext();
-            }
-            if (audioContext.state === 'suspended') audioContext.resume();
-
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.type = 'sine';
-            oscillator.frequency.value = 1; 
-            gainNode.gain.value = 0.001; 
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            oscillator.start();
-            liveDot.classList.add('active');
-        }
-
-        // --- 啟動按鈕 ---
-        startPipBtn.addEventListener('click', () => {
-            initAudioKeepAlive();
-            video.muted = true;
+        // --- 1. 頁面一載入就開始畫圖與播放 (不等按鈕) ---
+        function draw() {
+            ctx.fillStyle = isFlash ? '#ff453a' : '#000';
+            ctx.fillRect(0, 0, cvs.width, cvs.height);
             
-            video.play().then(() => {
-                if (!document.pictureInPictureElement && video.readyState >= 1) {
-                   video.requestPictureInPicture().catch(console.error);
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
+
+            ctx.fillStyle = isFlash ? '#000' : '#32d74b';
+            ctx.font = 'bold 100px -apple-system';
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(timeStr, cvs.width/2, cvs.height/2);
+        }
+        setInterval(draw, 50); // 強制 20fps 更新
+
+        // 綁定串流
+        const stream = cvs.captureStream(30);
+        vid.srcObject = stream;
+        
+        // 嘗試自動播放 (Safari 可能會擋，但試試無妨)
+        vid.play().catch(() => {}); 
+
+        // --- 2. 音訊保活 (防凍結) ---
+        function wakeLock() {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.value = 1; gain.gain.value = 0.001;
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start();
+        }
+
+        // --- 3. 按鈕事件：暴力執行 ---
+        startBtn.addEventListener('click', function() {
+            logDiv.innerText = "正在啟動...";
+            
+            // A. 立刻喚醒音訊
+            wakeLock();
+
+            // B. 確保影片播放 (如果還沒播)
+            vid.muted = true;
+            vid.play(); 
+
+            // C. 【關鍵】直接請求 PiP，不等待 play() 的結果
+            // 這是避免 NotAllowedError 的唯一解法
+            try {
+                if (vid.requestPictureInPicture) {
+                    vid.requestPictureInPicture().catch(err => {
+                        logDiv.innerText = "失敗: " + err.message;
+                        alert("啟動失敗原因：" + err.message);
+                    });
+                } else if (vid.webkitSetPresentationMode) {
+                    // iOS 特有 API
+                    vid.webkitSetPresentationMode('picture-in-picture');
                 }
-            }).catch(e => alert("請再按一次啟動"));
+            } catch (e) {
+                logDiv.innerText = "錯誤: " + e;
+            }
         });
 
-        // --- 核心修正 2：智慧打點過濾系統 ---
-        let lastMarkTime = 0; // 防止連點
+        // --- 4. 打點邏輯 (防止連點) ---
+        let lastTime = 0;
+        vid.addEventListener('pause', () => {
+            // 只在 PiP 模式下運作
+            if (!document.pictureInPictureElement && !vid.webkitPresentationMode === 'picture-in-picture') return;
+            
+            // 嘗試恢復播放
+            const p = vid.play();
+            if (p) {
+                p.then(() => {
+                    // 只有成功恢復播放，才算有效點擊
+                    const now = Date.now();
+                    if (now - lastTime < 500) return; // 冷卻
+                    lastTime = now;
 
-        video.addEventListener('pause', () => {
-            // 只有在 PiP 模式下才處理
-            if (!document.pictureInPictureElement) return;
-
-            // 嘗試立刻恢復播放
-            const playPromise = video.play();
-
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    // ★ 成功恢復播放 = 這是用戶點擊造成的暫停 ★
-                    // 因為如果是系統強制暫停，這裡的 play() 通常會失敗或被擋住
-                    registerMark();
-                }).catch(error => {
-                    // ★ 恢復失敗 = 這是系統強制搶佔資源 ★
-                    // Blackmagic Cam 搶走了 Audio Focus，導致我們無法播放
-                    // 這種情況下，我們【不】記錄打點，避免計數亂跳
-                    console.log("系統強制暫停，忽略此次訊號");
+                    const d = new Date();
+                    const t = d.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(d.getMilliseconds()/100));
+                    marks.push(t);
+                    cntSpan.innerText = marks.length;
+                    dlBtn.style.display = 'block';
+                    
+                    isFlash = true;
+                    setTimeout(() => isFlash = false, 200);
+                }).catch(() => {
+                    console.log("系統強制暫停，忽略");
                 });
             }
         });
 
-        function registerMark() {
-            const nowTime = Date.now();
-            // 冷卻時間檢查：0.5秒內不重複打點 (避免雙擊誤判)
-            if (nowTime - lastMarkTime < 500) return; 
-            
-            lastMarkTime = nowTime;
-
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('zh-TW', { hour12: false }) + '.' + String(Math.floor(now.getMilliseconds()/100));
-            marks.push(timeStr);
-            
-            // 更新介面
-            countSpan.innerText = marks.length;
-            downloadBtn.style.display = 'block';
-
-            // 閃爍效果
-            isFlashing = true;
-            setTimeout(() => { isFlashing = false; }, 200);
-        }
-
-        // 下載與清除
-        downloadBtn.addEventListener('click', () => {
-            if (marks.length === 0) return alert("無紀錄");
-            const content = marks.join('\n');
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
+        // 下載
+        dlBtn.addEventListener('click', () => {
+            const b = new Blob([marks.join('\n')], {type:'text/plain'});
+            const u = URL.createObjectURL(b);
             const a = document.createElement('a');
-            a.href = url;
-            const now = new Date();
-            a.download = `Mark_${now.getHours()}${now.getMinutes()}.txt`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        });
-
-        clearBtn.addEventListener('click', () => {
-            if(confirm("清除紀錄？")) {
-                marks = []; countSpan.innerText = '0'; downloadBtn.style.display = 'none';
-            }
-        });
-
-        // 頁面喚醒時重啟 Audio
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && audioContext?.state === 'suspended') {
-                audioContext.resume();
-            }
+            a.href = u; a.download = 'marks.txt';
+            document.body.appendChild(a); a.click(); document.body.removeChild(a);
         });
     </script>
 </body>
