@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AI 影音校對播放器 (完美置中滾動版+自動繁體)</title>
+    <style>
+        :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; --accent: #0a84ff; }
+        
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; justify-content: center; height: 100vh; height: 100dvh; overflow: hidden; }
+        
+        .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--card); padding: 20px; box-sizing: border-box; }
+        
+        @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
+
+        #setup-ui { overflow-y: auto; flex: 1; display: flex; flex-direction: column; }
+        #player-ui { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
+        #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+        video, audio { width: 100%; max-height: 250px; display: block; }
+        
+        #marker-container::-webkit-scrollbar { display: none; }
+        #marker-container { display:none; overflow-x:auto; gap:8px; margin-top:15px; padding-bottom:5px; -webkit-overflow-scrolling:touch; scrollbar-width:none; flex-shrink: 0; user-select: none; cursor: grab; }
+        #marker-container:active { cursor: grabbing; }
+        .marker-btn { background: #1c1c1e; color: var(--primary); padding: 8px 14px; border-radius: 10px; font-size: 14px; white-space: nowrap; border: 1px solid var(--primary); cursor: pointer; display: flex; align-items: center; gap: 5px; font-family: "Menlo", monospace; }
+        .marker-btn:active { background: rgba(48, 209, 88, 0.2); }
+
+        .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; }
+        
+        .subtitle-item { display: flex; align-items: center; gap: 10px; padding: 12px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; }
+        .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
+        
+        .input-group { display: flex; gap: 8px; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 12px; background: #3a3a3c; color: #fff; border: none; border-radius: 10px; font-size: 16px; text-align: center; }
+        .btn { padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; flex-shrink: 0; }
+        .btn-main { background: var(--primary); color: #000; width: 100%; font-size: 17px; margin-top: 10px; }
+        .btn-back { background: none; color: var(--accent); font-size: 16px; margin-bottom: 5px; padding: 0; text-align: left; }
+        
+        #edit-modal, #share-overlay { position: fixed; inset: 0; display: none; flex-direction: column; z-index: 1000; }
+        #edit-modal { background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+        #share-overlay { background: var(--bg); padding: 20px; }
+        textarea { width: 100%; height: 120px; background: #000; color: var(--primary); border: 1px solid var(--primary); border-radius: 10px; padding: 10px; font-size: 18px; box-sizing: border-box; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+<div class="container" id="setup-ui">
+    <h3 style="text-align:center; margin-top:0;">影音校對工具 (自動繁中)</h3>
+    <label style="font-size:12px; color:#aaa">1. 選取影音 (M4A/MOV/MP4)</label>
+    <input type="file" id="mediaFile" accept="video/*,audio/*,.m4a,.mov" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">2. 選取字幕 (.srt) [自動轉繁體]</label>
+    <input type="file" id="srtFile" accept=".srt" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">3. 選取打點檔 (.txt) [選填]</label>
+    <input type="file" id="markerFile" accept=".txt" onchange="autoDetect(this)" style="width:100%; margin:10px 0 15px 0;">
+    
+    <label style="font-size:12px; color:#aaa">真實起始時間 (HH:mm:ss)</label>
+    <div class="input-group">
+        <input type="text" id="startTime" value="00:00:00">
+        <button class="btn" style="background:#444; color:#fff" onclick="resetTime()">重置</button>
+    </div>
+    <div style="flex:1"></div>
+    <button class="btn btn-main" onclick="startApp()">開始播放</button>
+</div>
+
+<div class="container hidden" id="player-ui">
+    <button class="btn-back" onclick="location.reload()">〈 更換檔案</button>
+    <div id="wall-time">00:00:00</div>
+    <div id="media-container"></div>
+    
+    <div id="marker-container"></div>
+    
+    <div class="list-container" id="list-container"></div>
+    <button class="btn btn-main" style="background:var(--accent); color:#fff; margin-top:15px;" onclick="openShare()">預覽並分享</button>
+</div>
+
+<div id="edit-modal">
+    <div class="container" style="height:auto; max-height:80vh;">
+        <h3 style="margin-top:0">修改內容</h3>
+        <textarea id="edit-text"></textarea>
+        <div style="display:flex; gap:10px; margin-top:15px">
+            <button class="btn" style="flex:1; background:#444; color:#fff" onclick="closeEdit()">取消</button>
+            <button class="btn" style="flex:1; background:var(--primary); color:#000" onclick="saveEdit()">儲存</button>
+        </div>
+    </div>
+</div>
+
+<div id="share-overlay">
+    <div style="display:flex; justify-content:space-between; align-items:center">
+        <button onclick="closeShare()" style="background:none; border:none; color:var(--accent); font-size:18px">〈 返回</button>
+        <b>分享總覽</b>
+        <button onclick="doShare()" style="background:none; border:none; color:var(--accent); font-size:18px; font-weight:bold">發送</button>
+    </div>
+    <div id="preview-box" style="flex:1; background:#000; margin:15px 0; padding:15px; border-radius:12px; overflow-y:auto; white-space:pre-wrap; color:#ccc; border:1px solid #3a3a3c;"></div>
+</div>
+
+<script>
+    let transcript = [], baseSeconds = 0, editIdx = -1;
+
+    // --- 簡繁轉換核心字典 (常用字庫) ---
+    const SC_STR = "万与丑专业丛东丝丢两严丧个丬丰临为丽举么义乌乐乔乘习乡书买乱争于亏云亚产亩亲亵亸亿什仅仆仇币仍仏仔他付仙仪仔代令以仰仲价任份仿企伊伍伎伏伐休众优伙会伞伟传伤伦伪伫体余佣佥侠侣侥侦侧侨侩侪侬俣俦严俩俪俭债倾傧顾显儇储傩儿兑兖党兰关兴兹养兽冁内冈册写军农冢冬冯冲决况冻净凄凉凌准减凑凛几凤凭凯击凿刍划刘则刚创删别刬刭制刷刺刻刽刿剀剂剐剑剧劝办务劢动励劲劳势勋勐勚匀匦匮区医华协单卖卢卤卧卫却卵卷卸厍厌厉厣参反发叔取受变叙叛叠台叶号叹叽吁后吓吕吗吨听启吴呒呓呕呖呗员呙呛呜咏咙咛咝咤咴咸哌响哑哒哓哔哕哗哙哜哝哟唛唝唠唡唢唤啧啬啭啮啰啴啵啶啸啼啾喀喁喂喃善喇喈喉喊喋喏喑喔喘喙唤喜喝喟喧缅喳喷喽喾嗫嗳 嘤嘱噜噼嚣团园困囱围囵国图圆圣圹场坂坏块坚坛坜坝坞坟坠坤坦坪坭垅型垒垓垛垩垫垭垯垱垲垴埘埙埚埝埯堑堕塆墙壮声壳壶壹处备复夏夕外多夜够头夸夹夺奋斗奁奥妆妇妈妩妪妫坞 姐姉妹妹妻妾姆 姨姪 姘 姹 诬 姬 娘 娜 娟 娠 娣 娥 娩 娱 悟 娶 娼 婀 婆 婉 婊 婕 婚 婢 婥 妇 媪 妈 构 嫂 槐 杠 杆 杉 杌 李 杏 材 村 杖 杜 杞 束 杠 条 来 杨 杩 杯 杰 杲 杳 杵 扒 杷 杼 松 板 极 构 枇 枉 枋 析 枕 林 枘 枚 果 枝 枞 枢 枣 枥 枧 枨 枪 枫 枭 柜 柠 柽 查 咎 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀 玮 环 玱 玳 玷 玺 玻 珀 珂 珈 珉 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀 玮 环 玱 玳 玷 玺 玻 珀 珂 珈 珉 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀 玮 环 玱 玳 玷 玺 玻 珀 珂 珈 珉 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀 玮 环 玱 玳 玷 玺 玻 珀 珂 珈 珉 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀 玮 环 玱 玳 玷 玺 玻 珀 珂 珈 珉 珊 珍 珏 珐 珑 珰 班 珲 琊 琏 琐 玛 琅 璧 环 玺 璏 瓮 瓯 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 备 田 由 甲 申 电 男 甸 町 画 甾 畀 畅 畈 留 畚 畜 亩 毕 略 畦 番 畲 畴 疆 疏 疑 疔 疖 疗 疙 疚 疝 疟 疠 疡 疣 疤 疥 疫 疬 疮 疯 疱 疲 疳 疴 疵 疸 疹 疼 疽 疾 痂 病 症 痈 痉 痊 痍 痒 痔 痕 痘 痛 痞 痢 痣 痤 痖 娴 痨 痧 痪 痫 痰 痴 痹 痼 痿 瘀 瘁 瘃 瘅 瘐 瘗 瘘 瘙 瘛 瘟 瘠 瘢 瘤 瘪 瘫 瘼 瘾 瘿 癀 癃 癌 癍 癔 癖 癜 癞 癣 癫 矍 矗 瞩 矛 矜 矞 矢 矣 知 矧 矩 矫 矬 短 矮 石 矶 矸 矽 矾 矿 砀 码 砂 砗 砚 砜 砺 砻 砾 础 硁 硅 铬 硕 硖 硗 确 硷 碍 碛 碜 碱 碹 磙 礼 祎 祯 祷 祸 禀 禄 禅 离 秃 秆 种 积 称 秽 秾 稀 稂 程 稚 稞 稠 稣 稳 稻 稼 稽 稿 穆 稣 积 颖 穗 穑 秽 稳 窝 洼 穷 窑 窎 窭 窥 窜 窍 窦 灶 炘 灼 灾 灿 炀";
+    const TC_STR = "萬與醜專業叢東絲丟兩嚴喪個爿豐臨為麗舉麼義烏樂喬乘習鄉書買亂爭於虧雲亞產畝親褻嚲億什僅僕仇幣仍佛仔他付仙儀仔代令以仰仲價任份仿企伊伍伎伏伐休眾優伙會傘偉傳傷倫偽佇體餘佣僉俠侶僥偵側僑儈儕儂俁儔嚴倆儷儉債傾儐顧顯儇儲儺兒兌兗黨蘭關興茲養獸囅內岡冊寫軍農塚冬馮沖決況凍淨淒涼凌準減湊凜幾鳳憑凱擊鑿芻劃劉則剛創刪別剗剄制刷刺刻劊劌剴劑剮劍劇勸辦務勱動勵勁勞勢勛猛勩勻匭匱區醫華協單賣盧鹵臥衛卻卵卷卸厙厭厲厴參反發叔取受變敘叛疊台葉號嘆嘰吁後嚇呂嗎噸聽啟吳嘸囈嘔嚦唄員咼嗆嗚詠嚨嚀噝吒噅咸呱響啞噠嘵嗶噦嘩噲嚌噥喲嘜嗊嘮唡嗩喚嘖嗇囀嚙囉嘽啵啶嘯啼啾喀喁喂喃善喇喈喉喊喋喏喑喔喘喙喚喜喝喟喧緬喳噴嘍嚳囁噯 嚶囑嚕劈囂團園困囪圍圇國圖圓聖壙場坂壞塊堅壇壢壩塢墳墜坤坦坪坭壠型壘垓垛堊墊埡墶壋塏堖塒塤堝墊垵塹墮壪牆壯聲殼壺壹處備復夏夕外多夜夠頭夸夾奪奮斗奩奧妝婦媽嫵嫗媯塢 姐姉妹妹妻妾姆 姨姪 姘 姹 誣 姬 娘 娜 娟 娠 娣 娥 娩 娛 悟 娶 娼 婀 婆 婉 婊 婕 婚 婢 婥 婦 媼 媽 構 嫂 槐 槓 桿 杉 杌 李 杏 材 村 杖 杜 杞 束 槓 條 來 楊 榪 杯 杰 杲 杳 杵 扒 杷 杼 松 板 極 構 枇 枉 枋 析 枕 林 枘 枚 果 枝 樅 樞 棗 櫪 梘 棖 槍 楓 梟 櫃 檸 檉 查 咎 珊 珍 玨 琺 瓏 璫 班 琿 琊 璉 瑣 瑪 琅 璧 環 璽 璏 瓮 甌 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 備 田 由 甲 申 電 男 甸 町 畫 甾 畀 暢 畈 留 畚 畜 畝 畢 略 畦 番 畬 疇 疆 疏 疑 疔 癤 療 疙 疚 疝 瘧 癘 瘍 疣 疤 疥 疫 癧 瘡 瘋 皰 疲 疳 痾 疵 疸 疹 疼 疽 疾 痂 病 症 癰 痙 痊 痍 癢 痔 痕 痘 痛 痞 痢 痣 痤 瘂 嫻 癆 痧 瘓 癇 痰 痴 痺 痼 痿 瘀 瘁 瘃 癉 瘐 瘞 瘺 瘙 瘛 瘟 瘠 瘢 瘤 癟 癱 瘼 癮 癭 癀 癃 癌 痍 癔 癖 癜 癩 癬 癲 矍 矗 矚 矛 矜 矞 矢 矣 知 矧 矩 矯 矬 短 矮 石 磯 矸 矽 礬 礦 碭 碼 砂 硨 硯 碸 礪 礱 礫 礎 硜 硅 鉻 碩 硤 磽 確 鹼 礙 磧 磣 鹼 镟 滾 禮 禕 禎 禱 禍 稟 祿 禪 離 禿 稈 種 積 稱 穢 穠 稀 稂 程 稚 稞 稠 穌 穩 稻 稼 稽 稿 穆 穌 積 穎 穗 穡 穢 穩 窩 窪 窮 窯 窵 窶 窺 竄 竅 竇 灶 炘 灼 災 燦 煬 瑋 環 瑲 玳 玷 璽 玻 珀 珂 珈 珉 珊 珍 玨 琺 瓏 璫 班 琿 琊 璉 瑣 瑪 琅 璧 環 璽 璏 瓮 甌 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 備 田 由 甲 申 電 男 甸 町 畫 甾 畀 暢 畈 留 畚 畜 畝 畢 略 畦 番 畬 疇 疆 疏 疑 疔 癤 療 疙 疚 疝 瘧 癘 瘍 疣 疤 疥 疫 癧 瘡 瘋 皰 疲 疳 痾 疵 疸 疹 疼 疽 疾 痂 病 症 癰 痙 痊 痍 癢 痔 痕 痘 痛 痞 痢 痣 痤 瘂 嫻 癆 痧 瘓 癇 痰 痴 痺 痼 痿 瘀 瘁 瘃 癉 瘐 瘞 瘺 瘙 瘛 瘟 瘠 瘢 瘤 癟 癱 瘼 癮 癭 癀 癃 癌 痍 癔 癖 癜 癩 癬 癲 矍 矗 矚 矛 矜 矞 矢 矣 知 矧 矩 矯 矬 短 矮 石 磯 矸 矽 礬 礦 碭 碼 砂 硨 硯 碸 礪 礱 礫 礎 硜 硅 鉻 碩 硤 磽 確 鹼 礙 磧 磣 鹼 镟 滾 禮 禕 禎 禱 禍 稟 祿 禪 離 禿 稈 種 積 稱 穢 穠 稀 稂 程 稚 稞 稠 穌 穩 稻 稼 稽 稿 穆 穌 積 穎 穗 穡 穢 穩 窩 窪 窮 窯 窵 窶 窺 竄 竅 竇 灶 炘 灼 災 燦 煬 瑋 環 瑲 玳 玷 璽 玻 珀 珂 珈 珉 珊 珍 玨 琺 瓏 璫 班 琿 琊 璉 瑣 瑪 琅 璧 環 璽 璏 瓮 甌 甭 瓶 瓷 甄 甜 甥 用 甩 甫 甬 備 田 由 甲 申 電 男 甸 町 畫 甾 畀 暢 畈 留 畚 畜 畝 畢 略 畦 番 畬 疇 疆 疏 疑 疔 癤 療 疙 疚 疝 瘧 癘 瘍 疣 疤 疥 疫 癧 瘡 瘋 皰 疲 疳 痾 疵 疸 疹 疼 疽 疾 痂 病 症 癰 痙 痊 痍 癢 痔 痕 痘 痛 痞 痢 痣 痤 瘂 嫻 癆 痧 瘓 癇 痰 痴 痺 痼 痿 瘀 瘁 瘃 癉 瘐 瘞 瘺 瘙 瘛 瘟 瘠 瘢 瘤 癟 癱 瘼 癮 癭 癀 癃 癌 痍 癔 癖 癜 癩 癬 癲 矍 矗 矚 矛 矜 矞 矢 矣 知 矧 矩 矯 矬 短 矮 石 磯 矸 矽 礬 礦 碭 碼 砂 硨 硯 碸 礪 礱 礫 礎 硜 硅 鉻 碩 硤 磽 確 鹼 礙 磧 磣 鹼 镟 滾 禮 禕 禎 禱 禍 稟 祿 禪 離 禿 稈 種 積 稱 穢 穠 稀 稂 程 稚 稞 稠 穌 穩 稻 稼 稽 稿 穆 穌 積 穎 穗 穡 穢 穩 窩 窪 窮 窯 窵 窶 窺 竄 竅 竇 灶 炘 灼 災 燦 煬";
+
+    function toTraditional(text) {
+        let ret = '';
+        for (let i = 0; i < text.length; i++) {
+            const char = text[i];
+            const idx = SC_STR.indexOf(char);
+            ret += (idx !== -1) ? TC_STR[idx] : char;
+        }
+        return ret;
+    }
+
+    function autoDetect(input) {
+        const name = input.files[0]?.name || "";
+        let m1 = name.match(/at\s(\d{2})\.(\d{2})\.(\d{2})/i);
+        if (m1) return document.getElementById('startTime').value = `${m1[1]}:${m1[2]}:${m1[3]}`;
+        let m2 = name.match(/_(\d{4})(\d{2})(\d{2})(\d{2})_/);
+        if (m2) return document.getElementById('startTime').value = `${m2[2]}:${m2[3]}:${m2[4]}`;
+    }
+
+    function resetTime() { document.getElementById('startTime').value = "00:00:00"; }
+
+    function hmsToSec(t) {
+        const p = t.split(':');
+        if (p.length === 3) return parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0);
+        else if (p.length === 2) return parseInt(p[0]) * 60 + parseFloat(p[1] || 0);
+        else return parseFloat(p[0] || 0);
+    }
+
+    function secToHms(s) { 
+        const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60); 
+        return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':'); 
+    }
+
+    function enableDragScroll(slider) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true;
+            slider.style.cursor = 'grabbing';
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+        slider.addEventListener('mouseleave', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mouseup', () => { isDown = false; slider.style.cursor = 'grab'; });
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 2;
+            slider.scrollLeft = scrollLeft - walk;
+        });
+        slider.addEventListener('wheel', (e) => {
+            if (e.deltaY !== 0) {
+                e.preventDefault();
+                slider.scrollLeft += e.deltaY;
+            }
+        });
+    }
+
+    async function startApp() {
+        const mFile = document.getElementById('mediaFile').files[0];
+        const sFile = document.getElementById('srtFile').files[0];
+        const mkFile = document.getElementById('markerFile').files[0];
+        if (!mFile) return alert("請至少選取一個影音檔！");
+
+        baseSeconds = hmsToSec(document.getElementById('startTime').value);
+        
+        const v = document.createElement(mFile.name.toLowerCase().endsWith('.m4a') ? 'audio' : 'video');
+        v.id = 'mainMedia'; v.controls = true; v.playsInline = true; v.src = URL.createObjectURL(mFile);
+        document.getElementById('media-container').innerHTML = '';
+        document.getElementById('media-container').appendChild(v);
+
+        const markerContainer = document.getElementById('marker-container');
+        markerContainer.innerHTML = '';
+        if (mkFile) {
+            const mkText = await mkFile.text();
+            const lines = mkText.split('\n');
+            const timeRegex = /(?:(?:(\d{1,2}):))?(\d{1,2}):(\d{2})(?:\.\d+)?/;
+            let hasMarkers = false;
+            let autoCount = 1;
+            
+            lines.forEach(line => {
+                const match = line.match(timeRegex);
+                if (match) {
+                    let rawTime = match[0];
+                    let text = line.replace(rawTime, '').replace(/\[|\]/g, '').trim();
+                    if (!text) { text = `標記點 ${autoCount}`; autoCount++; }
+                    
+                    let tSec = hmsToSec(rawTime);
+                    let relSec = tSec >= baseSeconds && baseSeconds > 0 ? tSec - baseSeconds : tSec;
+                    let wallStr = tSec >= baseSeconds && baseSeconds > 0 ? secToHms(tSec) : secToHms(baseSeconds + tSec);
+
+                    const btn = document.createElement('button');
+                    btn.className = 'marker-btn';
+                    btn.onclick = () => { v.currentTime = relSec; v.play(); };
+                    btn.innerHTML = `📍 [${wallStr}] ${text}`;
+                    markerContainer.appendChild(btn);
+                    hasMarkers = true;
+                }
+            });
+            if (hasMarkers) {
+                markerContainer.style.display = 'flex';
+                enableDragScroll(markerContainer);
+            }
+        }
+
+        const list = document.getElementById('list-container');
+        list.innerHTML = ''; transcript = [];
+        if (sFile) {
+            const srtText = await sFile.text();
+            const reg = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
+            let m;
+            while ((m = reg.exec(srtText)) !== null) {
+                const start = hmsToSec(m[2].replace(',', '.'));
+                // 讀取字幕時，先將換行轉為空格，再進行繁簡轉換
+                let rawText = m[4].replace(/\n/g, ' ').trim();
+                const text = toTraditional(rawText);
+                
+                const wall = secToHms(baseSeconds + start);
+                const idx = transcript.length;
+                transcript.push({ start, end: hmsToSec(m[3].replace(',', '.')), text, wall });
+
+                const div = document.createElement('div');
+                div.className = 'subtitle-item';
+                div.id = `sub-${idx}`;
+                div.onclick = (e) => { if(e.target.type !== 'checkbox') { v.currentTime = start; v.play(); } };
+                div.innerHTML = `<input type="checkbox" id="chk-${idx}"><span style="flex:1" id="t-${idx}"><small style="color:var(--primary)">[${wall}]</small> ${text}</span><span style="color:var(--accent);font-size:12px" onclick="event.stopPropagation();openEdit(${idx})">編輯</span>`;
+                list.appendChild(div);
+            }
+        }
+
+        document.getElementById('setup-ui').classList.add('hidden');
+        document.getElementById('player-ui').classList.remove('hidden');
+
+        v.ontimeupdate = () => {
+            const ct = v.currentTime;
+            document.getElementById('wall-time').innerText = secToHms(baseSeconds + ct);
+            if(transcript.length > 0) {
+                const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
+                if (idx !== -1) {
+                    document.querySelectorAll('.subtitle-item').forEach((el, i) => {
+                        if (i === idx) {
+                            if (!el.classList.contains('highlight')) {
+                                el.classList.add('highlight');
+                                if (!v.paused) {
+                                    const scrollTarget = el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
+                                    list.scrollTop = scrollTarget;
+                                }
+                            }
+                        } else {
+                            el.classList.remove('highlight');
+                        }
+                    });
+                }
+            }
+        };
+    }
+
+    function openEdit(i) { document.getElementById('mainMedia').pause(); editIdx = i; document.getElementById('edit-text').value = transcript[i].text; document.getElementById('edit-modal').style.display = 'flex'; }
+    function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
+    function saveEdit() {
+        const val = document.getElementById('edit-text').value;
+        transcript[editIdx].text = val;
+        document.getElementById(`t-${editIdx}`).innerHTML = `<small style="color:var(--primary)">[${transcript[editIdx].wall}]</small> ${val}`;
+        closeEdit(); document.getElementById('mainMedia').play();
+    }
+
+    function openShare() {
+        const sel = transcript.filter((_, i) => document.getElementById(`chk-${i}`).checked).map(t => `[${t.wall}] ${t.text}`);
+        if (sel.length === 0) return alert("請勾選字幕");
+        document.getElementById('preview-box').innerText = sel.join('\n');
+        document.getElementById('share-overlay').style.display = 'flex';
+    }
+    function closeShare() { document.getElementById('share-overlay').style.display = 'none'; }
+    async function doShare() {
+        const txt = document.getElementById('preview-box').innerText;
+        if (navigator.share) await navigator.share({ text: txt }).catch(() => {});
+        else { navigator.clipboard.writeText(txt); alert("已複製"); }
+    }
+</script>
+</body>
+</html>
