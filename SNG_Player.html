@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -191,6 +190,8 @@
         }
         document.getElementById('setup-ui').classList.add('hidden');
         document.getElementById('player-ui').classList.remove('hidden');
+        
+        // --- 這裡已換成修正後的置中捲動邏輯 ---
         v.ontimeupdate = () => {
             const ct = v.currentTime;
             document.getElementById('wall-time').innerText = secToHms(baseSeconds + ct);
@@ -202,16 +203,25 @@
                             if (!el.classList.contains('highlight')) {
                                 el.classList.add('highlight');
                                 if (!v.paused) {
-                                    const scrollTarget = el.offsetTop - list.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
-                                    list.scrollTop = scrollTarget;
+                                    // 精準計算字幕相對於容器的置中位置
+                                    const scrollTarget = el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2);
+                                    // 執行平滑捲動
+                                    list.scrollTo({
+                                        top: scrollTarget,
+                                        behavior: 'smooth'
+                                    });
                                 }
                             }
-                        } else { el.classList.remove('highlight'); }
+                        } else { 
+                            el.classList.remove('highlight'); 
+                        }
                     });
                 }
             }
         };
+        // ------------------------------------
     }
+    
     function openEdit(i) { document.getElementById('mainMedia').pause(); editIdx = i; document.getElementById('edit-text').value = transcript[i].text; document.getElementById('edit-modal').style.display = 'flex'; }
     function closeEdit() { document.getElementById('edit-modal').style.display = 'none'; }
     function saveEdit() {
