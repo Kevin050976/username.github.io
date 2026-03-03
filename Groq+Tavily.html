@@ -24,35 +24,33 @@
 <body>
 
 <div class="card">
-    <h2 style="margin-top: 0; display: flex; align-items: center; justify-content: space-between;">
-        <span>🤖 AI 聯網助理</span>
-    </h2>
+    <h2 style="margin-top: 0;">🤖 專屬 AI 聯網助理</h2>
     
     <div class="grid-2">
         <div class="input-group">
-            <label for="groqKey">Groq API Key (大腦)</label>
+            <label for="groqKey">Groq API Key (輸入會變成 ***)</label>
             <input type="password" id="groqKey" placeholder="gsk_...">
         </div>
         <div class="input-group">
-            <label for="tavilyKey">Tavily API Key (眼睛)</label>
+            <label for="tavilyKey">Tavily API Key (輸入會變成 ***)</label>
             <input type="password" id="tavilyKey" placeholder="tvly-...">
         </div>
     </div>
 
     <div class="btn-group">
         <button class="secondary" onclick="checkTavilyUsage()">🔍 查詢 Tavily 剩餘額度</button>
-        <button class="secondary" onclick="clearKeys()">🗑️ 清除記憶的金鑰</button>
+        <button class="secondary" onclick="clearKeys()">🗑️ 清除記憶的 Key</button>
     </div>
 
     <div id="status" class="status"></div>
-    <div id="chatbox"><span class="system-msg">系統：請輸入 API Key 並開始對話。API Key 會安全地儲存在你的瀏覽器中。</span>\n</div>
+    <div id="chatbox"><span class="system-msg">系統：請輸入 API Key 並開始對話。你的 Key 會安全地保存在此瀏覽器中。</span>\n</div>
     
-    <textarea id="userInput" rows="3" placeholder="請輸入您的問題 (例如: 總結一下今天台灣的重要新聞)..."></textarea>
-    <button onclick="askAI()" style="width: 100%; padding: 15px; font-size: 1.1em;">🚀 送出提問</button>
+    <textarea id="userInput" rows="3" placeholder="請輸入您的問題 (例如: 幫我找一下今天台灣的新聞)..."></textarea>
+    <button onclick="askAI()" style="width: 100%; padding: 15px; font-size: 1.1em;">🚀 送出問題</button>
 </div>
 
 <script>
-    // --- 頁面載入時：自動讀取儲存的 Keys ---
+    // --- 網頁載入時：自動從 localStorage 讀取密碼 ---
     window.onload = function() {
         const savedGroq = localStorage.getItem('groqKey');
         const savedTavily = localStorage.getItem('tavilyKey');
@@ -60,7 +58,7 @@
         if (savedTavily) document.getElementById('tavilyKey').value = savedTavily;
     };
 
-    // --- 工具函數：儲存 Keys ---
+    // --- 自動儲存密碼 ---
     function saveKeys() {
         const groq = document.getElementById('groqKey').value.trim();
         const tavily = document.getElementById('tavilyKey').value.trim();
@@ -68,7 +66,7 @@
         if (tavily) localStorage.setItem('tavilyKey', tavily);
     }
 
-    // --- 工具函數：清除 Keys ---
+    // --- 清除密碼 ---
     function clearKeys() {
         localStorage.removeItem('groqKey');
         localStorage.removeItem('tavilyKey');
@@ -77,9 +75,14 @@
         updateStatus("API 金鑰已從瀏覽器清除。");
     }
 
-    // --- 工具函數：更新狀態文字 ---
     function updateStatus(text) {
         document.getElementById('status').innerText = text;
+    }
+
+    function updateChatbox(htmlMessage) {
+        const chatbox = document.getElementById('chatbox');
+        chatbox.innerHTML += htmlMessage;
+        chatbox.scrollTop = chatbox.scrollHeight;
     }
 
     // --- 功能一：查詢 Tavily 額度 ---
@@ -89,9 +92,6 @@
 
         updateStatus("查詢額度中...");
         try {
-            // 注意：Tavily 的額度查詢沒有官方公開的 CORS 無阻擋端點，
-            // 若遇到 CORS 問題，此端點可能會報錯，但正常情況下 GET 應該可行。
-            // (根據Tavily文檔，不支援從純前端直接打usage api，若出錯，此功能可能無法在純HTML運行)
             const response = await fetch("https://api.tavily.com/usage", {
                 method: "GET",
                 headers: { 
@@ -101,48 +101,50 @@
             });
             
             if (!response.ok) {
-                // 如果官方未實作此 GET endpoint，則顯示提示
-                 throw new Error(`HTTP Error: ${response.status} (可能是跨域限制或端點不存在)`);
+                const errText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errText}`);
             }
 
             const data = await response.json();
-            // 假設回傳格式包含 usage 或剩餘額度
-            alert(`Tavily 狀態查詢成功！\n詳細資訊已輸出至開發者控制台(F12)。\n(回傳資料: ${JSON.stringify(data)})`);
-            console.log("Tavily Usage Data:", data);
+            alert(`Tavily 狀態查詢成功！\n\n可用的額度詳情：\n${JSON.stringify(data, null, 2)}`);
             updateStatus("查詢完畢。");
 
         } catch (e) {
-             alert("無法直接查詢額度：\n可能是因為 Tavily 的 /usage API 不允許從瀏覽器前端(CORS)直接呼叫，請登入官網查看。\n錯誤: " + e.message);
+             alert("無法直接查詢額度。\n(註：Tavily 官方可能阻擋了網頁前端的直接查詢，這屬於 CORS 資安保護機制。請登入 Tavily 官網查看。)\n\n錯誤訊息: " + e.message);
              updateStatus("");
         }
     }
 
     // --- 功能二：核心問答邏輯 ---
+    let conversationHistory = []; // 用來記憶上下文對話
+
     async function askAI() {
         const groqKey = document.getElementById('groqKey').value.trim();
         const tavilyKey = document.getElementById('tavilyKey').value.trim();
         const userInputBox = document.getElementById('userInput');
         const userInput = userInputBox.value.trim();
-        const chatbox = document.getElementById('chatbox');
 
         if (!groqKey) return alert("請至少填寫 Groq API Key");
         if (!userInput) return alert("請輸入問題");
 
-        saveKeys(); // 送出時自動儲存
+        saveKeys(); // 送出時自動儲存 Key
 
-        chatbox.innerHTML += `\n👤 **你:** ${userInput}\n`;
-        userInputBox.value = ""; // 清空輸入框
+        updateChatbox(`\n👤 **你:** ${userInput}\n`);
+        userInputBox.value = ""; 
         updateStatus("Groq 思考中...");
 
+        // 將用戶新問題加入歷史紀錄
+        conversationHistory.push({ role: "user", content: userInput });
+
         try {
-            // 第一步：問 Groq (並提供搜尋工具)
+            // 第一步：呼叫 Groq 模型
             const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
                     model: "llama-3.3-70b-versatile",
-                    messages: [{ role: "user", content: userInput }],
-                    // 只有當使用者輸入了 Tavily Key，才給模型這個工具
+                    messages: conversationHistory,
+                    // 如果有輸入 Tavily Key，才賦予連網工具
                     tools: tavilyKey ? [{
                         type: "function",
                         function: {
@@ -150,7 +152,7 @@
                             description: "當用戶詢問近期新聞、即時資訊或模型不知道的事情時，搜尋網際網路",
                             parameters: {
                                 type: "object",
-                                properties: { query: { type: "string", description: "搜尋關鍵字" } },
+                                properties: { query: { type: "string", description: "用來 Google 搜尋的關鍵字" } },
                                 required: ["query"]
                             }
                         }
@@ -158,68 +160,71 @@
                 })
             });
 
-            if (!response.ok) throw new Error("Groq API 呼叫失敗，請檢查 Key 是否正確");
+            // 更詳細的錯誤捕捉
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `狀態碼 ${response.status}`);
+            }
 
             const data = await response.json();
             const message = data.choices[0].message;
 
-            // 第二步：判斷 Groq 是否決定使用工具
+            // 第二步：判斷是否需要連網搜尋
             if (message.tool_calls && message.tool_calls.length > 0) {
                 const toolCall = message.tool_calls[0];
                 const query = JSON.parse(toolCall.function.arguments).query;
                 
-                updateStatus(`🔍 Groq 決定使用網路搜尋... 關鍵字：[${query}]`);
+                updateStatus(`🔍 啟動網路搜尋... 關鍵字：[${query}]`);
+                conversationHistory.push(message); // 把模型呼叫工具的動作存起來
 
-                // 第三步：呼叫 Tavily 進行搜尋
+                // 第三步：呼叫 Tavily 搜尋
                 const searchRes = await fetch("https://api.tavily.com/search", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
                         api_key: tavilyKey, 
                         query: query,
-                        search_depth: "basic", // 可選: basic 或 advanced
                         include_answer: false
                     })
                 });
 
-                if (!searchRes.ok) throw new Error("Tavily 搜尋失敗，請檢查 Key 或額度");
+                if (!searchRes.ok) throw new Error("Tavily 搜尋失敗，請檢查 API Key 或是額度");
 
                 const searchData = await searchRes.json();
-                
-                // 將搜尋結果排版成文字
-                let contextStr = "以下是來自網路的搜尋結果：\n";
-                searchData.results.forEach((r, idx) => {
-                    contextStr += `[${idx + 1}] 標題: ${r.title}\n內容: ${r.content}\n來源: ${r.url}\n\n`;
-                });
+                let contextStr = searchData.results.map(r => `標題: ${r.title}\n內容: ${r.content}`).join("\n\n");
 
-                updateStatus(`🧠 搜尋完成，Groq 正在總結資料...`);
+                updateStatus(`🧠 搜尋完成，Groq 正在整理資料...`);
 
-                // 第四步：將結果傳回給 Groq 進行總結
+                // 將搜尋結果加進對話紀錄中 (身分為 tool)
+                conversationHistory.push({ role: "tool", tool_call_id: toolCall.id, content: contextStr });
+
+                // 第四步：拿著搜尋結果，再問一次 Groq
                 const finalRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                     method: "POST",
                     headers: { "Authorization": `Bearer ${groqKey}`, "Content-Type": "application/json" },
                     body: JSON.stringify({
                         model: "llama-3.3-70b-versatile",
-                        messages: [
-                            { role: "user", content: userInput },
-                            message, // 模型回傳要使用工具的訊息
-                            { role: "tool", tool_call_id: toolCall.id, content: contextStr } // 工具執行的結果
-                        ]
+                        messages: conversationHistory
                     })
                 });
 
                 const finalData = await finalRes.json();
-                chatbox.innerHTML += `🤖 **AI (已聯網):**\n${finalData.choices[0].message.content}\n`;
-                chatbox.scrollTop = chatbox.scrollHeight;
+                const finalAnswer = finalData.choices[0].message.content;
+                
+                updateChatbox(`🤖 **AI (已聯網):**\n${finalAnswer}\n`);
+                conversationHistory.push({ role: "assistant", content: finalAnswer });
 
             } else {
                 // 模型認為不需要搜尋，直接回答
-                chatbox.innerHTML += `🤖 **AI (直接回答):**\n${message.content}\n`;
-                chatbox.scrollTop = chatbox.scrollHeight;
+                const answer = message.content;
+                updateChatbox(`🤖 **AI:**\n${answer}\n`);
+                conversationHistory.push({ role: "assistant", content: answer });
             }
 
         } catch (e) {
-            chatbox.innerHTML += `\n❌ **[發生錯誤]:** ${e.message}\n`;
+            updateChatbox(`\n❌ **[系統錯誤]:** 發生問題了！\n原因：${e.message}\n(請確認你的 API Key 是否輸入正確)\n`);
+            // 若發生錯誤，把最後一筆發問移除，避免污染對話上下文
+            conversationHistory.pop(); 
         }
         
         updateStatus(""); // 清空狀態
