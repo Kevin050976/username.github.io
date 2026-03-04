@@ -1,0 +1,108 @@
+<script>
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxCvWczrqCA2zSBmhuJgLeBJi76khW22kpeIvlWCaO59OmzonnH5f7afNEs4RNdkFqwZw/exec'; // 填入你在第三步複製的 Apps Script 網址
+    
+    let html5QrcodeScanner;
+    let currentUser = "";
+
+    // 1. 真實連線登入功能
+    async function login() {
+        const idInput = document.getElementById('userId').value;
+        const msgBox = document.getElementById('login-msg');
+        
+        if (!idInput) {
+            msgBox.innerText = "請輸入密碼！";
+            return;
+        }
+
+        msgBox.innerText = "驗證中...";
+        msgBox.style.color = "blue";
+
+        try {
+            let response = await fetch(scriptURL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ 'action': 'login', 'userId': idInput })
+            });
+            let result = await response.json();
+
+            if (result.success) {
+                currentUser = idInput;
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('app-section').style.display = 'block';
+                startScanner();
+            } else {
+                msgBox.innerText = "ID/密碼錯誤或不在試算表清單中！";
+                msgBox.style.color = "red";
+            }
+        } catch (error) {
+            msgBox.innerText = "連線失敗，請檢查網路。";
+            msgBox.style.color = "red";
+        }
+    }
+
+    // 2. 啟動相機與掃描 (維持不變)
+    function startScanner() {
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+        html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    function onScanSuccess(decodedText) {
+        html5QrcodeScanner.clear();
+        document.getElementById('app-section').style.display = 'none';
+        document.getElementById('update-section').style.display = 'block';
+        document.getElementById('scanned-code').innerText = decodedText;
+    }
+
+    function onScanFailure(error) { /* 背景錯誤忽略 */ }
+
+    function stopScanner() {
+        if (html5QrcodeScanner) html5QrcodeScanner.clear();
+    }
+
+    // 3. 更新物品資訊寫入 Google Sheets
+    async function updateItem() {
+        const barcode = document.getElementById('scanned-code').innerText;
+        const location = document.getElementById('newLocation').value;
+        const updateBtn = document.querySelector('#update-section button');
+
+        if (!location) {
+            alert("請輸入放置位置！");
+            return;
+        }
+
+        updateBtn.innerText = "資料上傳中...";
+        updateBtn.disabled = true;
+
+        try {
+            let response = await fetch(scriptURL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                    'action': 'update',
+                    'userId': currentUser,
+                    'barcode': barcode,
+                    'location': location
+                })
+            });
+            let result = await response.json();
+
+            if (result.success) {
+                alert(`更新成功！\n物品已記錄到 Google 試算表。`);
+                resetApp();
+            }
+        } catch (error) {
+            alert("上傳失敗，請稍後再試。");
+        } finally {
+            updateBtn.innerText = "確認更新並借出";
+            updateBtn.disabled = false;
+        }
+    }
+
+    // 4. 回到掃描畫面 (維持不變)
+    function resetApp() {
+        document.getElementById('update-section').style.display = 'none';
+        document.getElementById('app-section').style.display = 'block';
+        document.getElementById('newLocation').value = "";
+        startScanner();
+    }
+</script>
