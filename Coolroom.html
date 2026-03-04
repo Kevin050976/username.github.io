@@ -30,7 +30,7 @@
     </div>
 
     <div id="app-section">
-        <p>歡迎登入！請對準物品條碼：</p>
+        <p>歡迎登入！請將條碼對準下方長方形框內：</p>
         <div id="reader"></div>
         <button onclick="stopScanner()" style="background-color: #dc3545;">關閉相機</button>
     </div>
@@ -45,7 +45,7 @@
 </div>
 
 <script>
-    // 👇👇👇 請把下面這行引號內的文字，換成你的 Google Apps Script 網址 👇👇👇
+    // 👇👇👇 請務必把下面這行引號內的文字，換成你在 Google Apps Script 部署拿到的網址 👇👇👇
     const scriptURL = 'https://script.google.com/macros/s/AKfycbxCvWczrqCA2zSBmhuJgLeBJi76khW22kpeIvlWCaO59OmzonnH5f7afNEs4RNdkFqwZw/exec'; 
     
     let html5QrcodeScanner;
@@ -96,9 +96,16 @@
         }
     }
 
-    // 2. 啟動相機與掃描
+    // 2. 啟動相機與掃描 (已針對一維長條形條碼優化)
     function startScanner() {
-        html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
+        html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 15, // 提高每秒掃描次數，反應更快
+                qrbox: { width: 300, height: 100 } // 寬扁的長方形，符合條碼比例
+            }, 
+            false
+        );
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
     }
 
@@ -110,7 +117,7 @@
     }
 
     function onScanFailure(error) { 
-        // 背景錯誤忽略 
+        // 掃描過程中的背景錯誤，通常忽略即可 
     }
 
     function stopScanner() {
@@ -145,7 +152,7 @@
             let result = await response.json();
 
             if (result.success) {
-                alert(`更新成功！\n物品已記錄到 Google 試算表。`);
+                alert(`更新成功！\n物品 (條碼: ${barcode}) 已記錄到 Google 試算表。`);
                 resetApp();
             }
         } catch (error) {
