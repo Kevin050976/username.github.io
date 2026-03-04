@@ -1,5 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>庫房掃描管理系統</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 400px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        input, button { width: 90%; padding: 10px; margin: 10px 0; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { background-color: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        #app-section, #update-section { display: none; }
+        #reader { width: 100%; margin-top: 20px; }
+        #login-msg { margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>庫房管理系統</h2>
+
+    <div id="login-section">
+        <p>請輸入您的 ID 進入系統</p>
+        <input type="password" id="userId" placeholder="請輸入密碼/ID">
+        <button onclick="login()">登入</button>
+        <p id="login-msg"></p>
+    </div>
+
+    <div id="app-section">
+        <p>歡迎登入！請對準物品條碼：</p>
+        <div id="reader"></div>
+        <button onclick="stopScanner()" style="background-color: #dc3545;">關閉相機</button>
+    </div>
+
+    <div id="update-section">
+        <h3>物品資訊更新</h3>
+        <p><strong>掃描到的條碼：</strong> <br><span id="scanned-code" style="color: #007bff; font-size: 1.2em; font-weight: bold;"></span></p>
+        <input type="text" id="newLocation" placeholder="請輸入新的放置位置 (例如: A區-層架3)">
+        <button id="update-btn" onclick="updateItem()">確認更新並借出</button>
+        <button onclick="resetApp()" style="background-color: #6c757d;">重新掃描</button>
+    </div>
+</div>
+
 <script>
-    const scriptURL = 'https://script.google.com/macros/s/AKfycbxCvWczrqCA2zSBmhuJgLeBJi76khW22kpeIvlWCaO59OmzonnH5f7afNEs4RNdkFqwZw/exec'; // 填入你在第三步複製的 Apps Script 網址
+    // 👇👇👇 請把下面這行引號內的文字，換成你的 Google Apps Script 網址 👇👇👇
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbxCvWczrqCA2zSBmhuJgLeBJi76khW22kpeIvlWCaO59OmzonnH5f7afNEs4RNdkFqwZw/exec'; 
     
     let html5QrcodeScanner;
     let currentUser = "";
@@ -11,13 +58,21 @@
         
         if (!idInput) {
             msgBox.innerText = "請輸入密碼！";
+            msgBox.style.color = "red";
             return;
         }
 
-        msgBox.innerText = "驗證中...";
+        if (scriptURL === '你的_WEB_APP_URL') {
+            msgBox.innerText = "請先在程式碼中填入正確的 Google API 網址！";
+            msgBox.style.color = "red";
+            return;
+        }
+
+        msgBox.innerText = "連線驗證中，請稍候...";
         msgBox.style.color = "blue";
 
         try {
+            // 發送請求給 Google Sheets
             let response = await fetch(scriptURL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -31,16 +86,17 @@
                 document.getElementById('app-section').style.display = 'block';
                 startScanner();
             } else {
-                msgBox.innerText = "ID/密碼錯誤或不在試算表清單中！";
+                msgBox.innerText = "ID/密碼錯誤或不在清單中！";
                 msgBox.style.color = "red";
             }
         } catch (error) {
-            msgBox.innerText = "連線失敗，請檢查網路。";
+            console.error(error);
+            msgBox.innerText = "連線失敗，請檢查網路或 API 網址是否正確。";
             msgBox.style.color = "red";
         }
     }
 
-    // 2. 啟動相機與掃描 (維持不變)
+    // 2. 啟動相機與掃描
     function startScanner() {
         html5QrcodeScanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: {width: 250, height: 250} }, false);
         html5QrcodeScanner.render(onScanSuccess, onScanFailure);
@@ -53,7 +109,9 @@
         document.getElementById('scanned-code').innerText = decodedText;
     }
 
-    function onScanFailure(error) { /* 背景錯誤忽略 */ }
+    function onScanFailure(error) { 
+        // 背景錯誤忽略 
+    }
 
     function stopScanner() {
         if (html5QrcodeScanner) html5QrcodeScanner.clear();
@@ -63,7 +121,7 @@
     async function updateItem() {
         const barcode = document.getElementById('scanned-code').innerText;
         const location = document.getElementById('newLocation').value;
-        const updateBtn = document.querySelector('#update-section button');
+        const updateBtn = document.getElementById('update-btn');
 
         if (!location) {
             alert("請輸入放置位置！");
@@ -92,13 +150,14 @@
             }
         } catch (error) {
             alert("上傳失敗，請稍後再試。");
+            console.error(error);
         } finally {
             updateBtn.innerText = "確認更新並借出";
             updateBtn.disabled = false;
         }
     }
 
-    // 4. 回到掃描畫面 (維持不變)
+    // 4. 回到掃描畫面
     function resetApp() {
         document.getElementById('update-section').style.display = 'none';
         document.getElementById('app-section').style.display = 'block';
@@ -106,3 +165,6 @@
         startScanner();
     }
 </script>
+
+</body>
+</html>
