@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 直播鬧鐘擷取工具</title>
+    <style>
+        /* 網頁基本排版與顏色 */
+        body {
+            font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif;
+            max-width: 500px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f4f7f6;
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 12px;
+            background-color: #06C755; /* LINE的經典綠色 */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #05a044;
+        }
+        
+        /* 鬧鐘清單排版 */
+        .alarm-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .alarm-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            padding: 15px 20px;
+            margin-bottom: 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        .alarm-info {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .alarm-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .alarm-time {
+            color: #e74c3c;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* 蘋果風格的開關 (Toggle Switch) CSS */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 28px;
+        }
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 28px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #06C755;
+        }
+        input:checked + .slider:before {
+            transform: translateX(22px);
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <h2>直播鬧鐘設定</h2>
+    
+    <div class="input-group">
+        <textarea id="inputText" placeholder="請在此貼上從 LINE 複製的內容..."></textarea>
+        <button onclick="parseAndAdd()">擷取並新增鬧鐘</button>
+    </div>
+
+    <ul class="alarm-list" id="alarmList">
+        </ul>
+
+    <script>
+        function parseAndAdd() {
+            const inputEl = document.getElementById('inputText');
+            const text = inputEl.value;
+            
+            if (!text.trim()) return;
+
+            // 使用正規表達式擷取：【任何文字】後面跟著 時間(HH:MM)
+            // 括號 ( ) 是為了把擷取到的結果存下來
+            const regex = /【([^】]+)】\s*(\d{1,2}:\d{2})/;
+            const match = text.match(regex);
+            
+            if (match) {
+                const title = match[1].trim(); // 擷取到的標題，例如：FOCUS世界新聞
+                const time = match[2].trim();  // 擷取到的時間，例如：11:00
+                
+                addAlarmItem(title, time);
+                inputEl.value = ''; // 新增成功後自動清空輸入框，方便貼下一筆
+            } else {
+                alert('無法解析！請確認貼上的內容是否包含「【標題】時間」的格式（例如：【FOCUS世界新聞】11:00）');
+            }
+        }
+
+        function addAlarmItem(title, time) {
+            const list = document.getElementById('alarmList');
+            
+            // 建立外層 <li>
+            const li = document.createElement('li');
+            li.className = 'alarm-item';
+            
+            // 建立左側文字資訊
+            const infoDiv = document.createElement('div');
+            infoDiv.className = 'alarm-info';
+            infoDiv.innerHTML = `
+                <span class="alarm-title">${title}</span>
+                <span class="alarm-time">⏰ ${time}</span>
+            `;
+            
+            // 建立右側開關按鈕
+            const switchLabel = document.createElement('label');
+            switchLabel.className = 'switch';
+            switchLabel.innerHTML = `
+                <input type="checkbox" checked>
+                <span class="slider"></span>
+            `;
+            
+            // 將左右元素放進清單中
+            li.appendChild(infoDiv);
+            li.appendChild(switchLabel);
+            
+            // 將新項目加在清單的最上方 (如果想加在最下面，改成 list.appendChild(li))
+            list.insertBefore(li, list.firstChild);
+        }
+    </script>
+</body>
+</html>
