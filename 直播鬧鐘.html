@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (極致排序版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (各自倒數最終版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -39,33 +39,28 @@
         .icon-edit-name { font-size: 12px; cursor: pointer; opacity: 0.6; }
         .icon-edit-name:hover { opacity: 1; }
 
-        /* ⭐ 縮小按鈕與圖示區域 */
         .time-control { display: flex; align-items: center; gap: 6px; }
         .icon-edit { font-size: 12px; cursor: pointer; padding: 2px; opacity: 0.7; margin-right: 2px; }
         .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; text-align: center; }
         .btn-time { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; color: #333; width: 26px; height: 26px; border-radius: 6px; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         
-        /* 右側控制區：調整間距 */
-        .alarm-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         
-        /* ⭐ 放大倒數計時 */
-        .nearest-timer { color: #c0392b; font-size: 19px; font-weight: 900; width: 70px; text-align: right; line-height: 1.1; }
+        /* ⭐ 獨立倒數計時：字體設定為顯眼的粗大紅色 */
+        .nearest-timer { color: #c0392b; font-size: 22px; font-weight: 900; width: 85px; text-align: right; line-height: 1.1; }
         
-        /* ⭐ 垃圾桶縮小 */
         .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 14px; padding: 4px; cursor: pointer; margin-left: auto; opacity: 0.8; }
         .btn-delete:hover { opacity: 1; color: #e74c3c; }
         
-        /* ⭐ 直式開關進一步微縮 */
         .switch { position: relative; display: inline-block; width: 22px; height: 40px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
         .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #06C755; }
-        /* 往上推 */
         input:checked + .slider:before { transform: translateY(-18px); }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; }
         .modal-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
         .alarm-text { font-size: 18px; color: #333; margin-bottom: 25px; line-height: 1.5; color: #e74c3c; }
         .end-alarm-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
@@ -112,7 +107,6 @@
             <input type="file" id="importFile" style="display:none" onchange="importAlarms(event)" accept=".txt">
             <button class="btn-io" onclick="document.getElementById('importFile').click()">📥 匯入.txt</button>
             <button class="btn-io" onclick="exportAlarms()">📤 匯出.txt</button>
-            <button class="btn-io" onclick="clearAllAlarms()" style="background-color:#e74c3c;">🗑️ 清空全部</button>
         </div>
     </div>
 
@@ -145,7 +139,6 @@
         let alarmInterval = null; 
         let currentModalItem = null; 
 
-        // ⭐ 排序模式狀態管理 (0: 時間+組別, 1: 純時間, 2: 純組別)
         let sortMode = 0;
         const sortLabels = ["依時間+組別排序", "依時間排序", "依組別排序"];
 
@@ -162,7 +155,6 @@
         }
 
         window.onload = function() {
-            // 讀取記憶的排序模式
             const savedSortMode = localStorage.getItem('lineAlarmsSortMode');
             if (savedSortMode !== null) {
                 sortMode = parseInt(savedSortMode);
@@ -192,13 +184,6 @@
                 };
             });
             localStorage.setItem('lineAlarmsData', JSON.stringify(data));
-        }
-
-        function clearAllAlarms() {
-            if(confirm('確定要清空所有鬧鐘嗎？此動作無法復原。')) {
-                document.getElementById('alarmList').innerHTML = '';
-                saveAlarmsToStorage();
-            }
         }
 
         function initAudio() {
@@ -269,7 +254,7 @@
                 
                 addAlarmItem(title, originalTimeStr, alarmTimeStr, text, "開始");
                 inputEl.value = ''; 
-                applyCurrentSort(); // ⭐ 自動套用當下排序
+                applyCurrentSort(); 
             } else { alert('無法解析格式，請確認包含「【標題】時間」。'); }
         }
 
@@ -416,22 +401,19 @@
             applyCurrentSort();
         }
 
-        // ⭐ 循環切換排序按鈕
         function toggleSortMode() {
             sortMode = (sortMode + 1) % 3;
             document.getElementById('sortBtn').innerText = sortLabels[sortMode];
-            localStorage.setItem('lineAlarmsSortMode', sortMode); // 記憶選擇的排序模式
+            localStorage.setItem('lineAlarmsSortMode', sortMode); 
             applyCurrentSort();
         }
 
-        // ⭐ 呼叫目前的排序模式
         function applyCurrentSort() {
             if (sortMode === 0) sortAlarmsByGroupTime();
             else if (sortMode === 1) sortAlarmsByTime();
             else if (sortMode === 2) sortAlarmsByName();
         }
 
-        // 排序：0. 時間+組別
         function sortAlarmsByGroupTime() {
             const list = document.getElementById('alarmList');
             const items = Array.from(list.children);
@@ -453,7 +435,6 @@
             saveAlarmsToStorage();
         }
 
-        // 排序：1. 純時間
         function sortAlarmsByTime() {
             const list = document.getElementById('alarmList');
             const items = Array.from(list.children);
@@ -464,7 +445,6 @@
             saveAlarmsToStorage();
         }
 
-        // 排序：2. 純組別 (依中文名稱排列)
         function sortAlarmsByName() {
             const list = document.getElementById('alarmList');
             const items = Array.from(list.children);
@@ -492,11 +472,14 @@
             if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
         }
 
-        function triggerAlarm(liElement) {
+        // ⭐ 修改：合併響鈴視窗，接受包含多個標題的陣列
+        function triggerCombinedAlarm(titles) {
             initAudio(); 
-            const titleSpan = liElement.querySelector('.alarm-title').innerText.replace(' 🔍', '');
-            document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br><b>【${titleSpan}】</b>`;
+            // 把所有同時間響起的標題串在一起
+            const titlesHtml = titles.map(t => `<b>【${t}】</b>`).join('<br><br>');
+            document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br>${titlesHtml}`;
             document.getElementById('alarmModal').style.display = 'flex';
+            
             if (alarmInterval) clearInterval(alarmInterval);
             playBeep(); alarmInterval = setInterval(playBeep, 800);
         }
@@ -510,42 +493,53 @@
             const now = new Date();
             const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
-            let nearestItem = null;
-            let minDiffSeconds = Infinity;
+            // 用來收集「這一秒鐘」需要觸發響鈴的所有任務名稱
+            let ringingTitles = [];
 
             document.querySelectorAll('.alarm-item').forEach(item => {
                 const isChecked = item.querySelector('.alarm-toggle').checked;
                 const [alarmHour, alarmMinute] = item.querySelector('.time-text').innerText.split(':').map(Number);
                 
-                item.querySelector('.nearest-timer').innerText = ''; 
+                // 每次循環都清空計時文字，以便重新計算寫入
+                const timerEl = item.querySelector('.nearest-timer');
+                timerEl.innerText = ''; 
 
+                // 檢查是否到了響鈴分鐘
                 if (isChecked && alarmHour === now.getHours() && alarmMinute === now.getMinutes()) {
-                    if (item.dataset.rang === "false") { triggerAlarm(item); item.dataset.rang = "true"; }
-                } else { item.dataset.rang = "false"; }
+                    if (item.dataset.rang === "false") { 
+                        // 取出乾淨的標題並存入陣列中
+                        const titleSpan = item.querySelector('.alarm-title').innerText.replace(' 🔍', '');
+                        ringingTitles.push(titleSpan);
+                        item.dataset.rang = "true"; 
+                    }
+                } else { 
+                    // 如果過了這一分鐘，重置狀態，明天同時間才能再響
+                    item.dataset.rang = "false"; 
+                }
 
+                // ⭐ 每一個開著的鬧鐘都顯示各自的倒數計時！
                 if (isChecked) {
                     let diffSeconds = (alarmHour * 3600 + alarmMinute * 60) - currentTotalSeconds;
-                    if (diffSeconds < 0) diffSeconds += 24 * 3600; 
-                    if (diffSeconds >= 0 && diffSeconds < minDiffSeconds) {
-                        minDiffSeconds = diffSeconds;
-                        nearestItem = item;
-                    }
+                    if (diffSeconds < 0) diffSeconds += 24 * 3600; // 跨日計算
+                    
+                    const h = Math.floor(diffSeconds / 3600);
+                    const m = Math.floor((diffSeconds % 3600) / 60);
+                    const s = diffSeconds % 60;
+                    
+                    let text = "";
+                    if (h > 0) text = `${h}時\n${m}分`;
+                    else if (m > 0) text = `${m}分\n${s}秒`;
+                    else text = `${s}秒`;
+
+                    timerEl.innerText = text;
                 }
             });
 
-            // ⭐ 倒數計時文字去除了多餘敘述，直接顯示巨大粗體的時間
-            if (nearestItem && minDiffSeconds !== Infinity) {
-                const h = Math.floor(minDiffSeconds / 3600);
-                const m = Math.floor((minDiffSeconds % 3600) / 60);
-                const s = minDiffSeconds % 60;
-                
-                let text = "";
-                if (h > 0) text = `${h}時\n${m}分`;
-                else if (m > 0) text = `${m}分\n${s}秒`;
-                else text = `${s}秒`;
-
-                nearestItem.querySelector('.nearest-timer').innerText = text;
+            // ⭐ 如果這一秒有任何鬧鐘需要響，統一呼叫一次合併響鈴，不會吵雜重疊！
+            if (ringingTitles.length > 0) {
+                triggerCombinedAlarm(ringingTitles);
             }
+            
         }, 1000);
     </script>
 </body>
