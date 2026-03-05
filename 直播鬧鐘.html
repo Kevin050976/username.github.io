@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (各自倒數最終版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (極致精準版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -46,8 +46,8 @@
         
         .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         
-        /* ⭐ 獨立倒數計時：字體設定為顯眼的粗大紅色 */
-        .nearest-timer { color: #c0392b; font-size: 22px; font-weight: 900; width: 85px; text-align: right; line-height: 1.1; }
+        /* ⭐ 倒數計時再度極限放大！ */
+        .nearest-timer { color: #c0392b; font-size: 26px; font-weight: 900; width: 95px; text-align: right; line-height: 1.0; }
         
         .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 14px; padding: 4px; cursor: pointer; margin-left: auto; opacity: 0.8; }
         .btn-delete:hover { opacity: 1; color: #e74c3c; }
@@ -472,10 +472,8 @@
             if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
         }
 
-        // ⭐ 修改：合併響鈴視窗，接受包含多個標題的陣列
         function triggerCombinedAlarm(titles) {
             initAudio(); 
-            // 把所有同時間響起的標題串在一起
             const titlesHtml = titles.map(t => `<b>【${t}】</b>`).join('<br><br>');
             document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br>${titlesHtml}`;
             document.getElementById('alarmModal').style.display = 'flex';
@@ -493,49 +491,60 @@
             const now = new Date();
             const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
 
-            // 用來收集「這一秒鐘」需要觸發響鈴的所有任務名稱
+            let minDiffSeconds = Infinity;
+            const activeAlarmsInfo = [];
             let ringingTitles = [];
 
             document.querySelectorAll('.alarm-item').forEach(item => {
                 const isChecked = item.querySelector('.alarm-toggle').checked;
                 const [alarmHour, alarmMinute] = item.querySelector('.time-text').innerText.split(':').map(Number);
                 
-                // 每次循環都清空計時文字，以便重新計算寫入
-                const timerEl = item.querySelector('.nearest-timer');
-                timerEl.innerText = ''; 
+                // 每秒清空所有倒數文字
+                item.querySelector('.nearest-timer').innerText = ''; 
 
-                // 檢查是否到了響鈴分鐘
+                // 檢查哪些鬧鐘「這分鐘」該響了
                 if (isChecked && alarmHour === now.getHours() && alarmMinute === now.getMinutes()) {
                     if (item.dataset.rang === "false") { 
-                        // 取出乾淨的標題並存入陣列中
                         const titleSpan = item.querySelector('.alarm-title').innerText.replace(' 🔍', '');
                         ringingTitles.push(titleSpan);
                         item.dataset.rang = "true"; 
                     }
                 } else { 
-                    // 如果過了這一分鐘，重置狀態，明天同時間才能再響
                     item.dataset.rang = "false"; 
                 }
 
-                // ⭐ 每一個開著的鬧鐘都顯示各自的倒數計時！
+                // 收集所有開啟中的鬧鐘時間，找出最近的時間點
                 if (isChecked) {
                     let diffSeconds = (alarmHour * 3600 + alarmMinute * 60) - currentTotalSeconds;
-                    if (diffSeconds < 0) diffSeconds += 24 * 3600; // 跨日計算
+                    if (diffSeconds < 0) diffSeconds += 24 * 3600; 
                     
-                    const h = Math.floor(diffSeconds / 3600);
-                    const m = Math.floor((diffSeconds % 3600) / 60);
-                    const s = diffSeconds % 60;
+                    activeAlarmsInfo.push({ item, diffSeconds });
                     
-                    let text = "";
-                    if (h > 0) text = `${h}時\n${m}分`;
-                    else if (m > 0) text = `${m}分\n${s}秒`;
-                    else text = `${s}秒`;
-
-                    timerEl.innerText = text;
+                    if (diffSeconds < minDiffSeconds) {
+                        minDiffSeconds = diffSeconds;
+                    }
                 }
             });
 
-            // ⭐ 如果這一秒有任何鬧鐘需要響，統一呼叫一次合併響鈴，不會吵雜重疊！
+            // ⭐ 只有跟「最近時間（minDiffSeconds）」一模一樣的鬧鐘，才會顯示倒數！
+            if (minDiffSeconds !== Infinity) {
+                const h = Math.floor(minDiffSeconds / 3600);
+                const m = Math.floor((minDiffSeconds % 3600) / 60);
+                const s = minDiffSeconds % 60;
+                
+                let text = "";
+                if (h > 0) text = `${h}時\n${m}分`;
+                else if (m > 0) text = `${m}分\n${s}秒`;
+                else text = `${s}秒`;
+
+                activeAlarmsInfo.forEach(info => {
+                    if (info.diffSeconds === minDiffSeconds) {
+                        info.item.querySelector('.nearest-timer').innerText = text;
+                    }
+                });
+            }
+
+            // ⭐ 如果這一秒有多個鬧鐘同時到期，只會執行一次合併響鈴
             if (ringingTitles.length > 0) {
                 triggerCombinedAlarm(ringingTitles);
             }
