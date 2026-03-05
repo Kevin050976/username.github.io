@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (最終完美版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (最強旗艦版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body {
@@ -27,140 +27,90 @@
 
         /* 輸入區與工具列 */
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        
-        /* 工具列排版：左右分佈 */
         .toolbar { 
             display: flex; justify-content: space-between; align-items: center; 
             background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
         
-        /* 提早鬧鐘設定區 */
         .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
         .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
-        .btn-early {
-            background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px;
-            cursor: pointer; font-weight: bold; font-size: 14px;
-        }
+        .btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
         .btn-early:active { background-color: #bdc3c7; }
 
-        .btn-tool {
-            background-color: #7f8c8d; color: white; border: none;
-            padding: 6px 12px; border-radius: 6px; font-size: 13px;
-            cursor: pointer; font-weight: bold;
-        }
+        .btn-tool { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
         .btn-tool:active { background-color: #95a5a6; }
         
-        textarea {
-            width: 100%; height: 100px; padding: 12px; border: 2px solid #ddd;
-            border-radius: 8px; font-size: 15px; box-sizing: border-box;
-        }
+        textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
         
-        .button-group { display: flex; gap: 10px; }
-        .btn-add {
-            background-color: #06C755; color: white; border: none; cursor: pointer;
-            padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1;
-        }
-        .btn-sort {
-            background-color: #3498db; color: white; border: none; cursor: pointer;
-            padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 0.5;
-        }
+        /* 按鈕群組 */
+        .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1; }
+        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+        .btn-io { background-color: #9b59b6; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
 
         /* 鬧鐘清單排版 */
         .alarm-list { list-style: none; padding: 0; margin: 0; }
         .alarm-item {
             display: flex; align-items: center; justify-content: space-between;
-            background: white; padding: 15px; margin-bottom: 12px;
-            border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            padding: 15px; margin-bottom: 12px; border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s;
         }
-        .alarm-info { display: flex; flex-direction: column; gap: 10px; flex-grow: 1; }
+        .alarm-info { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
         
-        /* 標題 (點擊效果) */
-        .alarm-title { 
-            font-size: 16px; font-weight: bold; color: #2980b9; 
-            cursor: pointer; text-decoration: underline; text-underline-offset: 4px;
-            display: inline-block;
-        }
-        .alarm-title:active { color: #1c5980; background-color: #f0f8ff; }
-        
-        /* 時間與加減按鈕區 */
-        .time-control { display: flex; align-items: center; gap: 10px; }
-        .icon-edit { font-size: 20px; cursor: pointer; padding: 2px; }
-        .time-text { color: #e74c3c; font-size: 20px; font-weight: bold; width: 60px; text-align: center; }
-        .btn-time {
-            background-color: #ecf0f1; border: none; color: #333;
-            width: 40px; height: 40px; border-radius: 8px; font-size: 24px; font-weight: bold;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-        }
-        .btn-time:active { background-color: #bdc3c7; }
+        .title-wrapper { display: flex; align-items: center; gap: 5px; }
+        .alarm-title { font-size: 16px; font-weight: bold; color: #2c3e50; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+        .icon-edit-name { font-size: 14px; cursor: pointer; opacity: 0.6; }
+        .icon-edit-name:hover { opacity: 1; }
 
-        .alarm-controls { display: flex; align-items: center; gap: 12px; }
-        .btn-delete { background: none; border: none; color: #95a5a6; font-size: 24px; padding: 5px; cursor: pointer; }
+        .time-control { display: flex; align-items: center; gap: 10px; }
+        .icon-edit { font-size: 18px; cursor: pointer; padding: 2px; }
+        .time-text { color: #e74c3c; font-size: 20px; font-weight: bold; width: 60px; text-align: center; }
+        .btn-time { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; color: #333; width: 35px; height: 35px; border-radius: 8px; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
+        .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        
+        /* 倒數計時文字 */
+        .nearest-timer { color: #e74c3c; font-size: 13px; font-weight: bold; width: 65px; text-align: right; line-height: 1.2; }
+        
+        .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 22px; padding: 0 5px; cursor: pointer; }
         
         /* 開關 */
-        .switch { position: relative; display: inline-block; width: 46px; height: 26px; }
+        .switch { position: relative; display: inline-block; width: 42px; height: 24px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc; transition: .4s; border-radius: 26px;
-        }
-        .slider:before {
-            position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px;
-            background-color: white; transition: .4s; border-radius: 50%;
-        }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #06C755; }
-        input:checked + .slider:before { transform: translateX(20px); }
+        input:checked + .slider:before { transform: translateX(18px); }
 
-        /* 彈出視窗共用樣式 */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); display: none; 
-            align-items: center; justify-content: center; z-index: 1000;
-        }
-        .modal-content {
-            background: white; padding: 25px; border-radius: 15px;
-            text-align: center; width: 85%; max-width: 350px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            animation: popIn 0.3s ease-out; display: flex; flex-direction: column; max-height: 85vh;
-        }
+        /* 彈出視窗 */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; }
         .modal-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
         .alarm-text { font-size: 18px; color: #333; margin-bottom: 25px; line-height: 1.5; color: #e74c3c; }
         
-        /* 新增結束鬧鐘區塊 */
-        .end-alarm-box {
-            background: #fff3cd; border: 1px solid #ffeeba;
-            padding: 12px; border-radius: 8px; margin-bottom: 15px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
+        .end-alarm-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .end-alarm-box input[type="time"] { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; width: 110px; }
-        .btn-end-alarm {
-            background-color: #e67e22; color: white; border: none;
-            padding: 8px 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;
-        }
-        .btn-end-alarm:active { background-color: #d35400; }
-
-        .raw-data-text {
-            font-size: 15px; color: #333; background: #f9f9f9; 
-            padding: 12px; border-radius: 8px; border: 1px solid #eee;
-            text-align: left; overflow-y: auto; margin-bottom: 20px; flex-grow: 1;
-        }
+        .btn-end-alarm { background-color: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        
+        .raw-data-text { font-size: 15px; color: #333; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; text-align: left; overflow-y: auto; margin-bottom: 20px; flex-grow: 1; }
         .raw-data-text a { color: #06C755; text-decoration: underline; word-break: break-all; font-weight: bold; }
 
         .btn-stop-alarm { background-color: #e74c3c; color: white; border: none; padding: 15px 20px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; }
         .btn-close-info { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
-        
-        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
+
+    <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
     <h2>直播鬧鐘設定 ⏰</h2>
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
-            1. 點擊啟動螢幕長亮 (解鎖音效)
+            1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)
         </button>
         <p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 0;">
-            ⚠️ iPhone 必點：螢幕保持亮著，時間到才會發聲。
+            ⚠️ 點擊開啟後，Android 按電源鍵熄屏時間到依然會響！
         </p>
     </div>
     
@@ -172,13 +122,21 @@
                 <span class="early-val" id="earlyMinsText">0</span> 分
                 <button class="btn-early" onclick="adjustEarly(1)">+</button>
             </div>
-            
             <button class="btn-tool" onclick="wrapBrackets()" title="請先選取文字再點擊">➕ 幫反白加【 】</button>
         </div>
         <textarea id="inputText" placeholder="2. 請在此貼上從 LINE 複製的內容..."></textarea>
-        <div class="button-group">
+        
+        <div class="button-group-row">
             <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
-            <button class="btn-sort" onclick="sortAlarms()">依時間排序</button>
+        </div>
+        <div class="button-group-row">
+            <button class="btn-sort" onclick="sortAlarmsByTime()">依時間排序</button>
+            <button class="btn-sort" onclick="sortAlarmsByName()">依名稱排序</button>
+        </div>
+        <div class="button-group-row">
+            <input type="file" id="importFile" style="display:none" onchange="importAlarms(event)" accept=".txt">
+            <button class="btn-io" onclick="document.getElementById('importFile').click()">📥 匯入.txt</button>
+            <button class="btn-io" onclick="exportAlarms()">📤 匯出.txt</button>
         </div>
     </div>
 
@@ -209,12 +167,29 @@
         let audioCtx;
         let wakeLock = null;
         let alarmInterval = null; 
-        let currentModalTitle = '';
-        let currentModalText = '';
+        let currentModalItem = null; // 紀錄目前點開的是哪一個 <li>
+
+        // ⭐ 新增：同名稱對應的背景顏色庫 (清爽馬卡龍色)
+        const bgColors = ['#f8c291', '#82ccdd', '#b8e994', '#f6b93b', '#e58e26', '#78e08f', '#60a3bc', '#fad390', '#c7ecee', '#ffb8b8'];
+        let colorMap = {};
+        let colorIndex = 0;
+
+        function getBgColor(name) {
+            if (!colorMap[name]) {
+                colorMap[name] = bgColors[colorIndex % bgColors.length];
+                colorIndex++;
+            }
+            return colorMap[name];
+        }
 
         function initAudio() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // ⭐ 破解 Android 熄屏：播放無聲背景音檔
+            const silentAudio = document.getElementById('silentAudio');
+            silentAudio.play().catch(e => console.log('Silent audio play blocked:', e));
+
             const osc = audioCtx.createOscillator();
             osc.connect(audioCtx.destination);
             osc.start(); osc.stop(audioCtx.currentTime + 0.001);
@@ -223,18 +198,22 @@
         async function toggleSystem() {
             initAudio();
             const btn = document.getElementById('masterBtn');
+            const silentAudio = document.getElementById('silentAudio');
+            
             if (wakeLock !== null) {
                 await wakeLock.release(); wakeLock = null;
-                btn.innerText = "1. 點擊啟動螢幕長亮 (解鎖音效)"; btn.classList.remove('active');
+                silentAudio.pause(); // 關閉靜音播放
+                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)"; btn.classList.remove('active');
             } else {
                 try {
+                    silentAudio.play();
                     if ('wakeLock' in navigator) {
                         wakeLock = await navigator.wakeLock.request('screen');
-                        btn.innerText = "✅ 螢幕長亮已啟動 (再點一次可關閉)"; btn.classList.add('active');
+                        btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動"; btn.classList.add('active');
                     } else {
-                        btn.innerText = "✅ 音效已解鎖 (您的瀏覽器不支援長亮)"; btn.classList.add('active');
+                        btn.innerText = "✅ 背景鬧鐘已啟動 (不支援長亮)"; btn.classList.add('active');
                     }
-                } catch (err) { alert(`無法啟動螢幕長亮：${err.message}`); }
+                } catch (err) { alert(`系統提示：${err.message}`); }
             }
         }
 
@@ -244,11 +223,10 @@
             }
         });
 
-        // ⭐ 新增：調整提早分鐘數
         function adjustEarly(delta) {
             let val = parseInt(document.getElementById('earlyMinsText').innerText);
             val += delta;
-            if (val < 0) val = 0; // 不允許設定負數
+            if (val < 0) val = 0;
             document.getElementById('earlyMinsText').innerText = val;
         }
 
@@ -277,46 +255,53 @@
                 const title = match[1].trim();
                 let time = match[2].trim();
                 
-                // 原始節目的時間 (顯示在標題上)
                 let [h, m] = time.split(':').map(Number);
                 const originalTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 
-                // ⭐ 新增：計算扣除提早分鐘數後的鬧鐘時間
                 const earlyMins = parseInt(document.getElementById('earlyMinsText').innerText);
                 m -= earlyMins;
                 while (m < 0) { m += 60; h -= 1; }
-                h = (h + 24) % 24; // 處理跨日退位
+                h = (h + 24) % 24; 
                 const alarmTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                 
-                // 呼叫函式 (傳入原始時間與鬧鐘時間)
                 addAlarmItem(title, originalTimeStr, alarmTimeStr, text, "開始");
                 inputEl.value = ''; 
             } else { alert('無法解析！請確認格式包含「【標題】時間」。'); }
         }
 
-        // ⭐ 修改：接收 originalTime 和 alarmTime 分別顯示
-        function addAlarmItem(title, originalTime, alarmTime, rawText, suffix) {
+        // ⭐ 核心建立鬧鐘項目
+        function addAlarmItem(baseName, originalTime, alarmTime, rawText, suffix) {
             const list = document.getElementById('alarmList');
             const li = document.createElement('li');
             li.className = 'alarm-item';
+            
+            // 使用 Dataset 儲存資料，方便修改與排序
             li.dataset.rang = "false"; 
+            li.dataset.basename = baseName;
+            li.dataset.origtime = originalTime;
+            li.dataset.suffix = suffix;
             
-            const encodedTitle = encodeURIComponent(title);
-            const encodedText = encodeURIComponent(rawText);
+            // 根據 baseName 決定背景色
+            li.style.backgroundColor = getBgColor(baseName);
             
+            // 安全編碼原始資料
+            const encodedText = encodeURIComponent(rawText || '');
+
             li.innerHTML = `
                 <div class="alarm-info">
-                    <span class="alarm-title" onclick="showInfoModal('${encodedTitle}', '${encodedText}')">
-                        ${title} ${originalTime} ${suffix} 🔍
-                    </span>
+                    <div class="title-wrapper">
+                        <span class="alarm-title" onclick="showInfoModal(this, '${encodedText}')"></span>
+                        <span class="icon-edit-name" onclick="editNameByPrompt(this)" title="修改名稱">✏️</span>
+                    </div>
                     <div class="time-control">
-                        <span class="icon-edit" onclick="editTimeByPrompt(this)" title="手動輸入時間">✏️</span>
+                        <span class="icon-edit" onclick="editTimeByPrompt(this)" title="修改時間">✏️</span>
                         <button class="btn-time" onclick="adjustTime(this, -1)">-</button>
                         <span class="time-text">${alarmTime}</span>
                         <button class="btn-time" onclick="adjustTime(this, 1)">+</button>
                     </div>
                 </div>
                 <div class="alarm-controls">
+                    <div class="nearest-timer"></div>
                     <label class="switch">
                         <input type="checkbox" checked class="alarm-toggle">
                         <span class="slider"></span>
@@ -324,7 +309,87 @@
                     <button class="btn-delete" onclick="this.closest('.alarm-item').remove()">🗑️</button>
                 </div>
             `;
+            
+            updateTitleDisplay(li); // 繪製標題文字
             list.insertBefore(li, list.firstChild);
+        }
+
+        // ⭐ 更新標題顯示文字
+        function updateTitleDisplay(li) {
+            const titleSpan = li.querySelector('.alarm-title');
+            titleSpan.innerText = `${li.dataset.basename} ${li.dataset.origtime} ${li.dataset.suffix} 🔍`;
+        }
+
+        // ⭐ 修改名稱功能
+        function editNameByPrompt(btn) {
+            const li = btn.closest('.alarm-item');
+            const currentName = li.dataset.basename;
+            const newName = prompt("✏️ 請輸入新的鬧鐘名稱", currentName);
+            
+            if (newName && newName.trim() !== '') {
+                li.dataset.basename = newName.trim();
+                // 名稱改變，重新分配背景色
+                li.style.backgroundColor = getBgColor(li.dataset.basename);
+                updateTitleDisplay(li);
+            }
+        }
+
+        // ⭐ 匯出 .txt 檔 (只匯出標題名稱與時間等文字)
+        function exportAlarms() {
+            const items = document.querySelectorAll('.alarm-item');
+            if(items.length === 0) { alert("目前沒有鬧鐘可以匯出！"); return; }
+            
+            let textData = "";
+            items.forEach(item => {
+                // 抓取畫面上顯示的標題文字 (去掉最後的 🔍)
+                const fullTitle = item.querySelector('.alarm-title').innerText.replace(' 🔍', '').trim();
+                textData += fullTitle + "\n";
+            });
+
+            const blob = new Blob([textData], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            
+            // 檔名加上今天的日期
+            const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+            a.download = `直播鬧鐘備份_${dateStr}.txt`;
+            a.click();
+        }
+
+        // ⭐ 匯入 .txt 檔
+        function importAlarms(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                let count = 0;
+                
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (!line) return;
+                    
+                    // 正規表達式解析匯出檔的格式：名稱 + 時間 + 狀態(開始/結束)
+                    // 例如 "午間整點新聞 12:00 開始" 或 "FOCUS世界新聞 14:30 結束"
+                    const match = line.match(/^(.*?)\s+(\d{1,2}:\d{2})\s*(開始|結束)?$/);
+                    
+                    if (match) {
+                        const title = match[1].trim();
+                        const time = match[2].trim();
+                        const suffix = match[3] || '';
+                        
+                        // 匯入的項目，鬧鐘時間與原始時間相同，rawText 直接放原本這行字
+                        addAlarmItem(title, time, time, line, suffix);
+                        count++;
+                    }
+                });
+                
+                alert(`✅ 匯入成功！共載入 ${count} 筆鬧鐘。`);
+                // 清空 input file 的值，讓下次選同一個檔案也能觸發 onchange
+                event.target.value = '';
+            };
+            reader.readAsText(file);
         }
 
         function formatTextToLinks(text) {
@@ -338,11 +403,12 @@
             return safeHtml.replace(/\n/g, '<br>');
         }
 
-        function showInfoModal(encodedTitle, encodedText) {
-            currentModalTitle = decodeURIComponent(encodedTitle);
-            currentModalText = decodeURIComponent(encodedText);
+        function showInfoModal(titleElement, encodedText) {
+            const li = titleElement.closest('.alarm-item');
+            currentModalItem = li; 
+            
             document.getElementById('endAlarmTimeInput').value = "";
-            document.getElementById('infoModalText').innerHTML = formatTextToLinks(currentModalText);
+            document.getElementById('infoModalText').innerHTML = formatTextToLinks(decodeURIComponent(encodedText));
             document.getElementById('infoModal').style.display = 'flex';
         }
 
@@ -353,21 +419,21 @@
         function createEndAlarm() {
             const timeInput = document.getElementById('endAlarmTimeInput').value;
             if (!timeInput) { alert("請先設定結束時間！"); return; }
-            
-            // 結束時間直接等於鬧鐘時間，不需要套用提早扣除
-            addAlarmItem(currentModalTitle, timeInput, timeInput, currentModalText, "結束");
-            alert(`✅ 已成功新增：【${currentModalTitle}】 的結束鬧鐘 (${timeInput})！`);
-            sortAlarms();
+            if (!currentModalItem) return;
+
+            const baseName = currentModalItem.dataset.basename;
+            // 結束鬧鐘沒有 raw text 也可以，這裡留空字串
+            addAlarmItem(baseName, timeInput, timeInput, "", "結束");
+            alert(`✅ 已成功新增：【${baseName}】 的結束鬧鐘 (${timeInput})！`);
+            sortAlarmsByTime();
         }
 
-        // ⭐ 新增：透過彈出視窗手動修改時間的功能
         function editTimeByPrompt(btn) {
             const timeSpan = btn.parentElement.querySelector('.time-text');
             const current = timeSpan.innerText;
             
             const newTime = prompt("✏️ 請輸入新的鬧鐘時間 (小時:分鐘)\n(例如: 09:30 或 14.30)", current);
             if (newTime !== null && newTime.trim() !== '') {
-                // 寬容的正規表達式，支援「冒號、小數點、全形冒號」
                 const match = newTime.trim().match(/^(\d{1,2})[.:：](\d{1,2})$/);
                 if (match) {
                     const h = String(parseInt(match[1])).padStart(2, '0');
@@ -375,12 +441,8 @@
                     if (parseInt(h) < 24 && parseInt(m) < 60) {
                         timeSpan.innerText = `${h}:${m}`;
                         btn.closest('.alarm-item').dataset.rang = "false";
-                    } else {
-                        alert("❌ 時間格式不正確！小時需小於 24，分鐘需小於 60。");
-                    }
-                } else {
-                    alert("❌ 格式錯誤！請輸入如 14:30 的格式。");
-                }
+                    } else { alert("❌ 時間格式不正確！"); }
+                } else { alert("❌ 格式錯誤！請輸入如 14:30 的格式。"); }
             }
         }
 
@@ -396,14 +458,36 @@
             button.closest('.alarm-item').dataset.rang = "false";
         }
 
-        function sortAlarms() {
+        // ⭐ 依時間排序
+        function sortAlarmsByTime() {
             const list = document.getElementById('alarmList');
             const items = Array.from(list.children);
             items.sort((a, b) => {
                 const timeA = a.querySelector('.time-text').innerText;
                 const timeB = b.querySelector('.time-text').innerText;
-                const getMinutes = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
-                return getMinutes(timeA) - getMinutes(timeB);
+                const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+                return getMins(timeA) - getMins(timeB);
+            });
+            items.forEach(item => list.appendChild(item));
+        }
+
+        // ⭐ 新增：依名稱排序
+        function sortAlarmsByName() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            items.sort((a, b) => {
+                const nameA = a.dataset.basename || "";
+                const nameB = b.dataset.basename || "";
+                
+                // 名稱相同時，再判斷時間
+                if (nameA === nameB) {
+                    const timeA = a.querySelector('.time-text').innerText;
+                    const timeB = b.querySelector('.time-text').innerText;
+                    const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+                    return getMins(timeA) - getMins(timeB);
+                }
+                // 使用中文字典排序
+                return nameA.localeCompare(nameB, 'zh-TW');
             });
             items.forEach(item => list.appendChild(item));
         }
@@ -414,17 +498,17 @@
                 const osc = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
                 osc.type = 'square'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
-                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); 
                 osc.connect(gainNode); gainNode.connect(audioCtx.destination);
-                osc.start(); setTimeout(() => osc.stop(), 200);
+                osc.start(); setTimeout(() => osc.stop(), 250);
             }
-            if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
         }
 
-        function triggerAlarm(titleElement) {
+        function triggerAlarm(liElement) {
             initAudio(); 
-            const fullTitle = titleElement.innerText.replace(' 🔍', '');
-            document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br><b>【${fullTitle}】</b>`;
+            const titleSpan = liElement.querySelector('.alarm-title').innerText.replace(' 🔍', '');
+            document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br><b>【${titleSpan}】</b>`;
             document.getElementById('alarmModal').style.display = 'flex';
             
             if (alarmInterval) clearInterval(alarmInterval);
@@ -436,26 +520,69 @@
             if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
         }
 
+        // 每秒檢查時間與更新倒數
         setInterval(() => {
             const now = new Date();
             const currentHour = now.getHours();
             const currentMinute = now.getMinutes();
+            const currentSecond = now.getSeconds();
+            
+            const currentTotalSeconds = currentHour * 3600 + currentMinute * 60 + currentSecond;
 
-            document.querySelectorAll('.alarm-item').forEach(item => {
+            let nearestItem = null;
+            let minDiffSeconds = Infinity;
+
+            const items = document.querySelectorAll('.alarm-item');
+            
+            items.forEach(item => {
                 const isChecked = item.querySelector('.alarm-toggle').checked;
                 const timeText = item.querySelector('.time-text').innerText;
-                const [alarmHour, alarmMinute] = timeText.split(':');
-                const titleElement = item.querySelector('.alarm-title');
+                const [alarmHour, alarmMinute] = timeText.split(':').map(Number);
+                
+                // 先清空所有的倒數文字
+                item.querySelector('.nearest-timer').innerText = '';
 
-                if (isChecked && parseInt(alarmHour) === currentHour && parseInt(alarmMinute) === currentMinute) {
+                // 檢查是否響鈴
+                if (isChecked && alarmHour === currentHour && alarmMinute === currentMinute) {
                     if (item.dataset.rang === "false") {
-                        triggerAlarm(titleElement);
+                        triggerAlarm(item);
                         item.dataset.rang = "true"; 
                     }
                 } else {
                     item.dataset.rang = "false";
                 }
+
+                // ⭐ 計算倒數邏輯 (找最近的鬧鐘)
+                if (isChecked) {
+                    let alarmTotalSeconds = alarmHour * 3600 + alarmMinute * 60;
+                    let diffSeconds = alarmTotalSeconds - currentTotalSeconds;
+                    
+                    // 如果時間已經過了今天，算作明天的倒數
+                    if (diffSeconds < 0) {
+                        diffSeconds += 24 * 3600;
+                    }
+
+                    if (diffSeconds >= 0 && diffSeconds < minDiffSeconds) {
+                        minDiffSeconds = diffSeconds;
+                        nearestItem = item;
+                    }
+                }
             });
+
+            // ⭐ 顯示紅色倒數文字在最近的鬧鐘上
+            if (nearestItem && minDiffSeconds !== Infinity) {
+                const h = Math.floor(minDiffSeconds / 3600);
+                const m = Math.floor((minDiffSeconds % 3600) / 60);
+                const s = minDiffSeconds % 60;
+                
+                let text = "即將響起\n";
+                if (h > 0) text += `${h}時${m}分`;
+                else if (m > 0) text += `${m}分${s}秒`;
+                else text += `${s}秒`;
+
+                nearestItem.querySelector('.nearest-timer').innerText = text;
+            }
+
         }, 1000);
     </script>
 </body>
