@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (自動記憶版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (極致排序版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -26,42 +26,43 @@
         
         .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
         .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1; }
-        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 15px; font-weight: bold; flex: 1; }
+        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 15px; font-weight: bold; flex: 1; transition: 0.2s; }
+        .btn-sort:active { background-color: #2980b9; transform: scale(0.98); }
         .btn-io { background-color: #9b59b6; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
 
         .alarm-list { list-style: none; padding: 0; margin: 0; }
-        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; }
-        .alarm-info { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; }
+        .alarm-info { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; }
         
         .title-wrapper { display: flex; align-items: center; gap: 5px; }
-        .alarm-title { font-size: 16px; font-weight: bold; color: #2c3e50; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; line-height: 1.3; }
-        .icon-edit-name { font-size: 13px; cursor: pointer; opacity: 0.6; }
+        .alarm-title { font-size: 15px; font-weight: bold; color: #2c3e50; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; line-height: 1.3; }
+        .icon-edit-name { font-size: 12px; cursor: pointer; opacity: 0.6; }
         .icon-edit-name:hover { opacity: 1; }
 
-        .time-control { display: flex; align-items: center; gap: 8px; }
-        /* 修改時間圖示：變小且往左靠 */
-        .icon-edit { font-size: 14px; cursor: pointer; padding: 2px; opacity: 0.7; margin-right: 2px; }
-        .time-text { color: #e74c3c; font-size: 20px; font-weight: bold; width: 55px; text-align: center; }
-        .btn-time { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; color: #333; width: 32px; height: 32px; border-radius: 8px; font-size: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        /* ⭐ 縮小按鈕與圖示區域 */
+        .time-control { display: flex; align-items: center; gap: 6px; }
+        .icon-edit { font-size: 12px; cursor: pointer; padding: 2px; opacity: 0.7; margin-right: 2px; }
+        .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; text-align: center; }
+        .btn-time { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; color: #333; width: 26px; height: 26px; border-radius: 6px; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         
         /* 右側控制區：調整間距 */
         .alarm-controls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
         
-        /* 倒數計時：放大且加粗 */
-        .nearest-timer { color: #e74c3c; font-size: 16px; font-weight: 900; width: 68px; text-align: right; line-height: 1.1; }
+        /* ⭐ 放大倒數計時 */
+        .nearest-timer { color: #c0392b; font-size: 19px; font-weight: 900; width: 70px; text-align: right; line-height: 1.1; }
         
-        /* 垃圾桶：縮小且靠右 */
-        .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 16px; padding: 4px; cursor: pointer; margin-left: auto; opacity: 0.8; }
+        /* ⭐ 垃圾桶縮小 */
+        .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 14px; padding: 4px; cursor: pointer; margin-left: auto; opacity: 0.8; }
         .btn-delete:hover { opacity: 1; color: #e74c3c; }
         
-        /* ⭐ 上下開關 (直式) */
-        .switch { position: relative; display: inline-block; width: 28px; height: 50px; }
+        /* ⭐ 直式開關進一步微縮 */
+        .switch { position: relative; display: inline-block; width: 22px; height: 40px; }
         .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 28px; }
-        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
         input:checked + .slider { background-color: #06C755; }
         /* 往上推 */
-        input:checked + .slider:before { transform: translateY(-22px); }
+        input:checked + .slider:before { transform: translateY(-18px); }
 
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; }
@@ -105,7 +106,7 @@
         
         <div class="button-group-row">
             <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
-            <button class="btn-sort" onclick="sortAlarmsByGroupTime()">依時間+組別排序</button>
+            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間+組別排序</button>
         </div>
         <div class="button-group-row">
             <input type="file" id="importFile" style="display:none" onchange="importAlarms(event)" accept=".txt">
@@ -144,6 +145,10 @@
         let alarmInterval = null; 
         let currentModalItem = null; 
 
+        // ⭐ 排序模式狀態管理 (0: 時間+組別, 1: 純時間, 2: 純組別)
+        let sortMode = 0;
+        const sortLabels = ["依時間+組別排序", "依時間排序", "依組別排序"];
+
         const bgColors = ['#f8c291', '#82ccdd', '#b8e994', '#f6b93b', '#e58e26', '#78e08f', '#60a3bc', '#fad390', '#c7ecee', '#ffb8b8'];
         let colorMap = {};
         let colorIndex = 0;
@@ -156,20 +161,24 @@
             return colorMap[name];
         }
 
-        // ⭐ 網頁載入時，從 LocalStorage 讀取資料
         window.onload = function() {
+            // 讀取記憶的排序模式
+            const savedSortMode = localStorage.getItem('lineAlarmsSortMode');
+            if (savedSortMode !== null) {
+                sortMode = parseInt(savedSortMode);
+                document.getElementById('sortBtn').innerText = sortLabels[sortMode];
+            }
+
             const savedAlarms = localStorage.getItem('lineAlarmsData');
             if (savedAlarms) {
                 const alarms = JSON.parse(savedAlarms);
-                // 反轉陣列，因為 addAlarmItem 是插在最上面
                 alarms.reverse().forEach(a => {
                     addAlarmItem(a.baseName, a.origTime, a.alarmTime, a.rawText, a.suffix, a.checked);
                 });
-                sortAlarmsByGroupTime();
+                applyCurrentSort();
             }
         };
 
-        // ⭐ 儲存資料到 LocalStorage 的核心函式
         function saveAlarmsToStorage() {
             const items = Array.from(document.querySelectorAll('.alarm-item'));
             const data = items.map(item => {
@@ -185,7 +194,6 @@
             localStorage.setItem('lineAlarmsData', JSON.stringify(data));
         }
 
-        // ⭐ 清空全部按鈕
         function clearAllAlarms() {
             if(confirm('確定要清空所有鬧鐘嗎？此動作無法復原。')) {
                 document.getElementById('alarmList').innerHTML = '';
@@ -261,11 +269,10 @@
                 
                 addAlarmItem(title, originalTimeStr, alarmTimeStr, text, "開始");
                 inputEl.value = ''; 
-                sortAlarmsByGroupTime(); // 新增完自動排好
+                applyCurrentSort(); // ⭐ 自動套用當下排序
             } else { alert('無法解析格式，請確認包含「【標題】時間」。'); }
         }
 
-        // ⭐ 加入 defaultChecked 參數，讓存檔讀取時能保持開關狀態
         function addAlarmItem(baseName, originalTime, alarmTime, rawText, suffix, defaultChecked = true) {
             const list = document.getElementById('alarmList');
             const li = document.createElement('li');
@@ -278,8 +285,6 @@
             li.dataset.raw = encodeURIComponent(rawText || ''); 
             
             li.style.backgroundColor = getBgColor(baseName);
-
-            // 根據 defaultChecked 設定 checked 屬性
             const checkedAttr = defaultChecked ? 'checked' : '';
 
             li.innerHTML = `
@@ -307,7 +312,7 @@
             
             updateTitleDisplay(li);
             list.insertBefore(li, list.firstChild);
-            saveAlarmsToStorage(); // 每次新增完自動存檔
+            saveAlarmsToStorage();
         }
 
         function deleteAlarm(btn) {
@@ -328,6 +333,7 @@
                 li.style.backgroundColor = getBgColor(li.dataset.basename);
                 updateTitleDisplay(li);
                 saveAlarmsToStorage();
+                applyCurrentSort();
             }
         }
 
@@ -357,7 +363,7 @@
                     }
                 });
                 alert(`✅ 匯入成功！共載入 ${count} 筆鬧鐘。`);
-                sortAlarmsByGroupTime();
+                applyCurrentSort();
                 event.target.value = '';
             };
             reader.readAsText(file);
@@ -381,7 +387,7 @@
             if (!timeInput || !currentModalItem) return;
             addAlarmItem(currentModalItem.dataset.basename, timeInput, timeInput, "", "結束");
             alert(`✅ 已新增結束鬧鐘 (${timeInput})！`);
-            sortAlarmsByGroupTime();
+            applyCurrentSort();
         }
 
         function editTimeByPrompt(btn) {
@@ -393,6 +399,7 @@
                     timeSpan.innerText = `${String(parseInt(match[1])).padStart(2, '0')}:${String(parseInt(match[2])).padStart(2, '0')}`;
                     btn.closest('.alarm-item').dataset.rang = "false";
                     saveAlarmsToStorage();
+                    applyCurrentSort();
                 } else alert("❌ 時間格式錯誤！");
             }
         }
@@ -406,40 +413,70 @@
             timeSpan.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
             button.closest('.alarm-item').dataset.rang = "false";
             saveAlarmsToStorage();
+            applyCurrentSort();
         }
 
-        // ⭐ 時間+組別排序演算法 (確保同一組的開始結束排在一起，且依照開始時間排列)
+        // ⭐ 循環切換排序按鈕
+        function toggleSortMode() {
+            sortMode = (sortMode + 1) % 3;
+            document.getElementById('sortBtn').innerText = sortLabels[sortMode];
+            localStorage.setItem('lineAlarmsSortMode', sortMode); // 記憶選擇的排序模式
+            applyCurrentSort();
+        }
+
+        // ⭐ 呼叫目前的排序模式
+        function applyCurrentSort() {
+            if (sortMode === 0) sortAlarmsByGroupTime();
+            else if (sortMode === 1) sortAlarmsByTime();
+            else if (sortMode === 2) sortAlarmsByName();
+        }
+
+        // 排序：0. 時間+組別
         function sortAlarmsByGroupTime() {
             const list = document.getElementById('alarmList');
             const items = Array.from(list.children);
             const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
-
-            // 1. 將所有項目依 basename 分組
             const groups = {};
             items.forEach(item => {
                 const name = item.dataset.basename;
                 if (!groups[name]) groups[name] = [];
                 groups[name].push(item);
             });
-
-            // 2. 找出每個群組內的最早時間，當作該群組的排序依據
             const groupMetadata = Object.keys(groups).map(name => {
                 const groupItems = groups[name];
-                // 群組內依照時間先後排序 (確保「開始」排在「結束」前面)
                 groupItems.sort((a, b) => getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText));
-                const earliestTime = getMins(groupItems[0].querySelector('.time-text').innerText);
-                return { earliestTime, items: groupItems };
+                return { earliestTime: getMins(groupItems[0].querySelector('.time-text').innerText), items: groupItems };
             });
-
-            // 3. 依照群組最早時間重新排序整個大清單
             groupMetadata.sort((a, b) => a.earliestTime - b.earliestTime);
-
-            // 4. 清空畫面並重新依序掛載
             list.innerHTML = '';
-            groupMetadata.forEach(group => {
-                group.items.forEach(item => list.appendChild(item));
+            groupMetadata.forEach(group => group.items.forEach(item => list.appendChild(item)));
+            saveAlarmsToStorage();
+        }
+
+        // 排序：1. 純時間
+        function sortAlarmsByTime() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+            items.sort((a, b) => getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText));
+            list.innerHTML = '';
+            items.forEach(item => list.appendChild(item));
+            saveAlarmsToStorage();
+        }
+
+        // 排序：2. 純組別 (依中文名稱排列)
+        function sortAlarmsByName() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+            items.sort((a, b) => {
+                const nameA = a.dataset.basename || "";
+                const nameB = b.dataset.basename || "";
+                if (nameA === nameB) return getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText);
+                return nameA.localeCompare(nameB, 'zh-TW');
             });
-            
+            list.innerHTML = '';
+            items.forEach(item => list.appendChild(item));
             saveAlarmsToStorage();
         }
 
@@ -469,7 +506,6 @@
             if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
         }
 
-        // 每秒檢查時間與更新倒數
         setInterval(() => {
             const now = new Date();
             const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
@@ -481,17 +517,15 @@
                 const isChecked = item.querySelector('.alarm-toggle').checked;
                 const [alarmHour, alarmMinute] = item.querySelector('.time-text').innerText.split(':').map(Number);
                 
-                item.querySelector('.nearest-timer').innerText = ''; // 清空舊的倒數
+                item.querySelector('.nearest-timer').innerText = ''; 
 
-                // 檢查響鈴
                 if (isChecked && alarmHour === now.getHours() && alarmMinute === now.getMinutes()) {
                     if (item.dataset.rang === "false") { triggerAlarm(item); item.dataset.rang = "true"; }
                 } else { item.dataset.rang = "false"; }
 
-                // 計算最近的倒數
                 if (isChecked) {
                     let diffSeconds = (alarmHour * 3600 + alarmMinute * 60) - currentTotalSeconds;
-                    if (diffSeconds < 0) diffSeconds += 24 * 3600; // 跨日計算
+                    if (diffSeconds < 0) diffSeconds += 24 * 3600; 
                     if (diffSeconds >= 0 && diffSeconds < minDiffSeconds) {
                         minDiffSeconds = diffSeconds;
                         nearestItem = item;
@@ -499,7 +533,7 @@
                 }
             });
 
-            // ⭐ 顯示倒數計時 (拿掉多餘文字，只留時間)
+            // ⭐ 倒數計時文字去除了多餘敘述，直接顯示巨大粗體的時間
             if (nearestItem && minDiffSeconds !== Infinity) {
                 const h = Math.floor(minDiffSeconds / 3600);
                 const m = Math.floor((minDiffSeconds % 3600) / 60);
