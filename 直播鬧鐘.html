@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (開始與結束版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (最終完美版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body {
@@ -27,7 +27,22 @@
 
         /* 輸入區與工具列 */
         .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .toolbar { display: flex; justify-content: flex-end; }
+        
+        /* 工具列排版：左右分佈 */
+        .toolbar { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        
+        /* 提早鬧鐘設定區 */
+        .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
+        .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
+        .btn-early {
+            background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px;
+            cursor: pointer; font-weight: bold; font-size: 14px;
+        }
+        .btn-early:active { background-color: #bdc3c7; }
+
         .btn-tool {
             background-color: #7f8c8d; color: white; border: none;
             padding: 6px 12px; border-radius: 6px; font-size: 13px;
@@ -68,7 +83,8 @@
         .alarm-title:active { color: #1c5980; background-color: #f0f8ff; }
         
         /* 時間與加減按鈕區 */
-        .time-control { display: flex; align-items: center; gap: 12px; }
+        .time-control { display: flex; align-items: center; gap: 10px; }
+        .icon-edit { font-size: 20px; cursor: pointer; padding: 2px; }
         .time-text { color: #e74c3c; font-size: 20px; font-weight: bold; width: 60px; text-align: center; }
         .btn-time {
             background-color: #ecf0f1; border: none; color: #333;
@@ -107,8 +123,6 @@
             animation: popIn 0.3s ease-out; display: flex; flex-direction: column; max-height: 85vh;
         }
         .modal-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
-        
-        /* 鬧鐘專用文字 */
         .alarm-text { font-size: 18px; color: #333; margin-bottom: 25px; line-height: 1.5; color: #e74c3c; }
         
         /* 新增結束鬧鐘區塊 */
@@ -117,44 +131,24 @@
             padding: 12px; border-radius: 8px; margin-bottom: 15px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .end-alarm-box input[type="time"] {
-            padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; width: 110px;
-        }
+        .end-alarm-box input[type="time"] { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; width: 110px; }
         .btn-end-alarm {
             background-color: #e67e22; color: white; border: none;
             padding: 8px 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;
         }
         .btn-end-alarm:active { background-color: #d35400; }
 
-        /* 原始資料專用文字區塊 */
         .raw-data-text {
             font-size: 15px; color: #333; background: #f9f9f9; 
             padding: 12px; border-radius: 8px; border: 1px solid #eee;
             text-align: left; overflow-y: auto; margin-bottom: 20px; flex-grow: 1;
         }
-        .raw-data-text a {
-            color: #06C755; text-decoration: underline;
-            word-break: break-all; font-weight: bold;
-        }
+        .raw-data-text a { color: #06C755; text-decoration: underline; word-break: break-all; font-weight: bold; }
 
-        .btn-stop-alarm {
-            background-color: #e74c3c; color: white; border: none;
-            padding: 15px 20px; border-radius: 10px; font-size: 18px;
-            font-weight: bold; cursor: pointer; width: 100%;
-        }
-        .btn-stop-alarm:active { background-color: #c0392b; }
-
-        .btn-close-info {
-            background-color: #3498db; color: white; border: none;
-            padding: 12px 20px; border-radius: 10px; font-size: 16px;
-            font-weight: bold; cursor: pointer; width: 100%;
-        }
-        .btn-close-info:active { background-color: #2980b9; }
+        .btn-stop-alarm { background-color: #e74c3c; color: white; border: none; padding: 15px 20px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn-close-info { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
         
-        @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
     </style>
 </head>
 <body>
@@ -172,7 +166,14 @@
     
     <div class="input-group">
         <div class="toolbar">
-            <button class="btn-tool" onclick="wrapBrackets()" title="請先選取文字再點擊">➕ 幫反白的文字加【 】</button>
+            <div class="early-box">
+                提早 
+                <button class="btn-early" onclick="adjustEarly(-1)">-</button>
+                <span class="early-val" id="earlyMinsText">0</span> 分
+                <button class="btn-early" onclick="adjustEarly(1)">+</button>
+            </div>
+            
+            <button class="btn-tool" onclick="wrapBrackets()" title="請先選取文字再點擊">➕ 幫反白加【 】</button>
         </div>
         <textarea id="inputText" placeholder="2. 請在此貼上從 LINE 複製的內容..."></textarea>
         <div class="button-group">
@@ -194,13 +195,11 @@
     <div id="infoModal" class="modal-overlay">
         <div class="modal-content">
             <h3 class="modal-title" style="color: #2980b9;">📄 完整直播資訊</h3>
-            
             <div class="end-alarm-box">
                 <span style="font-weight:bold; color:#d35400;">結束鬧鐘</span>
                 <input type="time" id="endAlarmTimeInput">
                 <button class="btn-end-alarm" onclick="createEndAlarm()">新增</button>
             </div>
-
             <div class="raw-data-text" id="infoModalText"></div>
             <button class="btn-close-info" onclick="closeInfoModal()">關閉</button>
         </div>
@@ -210,8 +209,6 @@
         let audioCtx;
         let wakeLock = null;
         let alarmInterval = null; 
-        
-        // 用來暫存目前開啟彈出視窗的標題與內容
         let currentModalTitle = '';
         let currentModalText = '';
 
@@ -227,23 +224,17 @@
             initAudio();
             const btn = document.getElementById('masterBtn');
             if (wakeLock !== null) {
-                await wakeLock.release();
-                wakeLock = null;
-                btn.innerText = "1. 點擊啟動螢幕長亮 (解鎖音效)";
-                btn.classList.remove('active');
+                await wakeLock.release(); wakeLock = null;
+                btn.innerText = "1. 點擊啟動螢幕長亮 (解鎖音效)"; btn.classList.remove('active');
             } else {
                 try {
                     if ('wakeLock' in navigator) {
                         wakeLock = await navigator.wakeLock.request('screen');
-                        btn.innerText = "✅ 螢幕長亮已啟動 (再點一次可關閉)";
-                        btn.classList.add('active');
+                        btn.innerText = "✅ 螢幕長亮已啟動 (再點一次可關閉)"; btn.classList.add('active');
                     } else {
-                        btn.innerText = "✅ 音效已解鎖 (您的瀏覽器不支援長亮)";
-                        btn.classList.add('active');
+                        btn.innerText = "✅ 音效已解鎖 (您的瀏覽器不支援長亮)"; btn.classList.add('active');
                     }
-                } catch (err) {
-                    alert(`無法啟動螢幕長亮：${err.message}`);
-                }
+                } catch (err) { alert(`無法啟動螢幕長亮：${err.message}`); }
             }
         }
 
@@ -253,21 +244,25 @@
             }
         });
 
+        // ⭐ 新增：調整提早分鐘數
+        function adjustEarly(delta) {
+            let val = parseInt(document.getElementById('earlyMinsText').innerText);
+            val += delta;
+            if (val < 0) val = 0; // 不允許設定負數
+            document.getElementById('earlyMinsText').innerText = val;
+        }
+
         function wrapBrackets() {
             const textarea = document.getElementById('inputText');
             const start = textarea.selectionStart;
             const end = textarea.selectionEnd;
-
             if (start !== end) {
                 const selectedText = textarea.value.substring(start, end);
                 const before = textarea.value.substring(0, start);
                 const after = textarea.value.substring(end);
                 textarea.value = before + '【' + selectedText + '】' + after;
-                textarea.focus();
-                textarea.setSelectionRange(start, end + 2);
-            } else {
-                alert('請先在輸入框中「反白選取」你想要當作標題的文字！');
-            }
+                textarea.focus(); textarea.setSelectionRange(start, end + 2);
+            } else { alert('請先在輸入框中「反白選取」你想要當作標題的文字！'); }
         }
 
         function parseAndAdd() {
@@ -281,19 +276,26 @@
             if (match) {
                 const title = match[1].trim();
                 let time = match[2].trim();
-                const [h, m] = time.split(':');
-                time = `${h.padStart(2, '0')}:${m.padStart(2, '0')}`;
                 
-                // ⭐ 新增時，後綴固定為 "開始"
-                addAlarmItem(title, time, text, "開始");
+                // 原始節目的時間 (顯示在標題上)
+                let [h, m] = time.split(':').map(Number);
+                const originalTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                
+                // ⭐ 新增：計算扣除提早分鐘數後的鬧鐘時間
+                const earlyMins = parseInt(document.getElementById('earlyMinsText').innerText);
+                m -= earlyMins;
+                while (m < 0) { m += 60; h -= 1; }
+                h = (h + 24) % 24; // 處理跨日退位
+                const alarmTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                
+                // 呼叫函式 (傳入原始時間與鬧鐘時間)
+                addAlarmItem(title, originalTimeStr, alarmTimeStr, text, "開始");
                 inputEl.value = ''; 
-            } else {
-                alert('無法解析！請確認格式包含「【標題】時間」。');
-            }
+            } else { alert('無法解析！請確認格式包含「【標題】時間」。'); }
         }
 
-        // ⭐ 修改：加入 suffix 參數 (開始 或 結束)
-        function addAlarmItem(title, time, rawText, suffix) {
+        // ⭐ 修改：接收 originalTime 和 alarmTime 分別顯示
+        function addAlarmItem(title, originalTime, alarmTime, rawText, suffix) {
             const list = document.getElementById('alarmList');
             const li = document.createElement('li');
             li.className = 'alarm-item';
@@ -305,12 +307,12 @@
             li.innerHTML = `
                 <div class="alarm-info">
                     <span class="alarm-title" onclick="showInfoModal('${encodedTitle}', '${encodedText}')">
-                        ${title} ${time} ${suffix} 🔍
+                        ${title} ${originalTime} ${suffix} 🔍
                     </span>
                     <div class="time-control">
-                        ⏰
+                        <span class="icon-edit" onclick="editTimeByPrompt(this)" title="手動輸入時間">✏️</span>
                         <button class="btn-time" onclick="adjustTime(this, -1)">-</button>
-                        <span class="time-text">${time}</span>
+                        <span class="time-text">${alarmTime}</span>
                         <button class="btn-time" onclick="adjustTime(this, 1)">+</button>
                     </div>
                 </div>
@@ -322,7 +324,6 @@
                     <button class="btn-delete" onclick="this.closest('.alarm-item').remove()">🗑️</button>
                 </div>
             `;
-            // 新增的項目放在最上面
             list.insertBefore(li, list.firstChild);
         }
 
@@ -337,14 +338,10 @@
             return safeHtml.replace(/\n/g, '<br>');
         }
 
-        // ⭐ 修改：彈出視窗時，把標題和文字存下來供「新增結束鬧鐘」使用
         function showInfoModal(encodedTitle, encodedText) {
             currentModalTitle = decodeURIComponent(encodedTitle);
             currentModalText = decodeURIComponent(encodedText);
-            
-            // 清空結束時間輸入框
             document.getElementById('endAlarmTimeInput').value = "";
-            
             document.getElementById('infoModalText').innerHTML = formatTextToLinks(currentModalText);
             document.getElementById('infoModal').style.display = 'flex';
         }
@@ -353,20 +350,38 @@
             document.getElementById('infoModal').style.display = 'none';
         }
 
-        // ⭐ 新增功能：讀取輸入的時間，建立「結束」鬧鐘
         function createEndAlarm() {
             const timeInput = document.getElementById('endAlarmTimeInput').value;
-            if (!timeInput) {
-                alert("請先設定結束時間！");
-                return;
-            }
+            if (!timeInput) { alert("請先設定結束時間！"); return; }
             
-            // 呼叫 addAlarmItem，後綴設為 "結束"
-            addAlarmItem(currentModalTitle, timeInput, currentModalText, "結束");
+            // 結束時間直接等於鬧鐘時間，不需要套用提早扣除
+            addAlarmItem(currentModalTitle, timeInput, timeInput, currentModalText, "結束");
             alert(`✅ 已成功新增：【${currentModalTitle}】 的結束鬧鐘 (${timeInput})！`);
-            
-            // 點擊新增後可選擇是否自動排序
             sortAlarms();
+        }
+
+        // ⭐ 新增：透過彈出視窗手動修改時間的功能
+        function editTimeByPrompt(btn) {
+            const timeSpan = btn.parentElement.querySelector('.time-text');
+            const current = timeSpan.innerText;
+            
+            const newTime = prompt("✏️ 請輸入新的鬧鐘時間 (小時:分鐘)\n(例如: 09:30 或 14.30)", current);
+            if (newTime !== null && newTime.trim() !== '') {
+                // 寬容的正規表達式，支援「冒號、小數點、全形冒號」
+                const match = newTime.trim().match(/^(\d{1,2})[.:：](\d{1,2})$/);
+                if (match) {
+                    const h = String(parseInt(match[1])).padStart(2, '0');
+                    const m = String(parseInt(match[2])).padStart(2, '0');
+                    if (parseInt(h) < 24 && parseInt(m) < 60) {
+                        timeSpan.innerText = `${h}:${m}`;
+                        btn.closest('.alarm-item').dataset.rang = "false";
+                    } else {
+                        alert("❌ 時間格式不正確！小時需小於 24，分鐘需小於 60。");
+                    }
+                } else {
+                    alert("❌ 格式錯誤！請輸入如 14:30 的格式。");
+                }
+            }
         }
 
         function adjustTime(button, deltaMinutes) {
@@ -408,10 +423,7 @@
 
         function triggerAlarm(titleElement) {
             initAudio(); 
-            // 把後面的 🔍 符號濾掉
             const fullTitle = titleElement.innerText.replace(' 🔍', '');
-            
-            // ⭐ 提示詞改為通用的「🔔 鬧鐘提醒」
             document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br><b>【${fullTitle}】</b>`;
             document.getElementById('alarmModal').style.display = 'flex';
             
