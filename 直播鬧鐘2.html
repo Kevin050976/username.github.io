@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (穩定響鈴版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (跨日自動更新版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -114,7 +114,7 @@
         </button><br>
         <button class="btn-test-sound" onclick="testSound()">🎵 測試鈴聲</button>
         <p class="system-hint">
-            💡 網頁開啟時鬧鐘就會運作。橘色按鈕是用於防止手機熄屏進入深度休眠。
+            💡 跨日後，指定日期的鬧鐘會自動刪除，固定鬧鐘則會自動轉為今日日期並置頂。
         </p>
     </div>
     
@@ -151,8 +151,8 @@
         <div class="modal-content">
             <h3 class="modal-title" id="ioModalTitle">匯出選項</h3>
             <div class="option-group">
-                <label class="option-item"><input type="checkbox" id="optFixed" checked> 固定鬧鐘 (今日)</label>
-                <label class="option-item"><input type="checkbox" id="optDate" checked> 日期鬧鐘</label>
+                <label class="option-item"><input type="checkbox" id="optFixed" checked> 固定鬧鐘 (隨日期更動)</label>
+                <label class="option-item"><input type="checkbox" id="optDate" checked> 日期鬧鐘 (指定日期)</label>
             </div>
             <input type="file" id="importFileInput" style="display:none" onchange="processImport(event)" accept=".txt">
             <div class="modal-buttons">
@@ -238,29 +238,28 @@
         let currentEditingId = null;
         let singleDeleteId = null;
         let idCounter = 0;
+        let lastCheckedDateMD = null; // 用於追蹤日期是否改變（跨日檢查）
         const sortLabels = ["依時間+組別排序", "依時間排序"];
 
         window.onload = function() {
-            const savedAlarms = localStorage.getItem('lineAlarmsData_v3');
+            const savedAlarms = localStorage.getItem('lineAlarmsData_v4');
             if (savedAlarms) alarms = JSON.parse(savedAlarms);
-            const savedSort = localStorage.getItem('lineAlarmsSortMode_v3');
+            const savedSort = localStorage.getItem('lineAlarmsSortMode_v4');
             if (savedSort !== null) sortMode = parseInt(savedSort);
+            
+            lastCheckedDateMD = getTodayMD();
+            checkAndHandleDayCrossing(); // 啟動時先檢查一次是否跨日
             renderAlarms();
         };
 
         function save() {
-            localStorage.setItem('lineAlarmsData_v3', JSON.stringify(alarms));
-            localStorage.setItem('lineAlarmsSortMode_v3', sortMode);
+            localStorage.setItem('lineAlarmsData_v4', JSON.stringify(alarms));
+            localStorage.setItem('lineAlarmsSortMode_v4', sortMode);
         }
 
-        // ⭐ 只要用戶點擊頁面，就嘗試初始化音訊
         function ensureAudioInit() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            }
-            if (audioCtx.state === 'suspended') {
-                audioCtx.resume();
-            }
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
         }
 
         function generateId() {
@@ -271,6 +270,48 @@
         function getTodayMD() {
             const d = new Date();
             return `${d.getMonth() + 1}/${d.getDate()}`;
+        }
+
+        // 數值化日期用於比較 (M/D)
+        function getDateVal(dStr) {
+            const [m, d] = dStr.split('/').map(Number);
+            return m * 100 + d;
+        }
+
+        // ⭐ 跨日邏輯：刪除過期日期鬧鐘，更新固定鬧鐘到今日
+        function checkAndHandleDayCrossing() {
+            const todayMD = getTodayMD();
+            if (lastCheckedDateMD === todayMD) return false;
+
+            const todayVal = getDateVal(todayMD);
+            let changed = false;
+
+            // 過濾掉過期的「日期鬧鐘」
+            const originalLength = alarms.length;
+            alarms = alarms.filter(a => {
+                if (a.hasExplicitDate) {
+                    return getDateVal(a.date) >= todayVal; // 只保留今天或未來的
+                }
+                return true; // 固定鬧鐘保留
+            });
+
+            if (alarms.length !== originalLength) changed = true;
+
+            // 更新「固定鬧鐘」的日期屬性到今日，讓它置頂
+            alarms.forEach(a => {
+                if (!a.hasExplicitDate && a.date !== todayMD) {
+                    a.date = todayMD;
+                    a.rang = false; // 重設響鈴狀態
+                    changed = true;
+                }
+            });
+
+            lastCheckedDateMD = todayMD;
+            if (changed) {
+                renderAlarms();
+                save();
+            }
+            return changed;
         }
 
         function showMessage(msg) {
@@ -288,7 +329,7 @@
         }
 
         function parseAndAdd() {
-            ensureAudioInit(); // 操作時順便初始化
+            ensureAudioInit();
             const text = document.getElementById('inputText').value;
             if (!text.trim()) return;
 
@@ -297,11 +338,14 @@
             
             if (match) {
                 let date = match[1];
+                let hasExplicitDate = false;
                 if (date) {
                     const dateParts = date.split('/');
                     date = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                    hasExplicitDate = true;
                 } else {
                     date = getTodayMD();
+                    hasExplicitDate = false;
                 }
                 
                 const title = match[2].trim();
@@ -332,7 +376,8 @@
                     alarms.push({
                         date, title, origTime, alarmTime, 
                         raw: encodeURIComponent(text), suffix: "開始", 
-                        checked: true, id: generateId()
+                        checked: true, id: generateId(),
+                        hasExplicitDate: hasExplicitDate
                     });
                     document.getElementById('inputText').value = '';
                     renderAlarms();
@@ -450,7 +495,8 @@
             if (!base) return;
             alarms.push({
                 date: base.date, title: base.title, origTime: timeVal, alarmTime: timeVal,
-                raw: base.raw, suffix: "結束", checked: true, id: generateId()
+                raw: base.raw, suffix: "結束", checked: true, id: generateId(),
+                hasExplicitDate: base.hasExplicitDate
             });
             showMessage(`✅ 已新增結束鬧鐘 (${timeVal})！`);
             renderAlarms();
@@ -483,7 +529,7 @@
                 if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
                 silentAudio.pause();
                 isSystemActive = false;
-                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)"; 
+                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (加強Android穩定性)"; 
                 btn.classList.remove('active');
             } else {
                 silentAudio.play().catch(e => console.log(e));
@@ -504,7 +550,6 @@
         function playBeep() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
             osc.connect(g); g.connect(audioCtx.destination);
             osc.frequency.value = 800; g.gain.value = 0.3;
@@ -516,7 +561,6 @@
             if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
         }
 
-        // --- 通用邏輯 ---
         function adjustItemTime(id, delta) {
             const a = alarms.find(x => x.id === id);
             if (!a) return;
@@ -541,11 +585,10 @@
         }
 
         function applySort() {
-            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
-            const getDateVal = (d) => { const [m, day] = d.split('/').map(Number); return m * 100 + day; };
             alarms.sort((a, b) => {
                 const dateDiff = getDateVal(a.date) - getDateVal(b.date);
                 if (dateDiff !== 0) return dateDiff;
+                const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
                 if (sortMode === 0) {
                     if (a.title !== b.title) return a.title.localeCompare(b.title, 'zh-TW');
                     return getMins(a.alarmTime) - getMins(b.alarmTime);
@@ -576,7 +619,7 @@
             const today = getTodayMD();
             let fixedList = [], dateList = [];
             alarms.forEach(a => {
-                if (a.date === today) fixedList.push(`${a.title} ${a.origTime} ${a.suffix}`);
+                if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.origTime} ${a.suffix}`);
                 else dateList.push(`${a.date} ${a.title} ${a.origTime} ${a.suffix}`);
             });
             let finalStr = "";
@@ -594,8 +637,7 @@
             const file = event.target.files[0];
             if (!file) return;
             const importFixed = document.getElementById('optFixed').checked, importDate = document.getElementById('optDate').checked;
-            const today = getTodayMD(), todayValFunc = (d) => { const [m, day] = d.split('/').map(Number); return m * 100 + day; };
-            const curTodayVal = todayValFunc(today);
+            const today = getTodayMD(), todayVal = getDateVal(today);
             const reader = new FileReader();
             reader.onload = function(e) {
                 const lines = e.target.result.split('\n');
@@ -606,38 +648,23 @@
                     if (line === "[日期鬧鐘]") { currentSection = "date"; return; }
                     const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
                     const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
+                    
                     if (currentSection === "date" && importDate && matchDate) {
-                        let date = matchDate[1];
-                        const dateParts = date.split('/');
-                        date = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
-                        if (todayValFunc(date) < curTodayVal) return;
+                        let dStr = matchDate[1];
+                        const dateParts = dStr.split('/');
+                        dStr = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                        if (getDateVal(dStr) < todayVal) return; // 過期不匯入
                         const title = matchDate[2].trim();
-                        let time = matchDate[3].trim();
-                        if (!time.includes(':') && !time.includes('：')) {
-                            if (time.length === 3) time = "0" + time;
-                            time = time.substring(0, 2) + ":" + time.substring(2);
-                        } else {
-                            time = time.replace('：', ':');
-                            const ps = time.split(':');
-                            time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
-                        }
-                        if (!alarms.some(a => a.date === date && a.title === title && a.alarmTime === time)) {
-                            alarms.push({ date, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchDate[4] || "開始" });
+                        let time = normalizeTime(matchDate[3]);
+                        if (!alarms.some(a => a.date === dStr && a.title === title && a.alarmTime === time)) {
+                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchDate[4] || "開始", hasExplicitDate: true });
                             count++;
                         }
                     } else if (currentSection === "fixed" && importFixed && matchFixed) {
                         const title = matchFixed[1].trim();
-                        let time = matchFixed[2].trim();
-                        if (!time.includes(':') && !time.includes('：')) {
-                            if (time.length === 3) time = "0" + time;
-                            time = time.substring(0, 2) + ":" + time.substring(2);
-                        } else {
-                            time = time.replace('：', ':');
-                            const ps = time.split(':');
-                            time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
-                        }
+                        let time = normalizeTime(matchFixed[2]);
                         if (!alarms.some(a => a.date === today && a.title === title && a.alarmTime === time)) {
-                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchFixed[3] || "開始" });
+                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchFixed[3] || "開始", hasExplicitDate: false });
                             count++;
                         }
                     }
@@ -649,28 +676,49 @@
             event.target.value = '';
         }
 
+        function normalizeTime(t) {
+            let time = t.trim();
+            if (!time.includes(':') && !time.includes('：')) {
+                if (time.length === 3) time = "0" + time;
+                time = time.substring(0, 2) + ":" + time.substring(2);
+            } else {
+                time = time.replace('：', ':');
+                const ps = time.split(':');
+                time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
+            }
+            return time;
+        }
+
         function confirmDeleteAll() { document.getElementById('confirmAllModal').style.display = 'flex'; }
         function executeDeleteAll() { alarms = []; renderAlarms(); closeModal('confirmAllModal'); }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
         // 每秒檢查循環
         setInterval(() => {
+            // ⭐ 跨日自動檢查與處理
+            checkAndHandleDayCrossing();
+
             const now = new Date(), nowMD = getTodayMD();
             const curSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
             let ringing = [], minDiff = Infinity;
+            
             alarms.forEach(a => {
                 const [ah, am] = a.alarmTime.split(':').map(Number);
                 const aSecs = ah * 3600 + am * 60;
                 const timerEl = document.getElementById(`timer-${a.id}`);
                 if (timerEl) timerEl.innerText = '';
+                
                 if (a.checked && a.date === nowMD) {
                     if (ah === now.getHours() && am === now.getMinutes() && !a.rang) {
                          ringing.push(`${a.title} ${a.suffix}`); a.rang = true;
                     } else if (am !== now.getMinutes()) { a.rang = false; }
-                    let diff = aSecs - curSecs; if (diff < 0) diff += 86400;
+                    
+                    let diff = aSecs - curSecs; 
+                    if (diff < 0) diff += 86400;
                     if (diff < minDiff) minDiff = diff;
                 }
             });
+
             if (minDiff !== Infinity) {
                 const h = Math.floor(minDiff / 3600), m = Math.floor((minDiff % 3600) / 60), s = minDiff % 60;
                 const text = h > 0 ? `${h}時\n${m}分` : (m > 0 ? `${m}分\n${s}秒` : `${s}秒`);
@@ -684,6 +732,7 @@
                     }
                 });
             }
+
             if (ringing.length > 0) {
                 document.getElementById('alarmModalText').innerHTML = "🔔 鬧鐘提醒：<br><br><b>" + ringing.join("</b><br><b>") + "</b>";
                 document.getElementById('alarmModal').style.display = 'flex';
