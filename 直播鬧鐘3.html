@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (群組排序優化版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (跨日倒數修復版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -569,12 +569,10 @@
             renderAlarms();
         }
 
-        // ⭐ 強化群組排序邏輯
         function applySort() {
             const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
 
             if (sortMode === 0) {
-                // 1. 預先計算各組 (日期|標題) 的最早開始時間 (或最小時間)
                 const groupMetadata = {};
                 alarms.forEach(a => {
                     const groupKey = a.date + "|" + a.title;
@@ -588,33 +586,19 @@
                     if (mins < groupMetadata[groupKey].minTime) groupMetadata[groupKey].minTime = mins;
                 });
 
-                // 2. 執行排序
                 alarms.sort((a, b) => {
-                    // 第一優先：日期
-                    const dateA = getDateVal(a.date);
-                    const dateB = getDateVal(b.date);
+                    const dateA = getDateVal(a.date), dateB = getDateVal(b.date);
                     if (dateA !== dateB) return dateA - dateB;
 
-                    // 第二優先：群組基準時間 (以"開始"時間為主，若無則以最小時間為主)
-                    const gA = groupMetadata[a.date + "|" + a.title];
-                    const gB = groupMetadata[b.date + "|" + b.title];
+                    const gA = groupMetadata[a.date + "|" + a.title], gB = groupMetadata[b.date + "|" + b.title];
                     const refTimeA = gA.startTime === Infinity ? gA.minTime : gA.startTime;
                     const refTimeB = gB.startTime === Infinity ? gB.minTime : gB.startTime;
                     if (refTimeA !== refTimeB) return refTimeA - refTimeB;
-
-                    // 第三優先：組內名稱 (確保同組靠在一起)
                     if (a.title !== b.title) return a.title.localeCompare(b.title, 'zh-TW');
-
-                    // 第四優先：組內標籤類型 (開始 > 結束)
-                    if (a.suffix !== b.suffix) {
-                        return a.suffix === "開始" ? -1 : 1;
-                    }
-
-                    // 第五優先：具體鬧鐘時間
+                    if (a.suffix !== b.suffix) return a.suffix === "開始" ? -1 : 1;
                     return getMins(a.alarmTime) - getMins(b.alarmTime);
                 });
             } else {
-                // 依時間純排序
                 alarms.sort((a, b) => {
                     const dateDiff = getDateVal(a.date) - getDateVal(b.date);
                     if (dateDiff !== 0) return dateDiff;
@@ -718,44 +702,76 @@
         function executeDeleteAll() { alarms = []; renderAlarms(); closeModal('confirmAllModal'); }
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
+        // --- ⭐ 核心倒數與響鈴邏輯 (修復版) ---
         setInterval(() => {
+            // 1. 先處理跨日數據清理
             checkAndHandleDayCrossing();
 
-            const now = new Date(), nowMD = getTodayMD();
-            const curSecs = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-            let ringing = [], minDiff = Infinity;
+            const now = new Date();
+            const nowMD = getTodayMD();
+            let ringing = [], minDiffSeconds = Infinity;
             
             alarms.forEach(a => {
-                const [ah, am] = a.alarmTime.split(':').map(Number);
-                const aSecs = ah * 3600 + am * 60;
                 const timerEl = document.getElementById(`timer-${a.id}`);
                 if (timerEl) timerEl.innerText = '';
                 
-                if (a.checked && a.date === nowMD) {
+                if (!a.checked) return;
+
+                // 解析鬧鐘設定的目標時間點
+                const [ah, am] = a.alarmTime.split(':').map(Number);
+                const [amth, ady] = a.date.split('/').map(Number);
+                
+                // 建立一個基準時間點 (鬧鐘設定的那天)
+                let alarmTarget = new Date(now.getFullYear(), amth - 1, ady, ah, am, 0);
+
+                // --- 響鈴判斷 (僅限今天) ---
+                if (a.date === nowMD) {
                     if (ah === now.getHours() && am === now.getMinutes() && !a.rang) {
                          ringing.push(`${a.title} ${a.suffix}`); a.rang = true;
                     } else if (am !== now.getMinutes()) { a.rang = false; }
-                    
-                    let diff = aSecs - curSecs; 
-                    if (diff < 0) diff += 86400;
-                    if (diff < minDiff) minDiff = diff;
+                }
+
+                // --- ⭐ 倒數邏輯 (跨日修復) ---
+                // 如果目標時間已經過去了
+                if (alarmTarget < now) {
+                    if (a.hasExplicitDate) {
+                        // 指定日期且已過期：不參與倒數計時器
+                        return;
+                    } else {
+                        // 固定鬧鐘已過期：自動將目標推向明天參與倒數
+                        alarmTarget.setDate(alarmTarget.getDate() + 1);
+                    }
+                }
+
+                // 計算精確差距秒數
+                let diff = Math.floor((alarmTarget - now) / 1000);
+                if (diff >= 0 && diff < minDiffSeconds) {
+                    minDiffSeconds = diff;
                 }
             });
 
-            if (minDiff !== Infinity) {
-                const h = Math.floor(minDiff / 3600), m = Math.floor((minDiff % 3600) / 60), s = minDiff % 60;
+            // 2. 顯示全局最接近的倒數計時
+            if (minDiffSeconds !== Infinity) {
+                const h = Math.floor(minDiffSeconds / 3600), m = Math.floor((minDiffSeconds % 3600) / 60), s = minDiffSeconds % 60;
                 const text = h > 0 ? `${h}時\n${m}分` : (m > 0 ? `${m}分\n${s}秒` : `${s}秒`);
+                
                 alarms.forEach(a => {
+                    if (!a.checked) return;
+                    // 重新計算當前這個項目的差距，看它是不是那個最接近的
                     const [ah, am] = a.alarmTime.split(':').map(Number);
-                    const aSecs = ah * 3600 + am * 60;
-                    let diff = aSecs - curSecs; if(diff<0) diff+=86400;
-                    if (diff === minDiff && a.checked && a.date === nowMD) {
+                    const [amth, ady] = a.date.split('/').map(Number);
+                    let target = new Date(now.getFullYear(), amth - 1, ady, ah, am, 0);
+                    if (target < now && !a.hasExplicitDate) target.setDate(target.getDate() + 1);
+                    
+                    let diff = Math.floor((target - now) / 1000);
+                    if (diff === minDiffSeconds) {
                         const el = document.getElementById(`timer-${a.id}`);
                         if(el) el.innerText = text;
                     }
                 });
             }
 
+            // 3. 處理響鈴觸發
             if (ringing.length > 0) {
                 document.getElementById('alarmModalText').innerHTML = "🔔 鬧鐘提醒：<br><br><b>" + ringing.join("</b><br><b>") + "</b>";
                 document.getElementById('alarmModal').style.display = 'flex';
