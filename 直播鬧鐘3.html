@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 直播鬧鐘擷取工具 (極致精準版)</title>
+    <style>
+        /* 網頁基本排版與顏色 */
+        body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; }
+        
+        .system-control { background-color: #fff3cd; border: 2px solid #ffeeba; padding: 10px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .btn-master { background-color: #e67e22; color: white; border: none; padding: 8px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; }
+        .btn-master.active { background-color: #27ae60; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
+        .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
+        .btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .btn-early:active { background-color: #bdc3c7; }
+        .btn-tool { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .btn-tool:active { background-color: #95a5a6; }
+        
+        textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        
+        .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1; }
+        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 15px; font-weight: bold; flex: 1; transition: 0.2s; }
+        .btn-sort:active { background-color: #2980b9; transform: scale(0.98); }
+        .btn-io { background-color: #9b59b6; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+
+        .alarm-list { list-style: none; padding: 0; margin: 0; }
+        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; }
+        .alarm-info { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; }
+        
+        .title-wrapper { display: flex; align-items: center; gap: 5px; }
+        .alarm-title { font-size: 15px; font-weight: bold; color: #2c3e50; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; line-height: 1.3; }
+        .icon-edit-name { font-size: 12px; cursor: pointer; opacity: 0.6; }
+        .icon-edit-name:hover { opacity: 1; }
+
+        .time-control { display: flex; align-items: center; gap: 6px; }
+        .icon-edit { font-size: 12px; cursor: pointer; padding: 2px; opacity: 0.7; margin-right: 2px; }
+        .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; text-align: center; }
+        .btn-time { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; color: #333; width: 26px; height: 26px; border-radius: 6px; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        
+        .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        
+        /* ⭐ 倒數計時再度極限放大！ */
+        .nearest-timer { color: #c0392b; font-size: 26px; font-weight: 900; width: 95px; text-align: right; line-height: 1.0; }
+        
+        .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 14px; padding: 4px; cursor: pointer; margin-left: auto; opacity: 0.8; }
+        .btn-delete:hover { opacity: 1; color: #e74c3c; }
+        
+        .switch { position: relative; display: inline-block; width: 22px; height: 40px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #06C755; }
+        input:checked + .slider:before { transform: translateY(-18px); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; }
+        .modal-title { font-size: 22px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
+        .alarm-text { font-size: 18px; color: #333; margin-bottom: 25px; line-height: 1.5; color: #e74c3c; }
+        .end-alarm-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .end-alarm-box input[type="time"] { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; width: 110px; }
+        .btn-end-alarm { background-color: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
+        .raw-data-text { font-size: 15px; color: #333; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; text-align: left; overflow-y: auto; margin-bottom: 20px; flex-grow: 1; }
+        .raw-data-text a { color: #06C755; text-decoration: underline; word-break: break-all; font-weight: bold; }
+        .btn-stop-alarm { background-color: #e74c3c; color: white; border: none; padding: 15px 20px; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; }
+        .btn-close-info { background-color: #3498db; color: white; border: none; padding: 12px 20px; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+
+    <h2>直播鬧鐘設定 ⏰</h2>
+    
+    <div class="system-control">
+        <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
+            1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)
+        </button>
+        <p style="font-size: 12px; color: #666; margin-top: 5px; margin-bottom: 0;">
+            ⚠️ 點擊開啟後，Android 按電源鍵熄屏時間到依然會響！
+        </p>
+    </div>
+    
+    <div class="input-group">
+        <div class="toolbar">
+            <div class="early-box">
+                提早 
+                <button class="btn-early" onclick="adjustEarly(-1)">-</button>
+                <span class="early-val" id="earlyMinsText">0</span> 分
+                <button class="btn-early" onclick="adjustEarly(1)">+</button>
+            </div>
+            <button class="btn-tool" onclick="wrapBrackets()" title="請先選取文字再點擊">➕ 幫反白加【 】</button>
+        </div>
+        <textarea id="inputText" placeholder="2. 請在此貼上從 LINE 複製的內容..."></textarea>
+        
+        <div class="button-group-row">
+            <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
+            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間+組別排序</button>
+        </div>
+        <div class="button-group-row">
+            <input type="file" id="importFile" style="display:none" onchange="importAlarms(event)" accept=".txt">
+            <button class="btn-io" onclick="document.getElementById('importFile').click()">📥 匯入.txt</button>
+            <button class="btn-io" onclick="exportAlarms()">📤 匯出.txt</button>
+        </div>
+    </div>
+
+    <ul class="alarm-list" id="alarmList"></ul>
+
+    <div id="alarmModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" style="color: #e74c3c;">⏰ 鬧鐘響了！</h3>
+            <div class="alarm-text" id="alarmModalText">🔔 鬧鐘提醒</div>
+            <button class="btn-stop-alarm" onclick="stopAlarm()">關閉鬧鐘</button>
+        </div>
+    </div>
+
+    <div id="infoModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" style="color: #2980b9;">📄 完整直播資訊</h3>
+            <div class="end-alarm-box">
+                <span style="font-weight:bold; color:#d35400;">結束鬧鐘</span>
+                <input type="time" id="endAlarmTimeInput">
+                <button class="btn-end-alarm" onclick="createEndAlarm()">新增</button>
+            </div>
+            <div class="raw-data-text" id="infoModalText"></div>
+            <button class="btn-close-info" onclick="closeInfoModal()">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        let audioCtx;
+        let wakeLock = null;
+        let alarmInterval = null; 
+        let currentModalItem = null; 
+
+        let sortMode = 0;
+        const sortLabels = ["依時間+組別排序", "依時間排序", "依組別排序"];
+
+        const bgColors = ['#f8c291', '#82ccdd', '#b8e994', '#f6b93b', '#e58e26', '#78e08f', '#60a3bc', '#fad390', '#c7ecee', '#ffb8b8'];
+        let colorMap = {};
+        let colorIndex = 0;
+
+        function getBgColor(name) {
+            if (!colorMap[name]) {
+                colorMap[name] = bgColors[colorIndex % bgColors.length];
+                colorIndex++;
+            }
+            return colorMap[name];
+        }
+
+        window.onload = function() {
+            const savedSortMode = localStorage.getItem('lineAlarmsSortMode');
+            if (savedSortMode !== null) {
+                sortMode = parseInt(savedSortMode);
+                document.getElementById('sortBtn').innerText = sortLabels[sortMode];
+            }
+
+            const savedAlarms = localStorage.getItem('lineAlarmsData');
+            if (savedAlarms) {
+                const alarms = JSON.parse(savedAlarms);
+                alarms.reverse().forEach(a => {
+                    addAlarmItem(a.baseName, a.origTime, a.alarmTime, a.rawText, a.suffix, a.checked);
+                });
+                applyCurrentSort();
+            }
+        };
+
+        function saveAlarmsToStorage() {
+            const items = Array.from(document.querySelectorAll('.alarm-item'));
+            const data = items.map(item => {
+                return {
+                    baseName: item.dataset.basename,
+                    origTime: item.dataset.origtime,
+                    alarmTime: item.querySelector('.time-text').innerText,
+                    rawText: decodeURIComponent(item.dataset.raw || ''),
+                    suffix: item.dataset.suffix,
+                    checked: item.querySelector('.alarm-toggle').checked
+                };
+            });
+            localStorage.setItem('lineAlarmsData', JSON.stringify(data));
+        }
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            document.getElementById('silentAudio').play().catch(e => console.log(e));
+            const osc = audioCtx.createOscillator(); osc.connect(audioCtx.destination); osc.start(); osc.stop(audioCtx.currentTime + 0.001);
+        }
+
+        async function toggleSystem() {
+            initAudio();
+            const btn = document.getElementById('masterBtn');
+            const silentAudio = document.getElementById('silentAudio');
+            if (wakeLock !== null) {
+                await wakeLock.release(); wakeLock = null; silentAudio.pause();
+                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)"; btn.classList.remove('active');
+            } else {
+                try {
+                    silentAudio.play();
+                    if ('wakeLock' in navigator) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動"; btn.classList.add('active');
+                    } else {
+                        btn.innerText = "✅ 背景鬧鐘已啟動 (不支援長亮)"; btn.classList.add('active');
+                    }
+                } catch (err) { alert(`系統提示：${err.message}`); }
+            }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible') {
+                wakeLock = await navigator.wakeLock.request('screen');
+            }
+        });
+
+        function adjustEarly(delta) {
+            let val = parseInt(document.getElementById('earlyMinsText').innerText);
+            val = Math.max(0, val + delta);
+            document.getElementById('earlyMinsText').innerText = val;
+        }
+
+        function wrapBrackets() {
+            const textarea = document.getElementById('inputText');
+            const start = textarea.selectionStart; const end = textarea.selectionEnd;
+            if (start !== end) {
+                const selectedText = textarea.value.substring(start, end);
+                textarea.value = textarea.value.substring(0, start) + '【' + selectedText + '】' + textarea.value.substring(end);
+                textarea.focus(); textarea.setSelectionRange(start, end + 2);
+            } else { alert('請先反白選取文字！'); }
+        }
+
+        function parseAndAdd() {
+            const inputEl = document.getElementById('inputText');
+            const text = inputEl.value; 
+            if (!text.trim()) return;
+
+            const match = text.match(/【([^】]+)】\s*(\d{1,2}:\d{2})/);
+            if (match) {
+                const title = match[1].trim();
+                let time = match[2].trim();
+                let [h, m] = time.split(':').map(Number);
+                const originalTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                
+                m -= parseInt(document.getElementById('earlyMinsText').innerText);
+                while (m < 0) { m += 60; h -= 1; }
+                h = (h + 24) % 24; 
+                const alarmTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                
+                addAlarmItem(title, originalTimeStr, alarmTimeStr, text, "開始");
+                inputEl.value = ''; 
+                applyCurrentSort(); 
+            } else { alert('無法解析格式，請確認包含「【標題】時間」。'); }
+        }
+
+        function addAlarmItem(baseName, originalTime, alarmTime, rawText, suffix, defaultChecked = true) {
+            const list = document.getElementById('alarmList');
+            const li = document.createElement('li');
+            li.className = 'alarm-item';
+            
+            li.dataset.rang = "false"; 
+            li.dataset.basename = baseName;
+            li.dataset.origtime = originalTime;
+            li.dataset.suffix = suffix;
+            li.dataset.raw = encodeURIComponent(rawText || ''); 
+            
+            li.style.backgroundColor = getBgColor(baseName);
+            const checkedAttr = defaultChecked ? 'checked' : '';
+
+            li.innerHTML = `
+                <div class="alarm-info">
+                    <div class="title-wrapper">
+                        <span class="alarm-title" onclick="showInfoModal(this)"></span>
+                        <span class="icon-edit-name" onclick="editNameByPrompt(this)" title="修改名稱">✏️</span>
+                    </div>
+                    <div class="time-control">
+                        <span class="icon-edit" onclick="editTimeByPrompt(this)" title="修改時間">✏️</span>
+                        <button class="btn-time" onclick="adjustTime(this, -1)">-</button>
+                        <span class="time-text">${alarmTime}</span>
+                        <button class="btn-time" onclick="adjustTime(this, 1)">+</button>
+                    </div>
+                </div>
+                <div class="alarm-controls">
+                    <div class="nearest-timer"></div>
+                    <label class="switch">
+                        <input type="checkbox" ${checkedAttr} class="alarm-toggle" onchange="saveAlarmsToStorage()">
+                        <span class="slider"></span>
+                    </label>
+                    <button class="btn-delete" onclick="deleteAlarm(this)">🗑️</button>
+                </div>
+            `;
+            
+            updateTitleDisplay(li);
+            list.insertBefore(li, list.firstChild);
+            saveAlarmsToStorage();
+        }
+
+        function deleteAlarm(btn) {
+            btn.closest('.alarm-item').remove();
+            saveAlarmsToStorage();
+        }
+
+        function updateTitleDisplay(li) {
+            const titleSpan = li.querySelector('.alarm-title');
+            titleSpan.innerText = `${li.dataset.basename} ${li.dataset.origtime} ${li.dataset.suffix} 🔍`;
+        }
+
+        function editNameByPrompt(btn) {
+            const li = btn.closest('.alarm-item');
+            const newName = prompt("✏️ 請輸入新的鬧鐘名稱", li.dataset.basename);
+            if (newName && newName.trim() !== '') {
+                li.dataset.basename = newName.trim();
+                li.style.backgroundColor = getBgColor(li.dataset.basename);
+                updateTitleDisplay(li);
+                saveAlarmsToStorage();
+                applyCurrentSort();
+            }
+        }
+
+        function exportAlarms() {
+            const items = document.querySelectorAll('.alarm-item');
+            if(items.length === 0) { alert("目前沒有鬧鐘可以匯出！"); return; }
+            let textData = "";
+            items.forEach(item => { textData += item.querySelector('.alarm-title').innerText.replace(' 🔍', '').trim() + "\n"; });
+            const blob = new Blob([textData], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+            a.download = `直播鬧鐘備份_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.txt`; a.click();
+        }
+
+        function importAlarms(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const lines = e.target.result.split('\n');
+                let count = 0;
+                lines.forEach(line => {
+                    line = line.trim(); if (!line) return;
+                    const match = line.match(/^(.*?)\s+(\d{1,2}:\d{2})\s*(開始|結束)?$/);
+                    if (match) {
+                        addAlarmItem(match[1].trim(), match[2].trim(), match[2].trim(), line, match[3] || '');
+                        count++;
+                    }
+                });
+                alert(`✅ 匯入成功！共載入 ${count} 筆鬧鐘。`);
+                applyCurrentSort();
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function showInfoModal(titleElement) {
+            const li = titleElement.closest('.alarm-item');
+            currentModalItem = li; 
+            document.getElementById('endAlarmTimeInput').value = "";
+            let safeHtml = document.createElement('div');
+            safeHtml.innerText = decodeURIComponent(li.dataset.raw || '');
+            safeHtml = safeHtml.innerHTML.replace(/(https?:\/\/[^\s]+)/g, `<a href="$1" target="_blank">$1</a>`).replace(/\n/g, '<br>');
+            document.getElementById('infoModalText').innerHTML = safeHtml;
+            document.getElementById('infoModal').style.display = 'flex';
+        }
+
+        function closeInfoModal() { document.getElementById('infoModal').style.display = 'none'; }
+
+        function createEndAlarm() {
+            const timeInput = document.getElementById('endAlarmTimeInput').value;
+            if (!timeInput || !currentModalItem) return;
+            addAlarmItem(currentModalItem.dataset.basename, timeInput, timeInput, "", "結束");
+            alert(`✅ 已新增結束鬧鐘 (${timeInput})！`);
+            applyCurrentSort();
+        }
+
+        function editTimeByPrompt(btn) {
+            const timeSpan = btn.parentElement.querySelector('.time-text');
+            const newTime = prompt("✏️ 請輸入新的鬧鐘時間 (例如: 14:30 或 14.30)", timeSpan.innerText);
+            if (newTime !== null && newTime.trim() !== '') {
+                const match = newTime.trim().match(/^(\d{1,2})[.:：](\d{1,2})$/);
+                if (match && parseInt(match[1]) < 24 && parseInt(match[2]) < 60) {
+                    timeSpan.innerText = `${String(parseInt(match[1])).padStart(2, '0')}:${String(parseInt(match[2])).padStart(2, '0')}`;
+                    btn.closest('.alarm-item').dataset.rang = "false";
+                    saveAlarmsToStorage();
+                    applyCurrentSort();
+                } else alert("❌ 時間格式錯誤！");
+            }
+        }
+
+        function adjustTime(button, deltaMinutes) {
+            const timeSpan = button.parentElement.querySelector('.time-text');
+            let [hours, minutes] = timeSpan.innerText.split(':').map(Number);
+            minutes += deltaMinutes;
+            if (minutes >= 60) { minutes -= 60; hours = (hours + 1) % 24; } 
+            else if (minutes < 0) { minutes += 60; hours = (hours - 1 + 24) % 24; }
+            timeSpan.innerText = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+            button.closest('.alarm-item').dataset.rang = "false";
+            saveAlarmsToStorage();
+            applyCurrentSort();
+        }
+
+        function toggleSortMode() {
+            sortMode = (sortMode + 1) % 3;
+            document.getElementById('sortBtn').innerText = sortLabels[sortMode];
+            localStorage.setItem('lineAlarmsSortMode', sortMode); 
+            applyCurrentSort();
+        }
+
+        function applyCurrentSort() {
+            if (sortMode === 0) sortAlarmsByGroupTime();
+            else if (sortMode === 1) sortAlarmsByTime();
+            else if (sortMode === 2) sortAlarmsByName();
+        }
+
+        function sortAlarmsByGroupTime() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+            const groups = {};
+            items.forEach(item => {
+                const name = item.dataset.basename;
+                if (!groups[name]) groups[name] = [];
+                groups[name].push(item);
+            });
+            const groupMetadata = Object.keys(groups).map(name => {
+                const groupItems = groups[name];
+                groupItems.sort((a, b) => getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText));
+                return { earliestTime: getMins(groupItems[0].querySelector('.time-text').innerText), items: groupItems };
+            });
+            groupMetadata.sort((a, b) => a.earliestTime - b.earliestTime);
+            list.innerHTML = '';
+            groupMetadata.forEach(group => group.items.forEach(item => list.appendChild(item)));
+            saveAlarmsToStorage();
+        }
+
+        function sortAlarmsByTime() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+            items.sort((a, b) => getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText));
+            list.innerHTML = '';
+            items.forEach(item => list.appendChild(item));
+            saveAlarmsToStorage();
+        }
+
+        function sortAlarmsByName() {
+            const list = document.getElementById('alarmList');
+            const items = Array.from(list.children);
+            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
+            items.sort((a, b) => {
+                const nameA = a.dataset.basename || "";
+                const nameB = b.dataset.basename || "";
+                if (nameA === nameB) return getMins(a.querySelector('.time-text').innerText) - getMins(b.querySelector('.time-text').innerText);
+                return nameA.localeCompare(nameB, 'zh-TW');
+            });
+            list.innerHTML = '';
+            items.forEach(item => list.appendChild(item));
+            saveAlarmsToStorage();
+        }
+
+        function playBeep() {
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain();
+                osc.type = 'square'; osc.frequency.setValueAtTime(800, audioCtx.currentTime); 
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime); 
+                osc.connect(gainNode); gainNode.connect(audioCtx.destination);
+                osc.start(); setTimeout(() => osc.stop(), 250);
+            }
+            if (navigator.vibrate) navigator.vibrate([300, 100, 300]);
+        }
+
+        function triggerCombinedAlarm(titles) {
+            initAudio(); 
+            const titlesHtml = titles.map(t => `<b>【${t}】</b>`).join('<br><br>');
+            document.getElementById('alarmModalText').innerHTML = `🔔 鬧鐘提醒：<br><br>${titlesHtml}`;
+            document.getElementById('alarmModal').style.display = 'flex';
+            
+            if (alarmInterval) clearInterval(alarmInterval);
+            playBeep(); alarmInterval = setInterval(playBeep, 800);
+        }
+
+        function stopAlarm() {
+            document.getElementById('alarmModal').style.display = 'none';
+            if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
+        }
+
+        setInterval(() => {
+            const now = new Date();
+            const currentTotalSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+
+            let minDiffSeconds = Infinity;
+            const activeAlarmsInfo = [];
+            let ringingTitles = [];
+
+            document.querySelectorAll('.alarm-item').forEach(item => {
+                const isChecked = item.querySelector('.alarm-toggle').checked;
+                const [alarmHour, alarmMinute] = item.querySelector('.time-text').innerText.split(':').map(Number);
+                
+                // 每秒清空所有倒數文字
+                item.querySelector('.nearest-timer').innerText = ''; 
+
+                // 檢查哪些鬧鐘「這分鐘」該響了
+                if (isChecked && alarmHour === now.getHours() && alarmMinute === now.getMinutes()) {
+                    if (item.dataset.rang === "false") { 
+                        const titleSpan = item.querySelector('.alarm-title').innerText.replace(' 🔍', '');
+                        ringingTitles.push(titleSpan);
+                        item.dataset.rang = "true"; 
+                    }
+                } else { 
+                    item.dataset.rang = "false"; 
+                }
+
+                // 收集所有開啟中的鬧鐘時間，找出最近的時間點
+                if (isChecked) {
+                    let diffSeconds = (alarmHour * 3600 + alarmMinute * 60) - currentTotalSeconds;
+                    if (diffSeconds < 0) diffSeconds += 24 * 3600; 
+                    
+                    activeAlarmsInfo.push({ item, diffSeconds });
+                    
+                    if (diffSeconds < minDiffSeconds) {
+                        minDiffSeconds = diffSeconds;
+                    }
+                }
+            });
+
+            // ⭐ 只有跟「最近時間（minDiffSeconds）」一模一樣的鬧鐘，才會顯示倒數！
+            if (minDiffSeconds !== Infinity) {
+                const h = Math.floor(minDiffSeconds / 3600);
+                const m = Math.floor((minDiffSeconds % 3600) / 60);
+                const s = minDiffSeconds % 60;
+                
+                let text = "";
+                if (h > 0) text = `${h}時\n${m}分`;
+                else if (m > 0) text = `${m}分\n${s}秒`;
+                else text = `${s}秒`;
+
+                activeAlarmsInfo.forEach(info => {
+                    if (info.diffSeconds === minDiffSeconds) {
+                        info.item.querySelector('.nearest-timer').innerText = text;
+                    }
+                });
+            }
+
+            // ⭐ 如果這一秒有多個鬧鐘同時到期，只會執行一次合併響鈴
+            if (ringingTitles.length > 0) {
+                triggerCombinedAlarm(ringingTitles);
+            }
+            
+        }, 1000);
+    </script>
+</body>
+</html>
