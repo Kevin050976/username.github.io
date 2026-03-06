@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (穩定修復版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (穩定響鈴版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
         h2 { text-align: center; color: #333; margin-bottom: 10px; }
         
-        /* 系統控制區 - 解決 Android 熄屏問題 */
+        /* 系統控制區 */
         .system-control { background-color: #fff3cd; border: 2px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
         .btn-master { background-color: #e67e22; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; margin-bottom: 8px; }
         .btn-master.active { background-color: #27ae60; }
@@ -102,7 +102,7 @@
         .btn-alarm-stop { background: #e74c3c; color: white; font-size: 18px; }
     </style>
 </head>
-<body>
+<body onclick="ensureAudioInit()">
 
     <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
@@ -110,11 +110,11 @@
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
-            1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)
+            1. 點擊啟動防熄屏與背景鬧鐘 (加強Android穩定性)
         </button><br>
         <button class="btn-test-sound" onclick="testSound()">🎵 測試鈴聲</button>
         <p class="system-hint">
-            ⚠️ 啟動後將維持螢幕長亮並開啟背景音訊，確保熄屏後鬧鐘依然能準時響起。
+            💡 網頁開啟時鬧鐘就會運作。橘色按鈕是用於防止手機熄屏進入深度休眠。
         </p>
     </div>
     
@@ -131,7 +131,7 @@
                 <button class="btn-tool" onclick="wrapBrackets()">➕ 幫反白加【 】</button>
             </div>
         </div>
-        <textarea id="inputText" placeholder="2. 請在此貼上內容... (例如: 3/8【標題】14:00)"></textarea>
+        <textarea id="inputText" placeholder="2. 請在此貼上內容... (例如: 03/06【標題】1800)"></textarea>
         
         <div class="button-group-row">
             <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
@@ -232,7 +232,7 @@
 
     <script>
         let audioCtx, wakeLock = null, alarmInterval;
-        let isSystemActive = false; // ⭐ 用來追蹤啟動狀態，確保開關正常
+        let isSystemActive = false; 
         let alarms = [];
         let sortMode = 0; 
         let currentEditingId = null;
@@ -251,6 +251,16 @@
         function save() {
             localStorage.setItem('lineAlarmsData_v3', JSON.stringify(alarms));
             localStorage.setItem('lineAlarmsSortMode_v3', sortMode);
+        }
+
+        // ⭐ 只要用戶點擊頁面，就嘗試初始化音訊
+        function ensureAudioInit() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
         }
 
         function generateId() {
@@ -273,23 +283,47 @@
                 const text = await navigator.clipboard.readText();
                 document.getElementById('inputText').value = text;
             } catch (err) {
-                showMessage("無法自動讀取剪貼簿，請手動貼上。有些瀏覽器會限制讀取權限。");
+                showMessage("無法自動讀取剪貼簿，請手動貼上。");
             }
         }
 
         function parseAndAdd() {
+            ensureAudioInit(); // 操作時順便初始化
             const text = document.getElementById('inputText').value;
             if (!text.trim()) return;
-            const regex = /(?:(\d{1,2}\/\d{1,2})\s*)?【([^】]+)】\s*(\d{1,2}:\d{2})/;
+
+            const regex = /(?:(\d{1,2}\/\d{1,2})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
             const match = text.match(regex);
             
             if (match) {
-                const date = match[1] || getTodayMD();
-                const title = match[2].trim();
-                const origTime = match[3];
-                let [h, m] = origTime.split(':').map(Number);
+                let date = match[1];
+                if (date) {
+                    const dateParts = date.split('/');
+                    date = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                } else {
+                    date = getTodayMD();
+                }
                 
-                m -= parseInt(document.getElementById('earlyMinsText').innerText);
+                const title = match[2].trim();
+                let timeStr = match[3].trim();
+                
+                if (!timeStr.includes(':') && !timeStr.includes('：')) {
+                    if (timeStr.length === 3) timeStr = "0" + timeStr;
+                    if (timeStr.length === 4) {
+                        timeStr = timeStr.substring(0, 2) + ":" + timeStr.substring(2);
+                    }
+                } else {
+                    timeStr = timeStr.replace('：', ':');
+                    const parts = timeStr.split(':');
+                    timeStr = parts[0].padStart(2, '0') + ":" + parts[1].padStart(2, '0');
+                }
+
+                let [h, m] = timeStr.split(':').map(Number);
+                if (h >= 24 || m >= 60) { showMessage("❌ 時間數值無效"); return; }
+
+                const origTime = timeStr;
+                const earlyMins = parseInt(document.getElementById('earlyMinsText').innerText);
+                m -= earlyMins;
                 while (m < 0) { m += 60; h -= 1; }
                 h = (h + 24) % 24;
                 const alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -306,7 +340,7 @@
                     showMessage("重複的鬧鐘！");
                 }
             } else {
-                showMessage("格式錯誤！請包含【標題】與時間。");
+                showMessage("格式辨識失敗！");
             }
         }
 
@@ -331,11 +365,11 @@
                 li.innerHTML = `
                     <div class="alarm-info">
                         <div class="title-wrapper">
-                            <button class="btn-edit-trigger" onclick="openNameEditPrompt('${a.id}')" title="修改名稱">✏️</button>
+                            <button class="btn-edit-trigger" onclick="openNameEditPrompt('${a.id}')">✏️</button>
                             <span class="alarm-title" onclick="showInfoModal('${a.id}')">${a.title} ${a.origTime} ${a.suffix}</span>
                         </div>
                         <div class="time-control">
-                            <button class="btn-edit-trigger" onclick="openTimeEditPrompt('${a.id}')" title="修改時間">✏️</button>
+                            <button class="btn-edit-trigger" onclick="openTimeEditPrompt('${a.id}')">✏️</button>
                             <button class="btn-time-step" onclick="adjustItemTime('${a.id}', -1)">-</button>
                             <span class="time-text">${a.alarmTime}</span>
                             <button class="btn-time-step" onclick="adjustItemTime('${a.id}', 1)">+</button>
@@ -356,6 +390,7 @@
         }
 
         function openNameEditPrompt(id) {
+            ensureAudioInit();
             const a = alarms.find(x => x.id === id);
             if (!a) return;
             currentEditingId = id;
@@ -363,22 +398,17 @@
             document.getElementById('promptTitle').innerText = "✏️ 修改鬧鐘名稱";
             const input = document.getElementById('promptInput');
             input.value = a.title;
-            input.placeholder = "請輸入新的名稱";
             
             document.getElementById('promptConfirmBtn').onclick = function() {
                 const newName = input.value.trim();
-                if (newName) {
-                    a.title = newName;
-                    closeModal('promptModal');
-                    renderAlarms();
-                } else {
-                    showMessage("❌ 名稱不能為空！");
-                }
+                if (newName) { a.title = newName; closeModal('promptModal'); renderAlarms(); }
+                else { showMessage("❌ 名稱不能為空！"); }
             };
             modal.style.display = 'flex';
         }
 
         function openTimeEditPrompt(id) {
+            ensureAudioInit();
             const a = alarms.find(x => x.id === id);
             if (!a) return;
             currentEditingId = id;
@@ -386,7 +416,6 @@
             document.getElementById('promptTitle').innerText = "✏️ 修改鬧鐘時間";
             const input = document.getElementById('promptInput');
             input.value = a.alarmTime;
-            input.placeholder = "例如 14:30";
             
             document.getElementById('promptConfirmBtn').onclick = function() {
                 const newTime = input.value.trim();
@@ -395,14 +424,13 @@
                     a.alarmTime = `${String(parseInt(match[1])).padStart(2, '0')}:${String(parseInt(match[2])).padStart(2, '0')}`;
                     closeModal('promptModal');
                     renderAlarms();
-                } else {
-                    showMessage("❌ 時間格式錯誤！");
-                }
+                } else { showMessage("❌ 時間格式錯誤！"); }
             };
             modal.style.display = 'flex';
         }
 
         function showInfoModal(id) {
+            ensureAudioInit();
             const a = alarms.find(x => x.id === id);
             if (!a) return;
             currentEditingId = id;
@@ -446,52 +474,37 @@
             }
         }
 
-        // --- ⭐ 修正後的系統控制邏輯 ---
+        // --- 系統控制 ---
         async function toggleSystem() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            
+            ensureAudioInit();
             const btn = document.getElementById('masterBtn'), silentAudio = document.getElementById('silentAudio');
             
             if (isSystemActive) {
-                // 執行關閉
-                if (wakeLock !== null) {
-                    await wakeLock.release(); 
-                    wakeLock = null; 
-                }
+                if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
                 silentAudio.pause();
                 isSystemActive = false;
                 btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (解鎖音效)"; 
                 btn.classList.remove('active');
             } else {
-                // 執行啟動
-                silentAudio.play().catch(e => console.log("音訊啟動被攔截:", e));
+                silentAudio.play().catch(e => console.log(e));
                 isSystemActive = true;
                 if ('wakeLock' in navigator) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                        btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動";
-                    } catch (e) {
-                        btn.innerText = "✅ 背景音訊已啟動 (請求被拒)";
-                    }
-                } else {
-                    btn.innerText = "✅ 背景音訊已啟動 (不支援鎖定)";
+                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
                 }
+                btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動";
                 btn.classList.add('active');
             }
         }
 
         function testSound() {
-            if (!isSystemActive) {
-                showMessage("請先按下橘色按鈕啟動音訊引擎！");
-                return;
-            }
+            ensureAudioInit();
             playBeep();
         }
 
         function playBeep() {
-            if (!audioCtx) return;
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            
             const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
             osc.connect(g); g.connect(audioCtx.destination);
             osc.frequency.value = 800; g.gain.value = 0.3;
@@ -591,18 +604,38 @@
                     line = line.trim(); if (!line) return;
                     if (line === "[固定鬧鐘]") { currentSection = "fixed"; return; }
                     if (line === "[日期鬧鐘]") { currentSection = "date"; return; }
-                    const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}:\d{2})\s*(.*)$/);
-                    const matchFixed = line.match(/^(.*?)\s+(\d{1,2}:\d{2})\s*(.*)$/);
+                    const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
+                    const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
                     if (currentSection === "date" && importDate && matchDate) {
-                        const date = matchDate[1];
+                        let date = matchDate[1];
+                        const dateParts = date.split('/');
+                        date = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
                         if (todayValFunc(date) < curTodayVal) return;
-                        const title = matchDate[2].trim(), time = matchDate[3];
+                        const title = matchDate[2].trim();
+                        let time = matchDate[3].trim();
+                        if (!time.includes(':') && !time.includes('：')) {
+                            if (time.length === 3) time = "0" + time;
+                            time = time.substring(0, 2) + ":" + time.substring(2);
+                        } else {
+                            time = time.replace('：', ':');
+                            const ps = time.split(':');
+                            time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
+                        }
                         if (!alarms.some(a => a.date === date && a.title === title && a.alarmTime === time)) {
                             alarms.push({ date, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchDate[4] || "開始" });
                             count++;
                         }
                     } else if (currentSection === "fixed" && importFixed && matchFixed) {
-                        const title = matchFixed[1].trim(), time = matchFixed[2];
+                        const title = matchFixed[1].trim();
+                        let time = matchFixed[2].trim();
+                        if (!time.includes(':') && !time.includes('：')) {
+                            if (time.length === 3) time = "0" + time;
+                            time = time.substring(0, 2) + ":" + time.substring(2);
+                        } else {
+                            time = time.replace('：', ':');
+                            const ps = time.split(':');
+                            time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
+                        }
                         if (!alarms.some(a => a.date === today && a.title === title && a.alarmTime === time)) {
                             alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: matchFixed[3] || "開始" });
                             count++;
