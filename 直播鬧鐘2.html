@@ -3,141 +3,131 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>直播鬧鐘 專業版 ⏰</title>
+<title>SNG 專業現場鬧鐘 ⏰</title>
 <style>
-/* 完全參考 PDF 基礎版樣式  */
-body { font-family: sans-serif; background: #f4f6f8; margin: 0; padding: 15px; }
-.input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; } /* [cite: 1] */
-.toolbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); } /* [cite: 1, 2] */
-.early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; } /* [cite: 2, 3] */
-.early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; } /* [cite: 3] */
-.btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; } /* [cite: 4] */
-.btn-tool { background-color: #7f8c8d; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; } /* [cite: 5, 6] */
-textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; } /* [cite: 6, 7] */
-.button-group-row { display: flex; gap: 8px; margin-bottom: 5px; } /* [cite: 7] */
+[span_2](start_span)/* 基礎 UI 樣式 [cite: 1-11] */
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #e0e0e0; margin: 0; padding: 15px; }
+.input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; } 
+.toolbar { display: flex; justify-content: space-between; align-items: center; background: #1e1e1e; padding: 10px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.5); } 
+.early-box { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: bold; color: #bb86fc; } 
+.early-val { color: #cf6679; font-size: 18px; width: 22px; text-align: center; font-weight: 900; }
+.btn-early { background: #333; color: #fff; border: 1px solid #444; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
 
-.btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1; } /* [cite: 8] */
-.btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 15px; font-weight: bold; flex: 1; transition: 0.2s; } /* [cite: 9, 10] */
-.btn-io { background-color: #9b59b6; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; } /* [cite: 10, 11] */
+/* 按鈕美化 */
+.btn-tool { background: #03dac6; color: #000; border: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: bold; }
+textarea { width: 100%; height: 100px; padding: 12px; border: 1px solid #333; background: #1e1e1e; color: #fff; border-radius: 10px; font-size: 16px; box-sizing: border-box; outline: none; }
+textarea:focus { border-color: #bb86fc; }
 
-.date-header { font-size: 16px; font-weight: bold; color: #fff; background-color: #2c3e50; padding: 6px 12px; border-radius: 8px; margin: 15px 0 8px 0; text-align: center; list-style: none; }
+.button-group-row { display: flex; gap: 10px; margin-top: 5px; }
+.btn-add { background: #bb86fc; color: #000; border: none; cursor: pointer; padding: 14px; border-radius: 12px; font-size: 16px; font-weight: bold; flex: 1.5; }
+.btn-sort { background: #3700b3; color: #fff; border: none; padding: 10px; border-radius: 12px; font-size: 15px; flex: 1; }
+.btn-io { background: #333; color: #bbb; border: 1px solid #444; padding: 10px; border-radius: 10px; font-size: 13px; flex: 1; }
+.btn-delete-all { background: #cf6679; color: #000; border: none; padding: 10px; border-radius: 10px; font-size: 13px; font-weight: bold; }
 
-/* 鬧鐘清單樣式 [cite: 12-23] */
-.alarm-list { list-style: none; padding: 0; margin: 0; } /* [cite: 12] */
-.alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; color: white; } /* [cite: 12, 13] */
-.alarm-info { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; } /* [cite: 13, 14] */
-.alarm-title { font-size: 15px; font-weight: bold; color: white; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; line-height: 1.3; } /* [cite: 14, 15] */
-.time-text { color: white; font-size: 18px; font-weight: bold; width: 45px; text-align: center; } /* [cite: 18] */
-.nearest-timer { color: #fff; font-size: 26px; font-weight: 900; width: 95px; text-align: right; line-height: 1.0; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); } /* [cite: 21] */
+[cite_start]/* 鬧鐘清單樣式 [cite: 12-22] */
+.alarm-list { list-style: none; padding: 0; margin: 0; }
+.date-header { font-size: 14px; font-weight: bold; color: #03dac6; background: rgba(3, 218, 198, 0.1); padding: 8px; border-radius: 8px; margin: 20px 0 10px 0; text-align: left; border-left: 4px solid #03dac6; }
 
-/* 開關樣式 [cite: 23-27] */
-.switch { position: relative; display: inline-block; width: 22px; height: 40px; } /* [cite: 23] */
-.switch input { opacity: 0; width: 0; height: 0; } /* [cite: 24] */
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.4); transition: .4s; border-radius: 22px; } /* [cite: 24, 25] */
-.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; } /* [cite: 25, 26] */
-input:checked + .slider { background-color: #06C755; } /* [cite: 26] */
-input:checked + .slider:before { transform: translateY(-18px); } /* [cite: 27] */
+.alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 15px; margin-bottom: 12px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); transition: transform 0.2s; position: relative; overflow: hidden; }
+.alarm-info { display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
+.alarm-title { font-size: 17px; font-weight: bold; color: #fff; letter-spacing: 0.5px; }
+.time-display { display: flex; align-items: center; gap: 12px; }
+.time-text { font-size: 24px; font-weight: 900; color: #fff; text-shadow: 0 0 10px rgba(0,0,0,0.5); font-family: monospace; }
 
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; } /* [cite: 28, 29] */
-.modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; color: #333; } /* [cite: 30, 31] */
+[cite_start]/* 倒數計時 [cite: 20-21] */
+.nearest-timer { color: #fff; font-size: 28px; font-weight: 900; width: 100px; text-align: right; line-height: 1; font-family: 'Courier New', Courier, monospace; }
+
+[cite_start]/* 開關樣式 [cite: 23-27] */
+.switch { position: relative; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 24px; }
+.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+input:checked + .slider { background-color: #03dac6; }
+input:checked + .slider:before { transform: translateX(20px); }
+
+[cite_start]/* 彈窗樣式 [cite: 28-37] */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 2000; backdrop-filter: blur(5px); }
+.modal-content { background: #1e1e1e; padding: 30px; border-radius: 24px; text-align: center; width: 85%; max-width: 400px; border: 1px solid #333; color: #fff; }
 </style>
 </head>
 <body>
 
-<div style="text-align: center; margin-bottom: 15px;">
-    <button id="masterBtn" onclick="toggleSystem()" style="background:#f39c12; color:white; border:none; padding:10px 15px; border-radius:8px; font-weight:bold; font-size:15px; width:100%;">1. 點擊啟動防熄屏與背景鬧鐘</button>
-</div>
+<button id="masterBtn" onclick="toggleSystem()" style="background:#03dac6; color:#000; border:none; padding:15px; border-radius:12px; font-weight:bold; width:100%; margin-bottom:20px;">1. 啟動 SNG 監聽模式</button>
 
 <div class="input-group">
     <div class="toolbar">
-        <div class="early-box">
-            提早 <button class="btn-early" onclick="adjustEarly(-1)">-</button>
-            <span id="earlyMinsText" class="early-val">0</span> 分
-            <button class="btn-early" onclick="adjustEarly(1)">+</button>
-        </div>
-        <div style="display: flex; gap: 5px;">
-            <button class="btn-tool" style="background:#2c3e50" onclick="pasteFromClipboard()">📋 貼上</button>
-            <button class="btn-tool" onclick="wrapBrackets()">幫反白加【 】</button>
+        <div class="early-box">提早 <button class="btn-early" onclick="adjustEarly(-1)">-</button> <span id="earlyMinsText" class="early-val">0</span> 分 <button class="btn-early" onclick="adjustEarly(1)">+</button></div>
+        <div style="display:flex; gap:8px;">
+            <button class="btn-tool" onclick="pasteFromClipboard()">📋 貼上</button>
+            <button class="btn-tool" onclick="wrapBrackets()">【 】</button>
         </div>
     </div>
-    <textarea id="inputText" placeholder="請貼上內容，例如：3/8【標題】14:30 或 【標題】14:30"></textarea>
+    <textarea id="inputText" placeholder="請輸入內容... (支援匯入格式)"></textarea>
     
     <div class="button-group-row">
         <button class="btn-add" onclick="parseAndAdd()">➕ 擷取並新增</button>
         <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間排序</button>
     </div>
     <div class="button-group-row">
-        <input type="file" id="importFile" style="display:none" accept=".txt" onchange="handleImportFileSelect(event)">
-        <button class="btn-io" onclick="document.getElementById('importFile').click()">📥 匯入.txt</button>
-        <button class="btn-io" onclick="showExportModal()">📤 匯出.txt</button>
-        <button class="btn-io" style="background-color: #c0392b;" onclick="deleteAllAlarms()">🗑️ 全部刪除</button>
+        <input type="file" id="importFile" style="display:none" onchange="handleImportFileSelect(event)">
+        <button class="btn-io" onclick="document.getElementById('importFile').click()">📥 匯入</button>
+        <button class="btn-io" onclick="showExportModal()">📤 匯出</button>
+        <button class="btn-delete-all" onclick="deleteAllAlarms()">🗑️ 清空</button>
     </div>
 </div>
 
 <ul id="alarmList" class="alarm-list"></ul>
 
-<audio id="silentAudio" loop playsinline><source src="data:audio/mp3;base64,//OExAAAAANIAAAAAExBTUUzLjEwMKqqqqqq..." type="audio/mpeg"></audio>
-<div id="exportModal" class="modal-overlay"><div class="modal-content"><h3>📤 匯出選項</h3><label><input type="checkbox" id="exportFixed" checked> 固定鬧鐘</label><label><input type="checkbox" id="exportDate" checked> 日期鬧鐘</label><button class="btn-add" onclick="executeExport()" style="margin-top:10px">確認匯出</button><button class="btn-early" onclick="closeModals()" style="margin-top:5px">取消</button></div></div>
-<div id="importModal" class="modal-overlay"><div class="modal-content"><h3>📥 匯入選項</h3><label><input type="checkbox" id="importFixed" checked> 固定鬧鐘</label><label><input type="checkbox" id="importDate" checked> 日期鬧鐘</label><button class="btn-add" onclick="executeImport()" style="margin-top:10px">確認匯入</button><button class="btn-early" onclick="closeModals()" style="margin-top:5px">取消</button></div></div>
-<div id="alarmModal" class="modal-overlay"><div class="modal-content"><h3>⏰ 時間到！</h3><div id="alarmModalText"></div><button class="btn-add" style="background:#e74c3c" onclick="stopAlarm()">關閉</button></div></div>
+<div id="exportModal" class="modal-overlay"><div class="modal-content"><h3>📤 匯出設定</h3><div style="text-align:left; margin:20px 0;"><label><input type="checkbox" id="exportFixed" checked> 固定鬧鐘</label><br><br><label><input type="checkbox" id="exportDate" checked> 日期鬧鐘</label></div><button class="btn-add" onclick="executeExport()">確認匯出</button><button class="btn-io" style="margin-top:10px; width:100%;" onclick="closeModals()">取消</button></div></div>
+<div id="importModal" class="modal-overlay"><div class="modal-content"><h3>📥 匯入確認</h3><div style="text-align:left; margin:20px 0;"><label><input type="checkbox" id="importFixed" checked> 固定鬧鐘 (每天重複)</label><br><br><label><input type="checkbox" id="importDate" checked> 日期鬧鐘 (略過過期)</label></div><button class="btn-add" onclick="executeImport()">確認匯入</button><button class="btn-io" style="margin-top:10px; width:100%;" onclick="closeModals()">取消</button></div></div>
+<div id="alarmModal" class="modal-overlay"><div class="modal-content"><h1 style="color:#cf6679">⏰ ON AIR!</h1><div id="alarmModalText" style="font-size:24px; margin:20px 0;"></div><button class="btn-add" style="background:#cf6679" onclick="stopAlarm()">停止響鈴</button></div></div>
 
 <script>
 let sortMode = 0;
 const sortLabels = ['依時間排序', '依名稱排序'];
 let audioCtx = null, wakeLock = null, alarmInterval = null, pendingImportContent = "";
 
-// 深色系不重複顏色
-function getBgColor(name) {
-    const darkColors = ['#1a252f', '#4a235a', '#1b4f72', '#0b5345', '#78281f', '#641e16', '#154360', '#512e5f'];
+// 專業 SNG 配色方案
+function getSNGColor(name) {
+    const palette = ['#1a237e', '#004d40', '#311b92', '#1b5e20', '#4a148c', '#01579b', '#263238', '#3e2723'];
     let hash = 0;
     for (let i = 0; i < name.length; i++) { hash = name.charCodeAt(i) + ((hash << 5) - hash); }
-    return darkColors[Math.abs(hash) % darkColors.length];
+    return palette[Math.abs(hash) % palette.length];
 }
 
 async function pasteFromClipboard() {
     try {
-        document.getElementById('inputText').value = await navigator.clipboard.readText();
-    } catch (err) { alert("請手動貼上內容"); }
+        const text = await navigator.clipboard.readText();
+        document.getElementById('inputText').value = text;
+    } catch (e) { alert("請手動貼上內容"); }
 }
 
 function getTodayDateStr() { const d = new Date(); return `${d.getMonth() + 1}/${d.getDate()}`; }
 
-// 儲存與解析邏輯 [cite: 43-60]
-function saveAlarmsToStorage() {
-    const data = Array.from(document.querySelectorAll('.alarm-item')).map(item => ({
-        baseName: item.dataset.basename,
-        origTime: item.dataset.origtime,
-        alarmTime: item.querySelector('.time-text').innerText,
-        rawText: decodeURIComponent(item.dataset.raw || ''),
-        suffix: item.dataset.suffix,
-        checked: item.querySelector('.alarm-toggle').checked,
-        dateStr: item.dataset.date,
-        isFixed: item.dataset.isfixed === "true"
-    }));
-    localStorage.setItem('lineAlarmsData', JSON.stringify(data));
-}
-
 function parseAndAdd() {
-    const inputEl = document.getElementById('inputText');
-    const text = inputEl.value;
-    if (!text.trim()) return;
+    const text = document.getElementById('inputText').value.trim();
+    if (!text) return;
     
-    // 正則支援 (日期) 【標題】 時間 [cite: 57, 58]
-    const match = text.match(/(?:(\d{1,2}\/\d{1,2})\s*)?【([^】]+)】\s*(\d{1,2}:\d{2})/);
+    [cite_start]// 改良的正則：相容【括號】與純文字[span_2](end_span)
+    const match = text.match(/^(?:(\d{1,2}\/\d{1,2})\s+)?(?:【?([^】\s]+)】?\s*)(\d{1,2}:\d{2})(?:\s+(開始|結束))?$/);
+    
     if (match) {
         const dateInput = match[1];
         const title = match[2].trim();
         let [h, m] = match[3].split(':').map(Number);
-        const originalTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const suffix = match[4] || "開始";
         
+        const origTime = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
         m -= parseInt(document.getElementById('earlyMinsText').innerText);
         while (m < 0) { m += 60; h -= 1; }
         h = (h + 24) % 24;
         
-        addAlarmItem(title, originalTimeStr, `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`, text, "開始", true, dateInput || getTodayDateStr(), !dateInput);
-        inputEl.value = '';
+        addAlarmItem(title, origTime, `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`, text, suffix, true, dateInput || getTodayDateStr(), !dateInput);
+        document.getElementById('inputText').value = '';
         applyCurrentSort();
-    } else alert('格式不符 [cite: 60]');
+    } else {
+        alert("格式錯誤！請確保包含「標題」與「時間 (HH:mm)」。");
+    }
 }
 
 function addAlarmItem(baseName, originalTime, alarmTime, rawText, suffix, checked, dateStr, isFixed) {
@@ -145,98 +135,104 @@ function addAlarmItem(baseName, originalTime, alarmTime, rawText, suffix, checke
     const li = document.createElement('li');
     li.className = 'alarm-item';
     li.dataset.basename = baseName; li.dataset.origtime = originalTime;
-    li.dataset.suffix = suffix; li.dataset.raw = encodeURIComponent(rawText || '');
-    li.dataset.date = dateStr; li.dataset.isfixed = isFixed;
-    li.style.backgroundColor = getBgColor(baseName);
+    li.dataset.suffix = suffix; li.dataset.date = dateStr; li.dataset.isfixed = isFixed;
+    li.style.backgroundColor = getSNGColor(baseName);
 
     li.innerHTML = `
         <div class="alarm-info">
             <span class="alarm-title">${baseName} ${originalTime} ${suffix}</span>
-            <div style="display:flex; align-items:center; gap:8px;">
+            <div class="time-display">
                 <span class="time-text">${alarmTime}</span>
                 <button class="btn-early" onclick="adjustItemTime(this,-1)">-</button>
                 <button class="btn-early" onclick="adjustItemTime(this,1)">+</button>
-                <button class="btn-early" style="background:transparent; color:rgba(255,255,255,0.6)" onclick="if(confirm('刪除？')) {this.closest('li').remove(); saveAlarmsToStorage(); renderDateHeaders();}">🗑</button>
+                <button class="btn-early" style="border:none; color:#cf6679" onclick="if(confirm('刪除？')){this.closest('li').remove(); saveAndSort();}">🗑</button>
             </div>
         </div>
-        <div style="display:flex; align-items:center; gap:12px;">
+        <div style="display:flex; align-items:center; gap:15px;">
             <span class="nearest-timer"></span>
-            <label class="switch">
-                <input type="checkbox" class="alarm-toggle" ${checked ? 'checked' : ''} onchange="saveAlarmsToStorage()">
-                <span class="slider"></span>
-            </label>
+            <label class="switch"><input type="checkbox" class="alarm-toggle" ${checked?'checked':''} onchange="saveAndSort()"><span class="slider"></span></label>
         </div>
     `;
     list.appendChild(li);
     saveAlarmsToStorage();
 }
 
-// 匯出功能：固定鬧鐘不顯示日期
+[span_3](start_span)// 核心功能：修復匯出不帶時間/日期邏輯[span_3](end_span)
 function executeExport() {
     const items = document.querySelectorAll('.alarm-item');
-    let textData = "";
+    let text = "";
     items.forEach(item => {
         const isF = item.dataset.isfixed === "true";
         if ((isF && document.getElementById('exportFixed').checked) || (!isF && document.getElementById('exportDate').checked)) {
             const prefix = isF ? "" : item.dataset.date + " ";
-            textData += `${prefix}【${item.dataset.basename}】 ${item.dataset.origtime}\n`;
+            text += `${prefix}${item.dataset.basename} ${item.dataset.origtime} ${item.dataset.suffix}\n`;
         }
     });
-    const blob = new Blob([textData], { type: 'text/plain;charset=utf-8' });
+    const blob = new Blob([text], {type:'text/plain'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `直播備份_${new Date().toISOString().slice(0,10)}.txt`;
+    a.download = `SNG_Backup_${new Date().toISOString().slice(0,10)}.txt`;
     a.click();
     closeModals();
 }
 
 function handleImportFileSelect(e) {
     const reader = new FileReader();
-    reader.onload = (ev) => { pendingImportContent = ev.target.result; document.getElementById('importModal').style.display = 'flex'; };
+    reader.onload = (ev) => { pendingImportContent = ev.target.result; document.getElementById('importModal').style.display='flex'; };
     reader.readAsText(e.target.files[0]);
 }
 
 function executeImport() {
     const lines = pendingImportContent.split('\n');
+    let count = 0;
     lines.forEach(line => {
-        const match = line.trim().match(/^(?:(\d{1,2}\/\d{1,2})\s*)?【([^】]+)】\s*(\d{1,2}:\d{2})/);
-        if (match) {
-            const isF = !match[1];
+        [span_4](start_span)// 全面相容[span_4](end_span) 的正則
+        const m = line.trim().match(/^(?:(\d{1,2}\/\d{1,2})\s+)?(?:【?([^】\s]+)】?\s*)(\d{1,2}:\d{2})(?:\s+(開始|結束))?$/);
+        if (m) {
+            const isF = !m[1];
             if ((isF && document.getElementById('importFixed').checked) || (!isF && document.getElementById('importDate').checked)) {
-                addAlarmItem(match[2].trim(), match[3], match[3], line, "開始", true, match[1] || getTodayDateStr(), isF);
+                addAlarmItem(m[2], m[3], m[3], line, m[4]||"開始", true, m[1]||getTodayDateStr(), isF);
+                count++;
             }
         }
     });
+    alert(`成功匯入 ${count} 筆！`);
     applyCurrentSort(); closeModals();
 }
 
-// 輔助功能略
-function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
-function showExportModal() { document.getElementById('exportModal').style.display = 'flex'; }
-function adjustEarly(d) { let el = document.getElementById('earlyMinsText'); el.innerText = Math.max(0, parseInt(el.innerText) + d); }
-function toggleSortMode() { sortMode = (sortMode + 1) % 2; document.getElementById('sortBtn').innerText = sortLabels[sortMode]; applyCurrentSort(); }
+// 排序與 UI 刷新
+function saveAndSort() { saveAlarmsToStorage(); applyCurrentSort(); }
 function applyCurrentSort() {
     const list = document.getElementById('alarmList'), items = Array.from(list.children);
-    if (sortMode === 0) items.sort((a,b) => a.querySelector('.time-text').innerText.localeCompare(b.querySelector('.time-text').innerText));
-    else items.sort((a,b) => a.dataset.basename.localeCompare(b.dataset.basename, 'zh-TW'));
-    list.innerHTML = ''; items.forEach(i => list.appendChild(i));
-    renderDateHeaders(); saveAlarmsToStorage();
-}
-function renderDateHeaders() {
     document.querySelectorAll('.date-header').forEach(h => h.remove());
-    const list = document.getElementById('alarmList'), items = Array.from(list.children), today = getTodayDateStr();
-    let cur = null;
+    
+    [span_5](start_span)// 排序邏輯 [cite: 78-89]
+    items.sort((a,b) => {
+        if(sortMode === 0) return a.querySelector('.time-text').innerText.localeCompare(b.querySelector('.time-text').innerText);
+        return a.dataset.basename.localeCompare(b.dataset.basename, 'zh-TW');
+    });
+
+    list.innerHTML = '';
+    let cur = null, today = getTodayDateStr();
     items.forEach(item => {
         let d = item.dataset.isfixed === "true" ? "固定鬧鐘 (每日重複)" : item.dataset.date;
         if (d !== cur) {
             const h = document.createElement('li'); h.className = 'date-header'; h.innerText = d;
-            list.insertBefore(h, item); cur = d;
+            list.appendChild(h); cur = d;
         }
+        list.appendChild(item);
     });
+    saveAlarmsToStorage();
 }
-function deleteAllAlarms() { if (confirm('確認清空？')) { document.getElementById('alarmList').innerHTML = ''; saveAlarmsToStorage(); renderDateHeaders(); } }
 
-// 初始化與背景邏輯與 PDF 基礎版一致 [cite: 43, 47-53, 106-116]
+function toggleSortMode() { sortMode = (sortMode + 1) % 2; document.getElementById('sortBtn').innerText = sortLabels[sortMode]; applyCurrentSort(); }
+function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none'); }
+function showExportModal() { document.getElementById('exportModal').style.display = 'flex'; }
+function adjustEarly(d) { let el = document.getElementById('earlyMinsText'); el.innerText = Math.max(0, parseInt(el.innerText)+d); }
+function wrapBrackets() { let t = document.getElementById('inputText'); let s = t.selectionStart, e = t.selectionEnd; if(s!==e) t.value = t.value.slice(0,s)+'【'+t.value.slice(s,e)+'】'+t.value.slice(e); }
+function deleteAllAlarms() { if(confirm('確定清空所有鬧鐘？')) { document.getElementById('alarmList').innerHTML = ''; saveAndSort(); } }
+
+[cite_start]// 系統啟動與背景檢查 [cite: 43-47, 94-102]
 window.onload = () => {
     const saved = localStorage.getItem('lineAlarmsData');
     if (saved) JSON.parse(saved).reverse().forEach(a => addAlarmItem(a.baseName, a.origTime, a.alarmTime, a.rawText, a.suffix, a.checked, a.dateStr, a.isFixed));
@@ -244,36 +240,46 @@ window.onload = () => {
 };
 
 setInterval(() => {
-    const now = new Date(), curSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds(), today = getTodayDateStr();
+    const now = new Date(), curSec = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds(), today = getTodayDateStr();
     let minDiff = Infinity;
     document.querySelectorAll('.alarm-item').forEach(item => {
         const [ah, am] = item.querySelector('.time-text').innerText.split(':').map(Number);
+        const isChecked = item.querySelector('.alarm-toggle').checked;
         const isDateMatch = item.dataset.isfixed === "true" || item.dataset.date === today;
         item.querySelector('.nearest-timer').innerText = '';
-        if (item.querySelector('.alarm-toggle').checked && isDateMatch) {
-            let diff = (ah * 3600 + am * 60) - curSec;
+        if (isChecked && isDateMatch) {
+            let diff = (ah*3600 + am*60) - curSec;
             if (diff < 0) diff += 86400;
             if (diff < minDiff) minDiff = diff;
-            if (ah === now.getHours() && am === now.getMinutes()) triggerAlarm(item.dataset.basename);
+            if (ah === now.getHours() && am === now.getMinutes() && !alarmInterval) triggerAlarm(item.dataset.basename);
         }
     });
     if (minDiff !== Infinity) {
         document.querySelectorAll('.alarm-item').forEach(item => {
             const [ah, am] = item.querySelector('.time-text').innerText.split(':').map(Number);
-            let diff = (ah * 3600 + am * 60) - curSec; if (diff < 0) diff += 86400;
-            if (diff === minDiff) item.querySelector('.nearest-timer').innerText = minDiff > 60 ? Math.floor(minDiff/60) + "分" : minDiff + "秒";
+            let diff = (ah*3600 + am*60) - curSec; if (diff < 0) diff += 86400;
+            if (diff === minDiff) {
+                const m = Math.floor(diff/60), s = diff%60;
+                item.querySelector('.nearest-timer').innerText = m > 0 ? `${m}m\n${s}s` : `${s}s`;
+            }
         });
     }
 }, 1000);
 
 function triggerAlarm(t) { 
-    if (!alarmInterval) { 
-        document.getElementById('alarmModalText').innerText = `🔔 ${t}`;
-        document.getElementById('alarmModal').style.display = 'flex';
-        alarmInterval = setInterval(() => { if (navigator.vibrate) navigator.vibrate(200); }, 1000);
-    } 
+    document.getElementById('alarmModalText').innerText = t;
+    document.getElementById('alarmModal').style.display = 'flex';
+    alarmInterval = setInterval(() => { if (navigator.vibrate) navigator.vibrate(300); }, 1000);
 }
 function stopAlarm() { clearInterval(alarmInterval); alarmInterval = null; closeModals(); }
+async function toggleSystem() {
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    document.getElementById('silentAudio').play();
+    if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+    document.getElementById('masterBtn').style.background = "#333";
+    document.getElementById('masterBtn').style.color = "#03dac6";
+    document.getElementById('masterBtn').innerText = "✅ 監聽中 (已防熄屏)";
+}
 </script>
 </body>
 </html>
