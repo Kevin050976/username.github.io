@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>即時訊息看板</title>
+  <title>即時訊息看板 - 櫻花粉</title>
   <style>
+    /* 整體背景改成極淺的粉色 */
     body { 
       font-family: "微軟正黑體", sans-serif; 
       padding: 20px; 
-      background-color: #f4f7f6;
+      background-color: #fff0f5; 
     }
     .board {
       background-color: white;
       border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 4px 10px rgba(233, 30, 99, 0.1); /* 粉色系陰影 */
       overflow: hidden;
     }
     
-    /* 頂部控制列的排版（時鐘與按鈕） */
+    /* 頂部控制列 */
     .header-controls {
       display: flex;
       justify-content: space-between;
@@ -27,15 +28,15 @@
     #clock {
       font-size: 1.8em;
       font-weight: bold;
-      color: #2b6cb0;
+      color: #d81b60; /* 深粉紅字體 */
       background: white;
       padding: 10px 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(233, 30, 99, 0.1);
       letter-spacing: 2px;
     }
     .btn-refresh {
-      background-color: #3182ce;
+      background-color: #f06292; /* 粉紅按鈕 */
       color: white;
       border: none;
       padding: 12px 24px;
@@ -43,39 +44,33 @@
       font-weight: bold;
       border-radius: 6px;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 4px rgba(233, 30, 99, 0.2);
       transition: background-color 0.2s;
     }
-    .btn-refresh:hover { background-color: #2b6cb0; }
-    .btn-refresh:disabled { background-color: #a0aec0; cursor: not-allowed; }
+    .btn-refresh:hover { background-color: #e91e63; } /* 滑鼠經過變深粉紅 */
+    .btn-refresh:disabled { background-color: #f8bbd0; cursor: not-allowed; }
 
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 15px; text-align: left; line-height: 1.6; }
-    th { background-color: #4a5568; color: white; font-size: 1.1em; }
     
-    /* 淡淡的顏色劃分 */
-    tr:nth-child(even) { background-color: #f8fafc; }
-    tr { border-bottom: 1px solid #edf2f7; }
-    tr:hover { background-color: #ebf8ff; } /* 滑鼠游標經過時會有淺藍色高光 */
+    /* 標題列：柔和的玫瑰粉 */
+    th { background-color: #f48fb1; color: white; font-size: 1.1em; }
     
-    .time { font-weight: bold; color: #4a5568; white-space: nowrap; font-size: 1.1em; }
+    /* 偶數列：超淺粉底色，做出層次感 */
+    tr:nth-child(even) { background-color: #fffafb; }
+    tr { border-bottom: 1px solid #fce4ec; }
+    tr:hover { background-color: #fce4ec; } /* 滑鼠整列經過的淺粉高光 */
     
-    /* 複製按鈕的樣式 */
-    .btn-copy {
-      margin-top: 10px;
-      padding: 6px 12px;
-      font-size: 0.85em;
-      color: #4a5568;
-      background-color: #e2e8f0;
-      border: 1px solid #cbd5e0;
-      border-radius: 4px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      transition: all 0.2s;
+    .time { font-weight: bold; color: #880e4f; white-space: nowrap; font-size: 1.1em; }
+    
+    /* ✨ 訊息格專屬特效 ✨ */
+    .message-cell {
+      cursor: pointer; /* 滑鼠移過去會變成手指圖案 */
+      transition: all 0.3s ease; /* 變色時會有滑順的漸變效果 */
     }
-    .btn-copy:hover { background-color: #cbd5e0; }
-    .msg-content { margin-bottom: 5px; }
+    .message-cell:hover {
+      background-color: #f8bbd0; /* 提示這裡可以點擊 */
+    }
   </style>
 </head>
 <body>
@@ -89,30 +84,29 @@
     <table>
       <thead>
         <tr>
-          <th width="10%">時間</th>
-          <th width="25%">發送者</th>
+          <th width="12%">時間</th>
+          <th width="23%">發送者</th>
           <th width="65%">訊息內容</th>
         </tr>
       </thead>
       <tbody id="data-body">
-        <tr><td colspan="3" style="text-align:center;">資料載入中，請稍候...</td></tr>
+        <tr><td colspan="3" style="text-align:center; color:#d81b60;">資料載入中，請稍候...</td></tr>
       </tbody>
     </table>
   </div>
 
   <script>
     // 🔴🔴🔴 請把下面這串換成你的 API 網址 🔴🔴🔴
-    const API_URL = "https://script.google.com/macros/s/AKfycbyJZYfsgqr0CAI-UPpDtG80qmBM_BEXd1n4DXlLJ-9RDk8U26lAUJPNa3ycTLgZ1G3PVA/exec";
+    const API_URL = "在此貼上你的_WEB_APP_網址";
 
     // --- 功能一：右上角的時鐘 ---
     function updateClock() {
       const now = new Date();
-      // 擷取時分秒，格式為 HH:mm:ss
       const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
       document.getElementById('clock').innerText = timeString;
     }
-    setInterval(updateClock, 1000); // 每 1000 毫秒 (1秒) 更新一次
-    updateClock(); // 網頁打開時立刻執行一次
+    setInterval(updateClock, 1000); 
+    updateClock(); 
 
     // --- 功能二：抓取資料並渲染表格 ---
     function loadData() {
@@ -124,70 +118,64 @@
         .then(res => res.json())
         .then(data => {
           const tbody = document.getElementById('data-body');
-          tbody.innerHTML = ''; // 清空原本的資料
+          tbody.innerHTML = ''; 
 
-          // 從第二列 i=1 開始抓，避開標題列
           for(let i = 1; i < data.length; i++) {
             const row = data[i];
             const rawTime = row[0];
             const sender = row[1];
             const message = row[2];
 
-            // 處理時間：只留 HH:mm
+            // 處理時間：保留完整的 時:分:秒 (HH:mm:ss)
             let timeOnly = "";
             if (rawTime) {
               const parts = rawTime.split(' ');
               if(parts.length > 1) {
-                timeOnly = parts[1].substring(0, 5); 
+                timeOnly = parts[1]; // 直接拿走整串時間
               } else {
                 timeOnly = rawTime;
               }
             }
 
-            // 建立一列 (<tr>)
             const tr = document.createElement('tr');
 
-            // 1. 時間欄位
+            // 1. 時間
             const tdTime = document.createElement('td');
             tdTime.className = 'time';
             tdTime.innerText = timeOnly;
 
-            // 2. 發送者欄位
+            // 2. 發送者
             const tdSender = document.createElement('td');
             tdSender.innerText = sender;
 
-            // 3. 訊息內容欄位 (包含文字與複製按鈕)
+            // 3. 訊息內容 (點擊複製的魔法在這裡)
             const tdMessage = document.createElement('td');
+            tdMessage.className = 'message-cell';
+            tdMessage.title = '點擊即可複製這段訊息'; // 滑鼠停留在上面會有小提示
             
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'msg-content';
-            msgDiv.innerHTML = message.replace(/\n/g, '<br>'); // 將換行符號轉成網頁換行
+            // 將 Line 的換行轉成網頁換行
+            const formattedMessage = message.replace(/\n/g, '<br>');
+            tdMessage.innerHTML = formattedMessage;
             
-            const copyBtn = document.createElement('button');
-            copyBtn.className = 'btn-copy';
-            copyBtn.innerText = '📋 複製內容';
-            
-            // 綁定複製按鈕的功能
-            copyBtn.onclick = function() {
-              // 複製原始訊息 (保留原始的換行排版)
+            // 綁定點擊事件
+            tdMessage.onclick = function() {
+              // 執行複製 (保留原本沒被改過換行的 message)
               navigator.clipboard.writeText(message).then(() => {
-                copyBtn.innerText = '✅ 已複製！';
-                copyBtn.style.backgroundColor = '#c6f6d5'; // 變淺綠色
-                copyBtn.style.borderColor = '#9ae6b4';
                 
-                // 2 秒後變回原樣
+                // 變色並加上提示字
+                tdMessage.style.backgroundColor = '#f48fb1'; // 變成深一點的粉色
+                tdMessage.style.color = 'white';
+                tdMessage.innerHTML = '<strong>✅ 已成功複製！</strong><br><br>' + formattedMessage;
+                
+                // 1.5 秒後恢復原狀
                 setTimeout(() => {
-                  copyBtn.innerText = '📋 複製內容';
-                  copyBtn.style.backgroundColor = '#e2e8f0';
-                  copyBtn.style.borderColor = '#cbd5e0';
-                }, 2000);
+                  tdMessage.style.backgroundColor = ''; 
+                  tdMessage.style.color = '';
+                  tdMessage.innerHTML = formattedMessage; 
+                }, 1500);
               });
             };
 
-            tdMessage.appendChild(msgDiv);
-            tdMessage.appendChild(copyBtn);
-
-            // 把三個欄位組裝進列裡面
             tr.appendChild(tdTime);
             tr.appendChild(tdSender);
             tr.appendChild(tdMessage);
@@ -198,16 +186,13 @@
           document.getElementById('data-body').innerHTML = '<tr><td colspan="3" style="color:red; text-align:center;">載入失敗，請確認網址是否貼對，或重新整理網頁。</td></tr>';
         })
         .finally(() => {
-          // 資料抓完後，把按鈕恢復原狀
           btn.innerText = "🔄 手動更新";
           btn.disabled = false;
         });
     }
 
     // --- 功能三：設定每 60 秒自動更新 ---
-    setInterval(loadData, 60000); // 60000 毫秒 = 60 秒
-    
-    // 網頁打開時，立刻載入一次資料
+    setInterval(loadData, 60000); 
     loadData();
 
   </script>
