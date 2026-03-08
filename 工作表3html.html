@@ -3,22 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>即時訊息看板 - 櫻花粉</title>
+  <title>即時訊息看板</title>
   <style>
-    /* 整體背景改成極淺的粉色 */
+    /* 1. 藍色系主介面 */
     body { 
       font-family: "微軟正黑體", sans-serif; 
       padding: 20px; 
-      background-color: #fff0f5; 
+      background-color: #eff6ff; /* 極淺的藍色背景 */
     }
     .board {
       background-color: white;
       border-radius: 8px;
-      box-shadow: 0 4px 10px rgba(233, 30, 99, 0.1); /* 粉色系陰影 */
+      box-shadow: 0 4px 12px rgba(29, 78, 216, 0.15); /* 藍色系陰影 */
       overflow: hidden;
     }
     
-    /* 頂部控制列 */
     .header-controls {
       display: flex;
       justify-content: space-between;
@@ -28,15 +27,15 @@
     #clock {
       font-size: 1.8em;
       font-weight: bold;
-      color: #d81b60; /* 深粉紅字體 */
+      color: #1e3a8a; /* 深藍色時鐘字體 */
       background: white;
       padding: 10px 20px;
       border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(233, 30, 99, 0.1);
+      box-shadow: 0 2px 4px rgba(29, 78, 216, 0.1);
       letter-spacing: 2px;
     }
     .btn-refresh {
-      background-color: #f06292; /* 粉紅按鈕 */
+      background-color: #2563eb; /* 亮藍色按鈕 */
       color: white;
       border: none;
       padding: 12px 24px;
@@ -44,32 +43,48 @@
       font-weight: bold;
       border-radius: 6px;
       cursor: pointer;
-      box-shadow: 0 2px 4px rgba(233, 30, 99, 0.2);
+      box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
       transition: background-color 0.2s;
     }
-    .btn-refresh:hover { background-color: #e91e63; } /* 滑鼠經過變深粉紅 */
-    .btn-refresh:disabled { background-color: #f8bbd0; cursor: not-allowed; }
+    .btn-refresh:hover { background-color: #1d4ed8; } /* 滑鼠經過變深藍 */
+    .btn-refresh:disabled { background-color: #93c5fd; cursor: not-allowed; }
 
     table { width: 100%; border-collapse: collapse; }
     th, td { padding: 15px; text-align: left; line-height: 1.6; }
     
-    /* 標題列：柔和的玫瑰粉 */
-    th { background-color: #f48fb1; color: white; font-size: 1.1em; }
+    /* 標題列：沉穩的深藍色 */
+    th { background-color: #1e40af; color: white; font-size: 1.1em; }
     
-    /* 偶數列：超淺粉底色，做出層次感 */
-    tr:nth-child(even) { background-color: #fffafb; }
-    tr { border-bottom: 1px solid #fce4ec; }
-    tr:hover { background-color: #fce4ec; } /* 滑鼠整列經過的淺粉高光 */
+    .time { font-weight: bold; color: #1e3a8a; white-space: nowrap; font-size: 1.1em; }
     
-    .time { font-weight: bold; color: #880e4f; white-space: nowrap; font-size: 1.1em; }
+    /* 2. 馬卡龍粉色系 (每一列輪流套用不同的顏色) */
+    .row-color-0 { background-color: #ffe4e6; } /* 粉紅 */
+    .row-color-0:hover { background-color: #fecdd3; }
     
-    /* ✨ 訊息格專屬特效 ✨ */
+    .row-color-1 { background-color: #e0f2fe; } /* 粉藍 */
+    .row-color-1:hover { background-color: #bae6fd; }
+    
+    .row-color-2 { background-color: #dcfce7; } /* 粉綠 */
+    .row-color-2:hover { background-color: #bbf7d0; }
+    
+    .row-color-3 { background-color: #fef08a; } /* 粉黃 */
+    .row-color-3:hover { background-color: #fde047; }
+    
+    .row-color-4 { background-color: #f3e8ff; } /* 粉紫 */
+    .row-color-4:hover { background-color: #e9d5ff; }
+
+    tr { border-bottom: 1px solid #ffffff; }
+
+    /* 訊息格專屬特效 */
     .message-cell {
-      cursor: pointer; /* 滑鼠移過去會變成手指圖案 */
-      transition: all 0.3s ease; /* 變色時會有滑順的漸變效果 */
+      cursor: pointer;
+      transition: all 0.2s ease;
     }
-    .message-cell:hover {
-      background-color: #f8bbd0; /* 提示這裡可以點擊 */
+    /* 點擊後的變色特效 (統一變成深藍底白字提示) */
+    .message-copied {
+      background-color: #1e40af !important;
+      color: white !important;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -90,7 +105,7 @@
         </tr>
       </thead>
       <tbody id="data-body">
-        <tr><td colspan="3" style="text-align:center; color:#d81b60;">資料載入中，請稍候...</td></tr>
+        <tr><td colspan="3" style="text-align:center; color:#1d4ed8;">資料載入中，請稍候...</td></tr>
       </tbody>
     </table>
   </div>
@@ -99,7 +114,6 @@
     // 🔴🔴🔴 請把下面這串換成你的 API 網址 🔴🔴🔴
     const API_URL = "https://script.google.com/macros/s/AKfycbyJZYfsgqr0CAI-UPpDtG80qmBM_BEXd1n4DXlLJ-9RDk8U26lAUJPNa3ycTLgZ1G3PVA/exec";
 
-    // --- 功能一：右上角的時鐘 ---
     function updateClock() {
       const now = new Date();
       const timeString = now.toLocaleTimeString('zh-TW', { hour12: false });
@@ -108,7 +122,6 @@
     setInterval(updateClock, 1000); 
     updateClock(); 
 
-    // --- 功能二：抓取資料並渲染表格 ---
     function loadData() {
       const btn = document.getElementById('refresh-btn');
       btn.innerText = "⏳ 更新中...";
@@ -120,57 +133,67 @@
           const tbody = document.getElementById('data-body');
           tbody.innerHTML = ''; 
 
+          // 用來控制粉色系輪迴的計數器 (排除標題列所以從0開始算)
+          let colorIndex = 0;
+
           for(let i = 1; i < data.length; i++) {
             const row = data[i];
             const rawTime = row[0];
             const sender = row[1];
             const message = row[2];
 
-            // 處理時間：保留完整的 時:分:秒 (HH:mm:ss)
-            let timeOnly = "";
+            // 1. 強制轉換成 24H 格式 (HH:mm:ss) 的超級翻譯機
+            let timeOnly = rawTime; // 預設值
             if (rawTime) {
-              const parts = rawTime.split(' ');
-              if(parts.length > 1) {
-                timeOnly = parts[1]; // 直接拿走整串時間
-              } else {
-                timeOnly = rawTime;
+              // 抓取字串裡面的 時間數字
+              const match = rawTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+              if (match) {
+                let h = parseInt(match[1], 10);
+                let m = match[2];
+                let s = match[3] || "00"; // 如果沒有秒數就補 00
+                
+                // 判斷是否有下午或 PM
+                if ((rawTime.includes('下午') || rawTime.toLowerCase().includes('pm')) && h < 12) {
+                  h += 12;
+                }
+                // 判斷是否有上午或 AM 的 12 點
+                if ((rawTime.includes('上午') || rawTime.toLowerCase().includes('am')) && h === 12) {
+                  h = 0;
+                }
+                
+                // 組合起來並補零 (例如 9 變成 09)
+                timeOnly = h.toString().padStart(2, '0') + ':' + m + ':' + s;
               }
             }
 
             const tr = document.createElement('tr');
+            
+            // 替這列套用輪迴的馬卡龍色系 class (0~4)
+            tr.className = `row-color-${colorIndex % 5}`;
+            colorIndex++;
 
-            // 1. 時間
             const tdTime = document.createElement('td');
             tdTime.className = 'time';
             tdTime.innerText = timeOnly;
 
-            // 2. 發送者
             const tdSender = document.createElement('td');
             tdSender.innerText = sender;
 
-            // 3. 訊息內容 (點擊複製的魔法在這裡)
             const tdMessage = document.createElement('td');
             tdMessage.className = 'message-cell';
-            tdMessage.title = '點擊即可複製這段訊息'; // 滑鼠停留在上面會有小提示
+            tdMessage.title = '點擊即可複製這段訊息';
             
-            // 將 Line 的換行轉成網頁換行
             const formattedMessage = message.replace(/\n/g, '<br>');
             tdMessage.innerHTML = formattedMessage;
             
-            // 綁定點擊事件
             tdMessage.onclick = function() {
-              // 執行複製 (保留原本沒被改過換行的 message)
               navigator.clipboard.writeText(message).then(() => {
+                // 加上深藍色變色特效
+                tdMessage.classList.add('message-copied');
+                tdMessage.innerHTML = '✅ 已成功複製！<br><br>' + formattedMessage;
                 
-                // 變色並加上提示字
-                tdMessage.style.backgroundColor = '#f48fb1'; // 變成深一點的粉色
-                tdMessage.style.color = 'white';
-                tdMessage.innerHTML = '<strong>✅ 已成功複製！</strong><br><br>' + formattedMessage;
-                
-                // 1.5 秒後恢復原狀
                 setTimeout(() => {
-                  tdMessage.style.backgroundColor = ''; 
-                  tdMessage.style.color = '';
+                  tdMessage.classList.remove('message-copied');
                   tdMessage.innerHTML = formattedMessage; 
                 }, 1500);
               });
@@ -191,7 +214,6 @@
         });
     }
 
-    // --- 功能三：設定每 60 秒自動更新 ---
     setInterval(loadData, 60000); 
     loadData();
 
