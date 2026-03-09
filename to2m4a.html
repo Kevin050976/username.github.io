@@ -3,63 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M4A 轉碼測試 (修復版)</title>
+    <title>M4A 轉碼測試 (終極偵錯版)</title>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f0f0; }
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         input, button { margin-bottom: 15px; width: 100%; padding: 12px; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
         button { background: #007bff; color: white; font-weight: bold; border: none; cursor: pointer; }
         button:disabled { background: #aaa; }
-        #log-box { background: #1e1e1e; color: #00ff00; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; border-radius: 5px; }
+        #log-box { background: #1e1e1e; color: #00ff00; padding: 10px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 12px; border-radius: 5px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>影片轉 m4a (單檔測試)</h2>
+        <h2>影片轉 m4a (平板偵錯版)</h2>
         <input type="file" id="uploader" accept="video/mp4, video/quicktime">
         <input type="password" id="token" placeholder="GitHub Token (ghp_...)">
         <input type="text" id="repo" placeholder="GitHub 儲存庫 (例: name/repo)">
         
-        <button id="start-btn" disabled>載入轉碼引擎中...</button>
+        <button id="start-btn" disabled>請看下方日誌...</button>
         <div id="log-box">等待操作...<br></div>
     </div>
 
     <script type="module">
-        import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
-
-        const ffmpeg = new FFmpeg();
         const logBox = document.getElementById('log-box');
-        const startBtn = document.getElementById('start-btn');
-        const uploader = document.getElementById('uploader');
-
         function log(msg) {
             logBox.innerHTML += msg + '<br>';
             logBox.scrollTop = logBox.scrollHeight;
         }
 
+        // 捕捉所有隱藏的錯誤
+        window.onerror = function(message, source, lineno, colno, error) {
+            log(`<span style="color:red">🔴 系統錯誤: ${message}</span>`);
+            return true;
+        };
+        window.addEventListener('unhandledrejection', function(event) {
+            log(`<span style="color:red">🔴 未知錯誤: ${event.reason}</span>`);
+        });
+
+        import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
+        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+
+        const ffmpeg = new FFmpeg();
+        const startBtn = document.getElementById('start-btn');
+        const uploader = document.getElementById('uploader');
+
         ffmpeg.on('log', ({ message }) => log(`[FFmpeg] ${message}`));
 
         async function init() {
             try {
-                log("正在載入轉碼核心 (破解跨網域限制)...");
+                log("🟡 開始準備下載轉碼核心...");
                 const coreBaseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
                 const ffmpegBaseURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
 
+                log("⏳ 步驟 1/3: 下載 Core.js (約 1MB)...");
+                const coreURL = await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript');
+                log("✅ 步驟 1 完成！");
+
+                log("⏳ 步驟 2/3: 下載 WASM 引擎 (⚠️約 30MB，平板可能需要 1~3 分鐘，請保持螢幕亮起)...");
+                const wasmURL = await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm');
+                log("✅ 步驟 2 完成！");
+
+                log("⏳ 步驟 3/3: 下載 Worker.js...");
+                const workerURL = await toBlobURL(`${ffmpegBaseURL}/worker.js`, 'text/javascript');
+                log("✅ 步驟 3 完成！");
+
+                log("⏳ 正在將核心載入記憶體...");
                 await ffmpeg.load({
-                    coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
-                    wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-                    classWorkerURL: await toBlobURL(`${ffmpegBaseURL}/worker.js`, 'text/javascript')
+                    coreURL: coreURL,
+                    wasmURL: wasmURL,
+                    classWorkerURL: workerURL
                 });
                 
-                log("✅ 引擎準備完畢！");
+                log("🎉 引擎準備完畢！可以開始轉碼了。");
                 startBtn.disabled = false;
                 startBtn.innerText = "開始轉碼並上傳";
             } catch (e) {
-                log(`❌ 引擎載入失敗: ${e.message}`);
+                log(`<span style="color:red">❌ 引擎載入失敗: ${e.message}</span>`);
             }
         }
-        init();
+        
+        // 延遲 1 秒後開始執行，確保 UI 已經渲染
+        setTimeout(init, 1000);
 
         startBtn.addEventListener('click', async () => {
             const file = uploader.files[0];
@@ -73,7 +97,7 @@
                 log("正在讀取影片...");
                 await ffmpeg.writeFile('input.mp4', await fetchFile(file));
 
-                log("轉碼中 (16kHz, 32kbps)... 平板運算中，請保持螢幕亮起！");
+                log("轉碼中 (16kHz, 32kbps)... 正在榨乾平板效能，請耐心等待！");
                 await ffmpeg.exec(['-i', 'input.mp4', '-ar', '16000', '-b:a', '32k', 'output.m4a']);
 
                 const data = await ffmpeg.readFile('output.m4a');
@@ -100,17 +124,17 @@
 
                     if (response.ok) {
                         const resData = await response.json();
-                        log(`🎉 上傳成功！<br><a href="${resData.content.html_url}" target="_blank" style="color:#007bff;">點此查看檔案</a>`);
+                        log(`🎉 上傳成功！<br><a href="${resData.content.html_url}" target="_blank" style="color:#00ffff;">點此查看檔案</a>`);
                     } else {
                         const err = await response.json();
-                        log(`❌ 上傳失敗：${err.message}`);
+                        log(`<span style="color:red">❌ 上傳失敗：${err.message}</span>`);
                     }
                     startBtn.disabled = false;
                 };
                 reader.readAsDataURL(blob);
 
             } catch (e) {
-                log(`❌ 發生錯誤：${e.message}`);
+                log(`<span style="color:red">❌ 發生錯誤：${e.message}</span>`);
                 startBtn.disabled = false;
             }
         });
