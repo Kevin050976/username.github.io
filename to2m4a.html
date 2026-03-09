@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M4A 轉碼 (輕量穩定版)</title>
+    <title>M4A 轉碼 (突破安全限制版)</title>
+    
+    <script src="coi-serviceworker.js"></script>
+    
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <style>
         body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f0f0; }
@@ -16,7 +19,7 @@
 </head>
 <body>
     <div class="card">
-        <h2>影片轉 m4a (輕量穩定版)</h2>
+        <h2>影片轉 m4a (解鎖版)</h2>
         <input type="file" id="uploader" accept="video/mp4, video/quicktime">
         <input type="password" id="token" placeholder="GitHub Token (ghp_...)">
         <input type="text" id="repo" placeholder="GitHub 儲存庫 (例: name/repo)">
@@ -32,10 +35,8 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        // 捕捉全域錯誤
         window.onerror = function(msg) { log(`<span style="color:red">🔴 系統錯誤: ${msg}</span>`); };
 
-        // 使用 v0.11 的簡化寫法
         const { createFFmpeg, fetchFile } = FFmpeg;
         const ffmpeg = createFFmpeg({
             corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
@@ -57,7 +58,6 @@
             }
         }
         
-        // 稍微延遲讓瀏覽器有喘息空間
         setTimeout(init, 500);
 
         startBtn.addEventListener('click', async () => {
@@ -73,14 +73,12 @@
                 ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
                 log("轉碼中 (16kHz, 32kbps)...");
-                // v0.11 的執行語法
                 await ffmpeg.run('-i', 'input.mp4', '-ar', '16000', '-b:a', '32k', 'output.m4a');
 
                 log("✅ 轉碼完成！正在讀取檔案...");
                 const data = ffmpeg.FS('readFile', 'output.m4a');
                 
                 log("準備上傳至 GitHub...");
-                // 將 Uint8Array 轉為 Base64
                 let binary = '';
                 const len = data.byteLength;
                 for (let i = 0; i < len; i++) {
