@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M4A 本地轉碼神器</title>
+    <title>M4A 純音訊轉碼神器</title>
     
     <script src="coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
@@ -14,12 +14,12 @@
         input, button { margin-bottom: 15px; width: 100%; padding: 12px; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
         button { background: #007bff; color: white; font-weight: bold; border: none; cursor: pointer; }
         button:disabled { background: #aaa; }
-        #log-box { background: #1e1e1e; color: #00ff00; padding: 10px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 14px; border-radius: 5px; }
+        #log-box { background: #1e1e1e; color: #00ff00; padding: 10px; height: 250px; overflow-y: auto; font-family: monospace; font-size: 14px; border-radius: 5px; word-wrap: break-word; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h2>影片轉 m4a (純本地下載)</h2>
+        <h2>影片轉純音訊 m4a</h2>
         <input type="file" id="uploader" accept="video/mp4, video/quicktime">
         
         <button id="start-btn" disabled>載入轉碼引擎中...</button>
@@ -33,6 +33,7 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
+        // 捕捉所有系統錯誤
         window.onerror = function(msg) { log(`<span style="color:red">🔴 系統錯誤: ${msg}</span>`); };
 
         const { createFFmpeg, fetchFile } = FFmpeg;
@@ -50,12 +51,13 @@
                 await ffmpeg.load();
                 log("🎉 引擎準備完畢！請選擇檔案。");
                 startBtn.disabled = false;
-                startBtn.innerText = "開始轉碼並下載";
+                startBtn.innerText = "開始提取純音訊並下載";
             } catch (e) {
                 log(`<span style="color:red">❌ 引擎載入失敗: ${e.message}</span>`);
             }
         }
         
+        // 稍微延遲以確保畫面已經渲染
         setTimeout(init, 500);
 
         startBtn.addEventListener('click', async () => {
@@ -65,26 +67,36 @@
             try {
                 startBtn.disabled = true;
                 log(`正在讀取影片: ${file.name}...`);
+                
+                // 1. 將影片寫入虛擬記憶體
                 ffmpeg.FS('writeFile', 'input.mp4', await fetchFile(file));
 
-                log("轉碼中 (16kHz, 32kbps)... 處理速度取決於設備效能！");
-                await ffmpeg.run('-i', 'input.mp4', '-ar', '16000', '-b:a', '32k', 'output.m4a');
+                log("轉碼中 (過濾影像, 16kHz, 32kbps)...");
+                
+                // 👉 關鍵修改：加入 -vn 指令，徹底拋棄影像，防止記憶體爆掉！
+                await ffmpeg.run('-i', 'input.mp4', '-vn', '-ar', '16000', '-b:a', '32k', 'output.m4a');
 
                 log("✅ 轉碼完成！正在產生下載連結...");
+                
+                // 2. 讀取產出的純音訊檔案
                 const data = ffmpeg.FS('readFile', 'output.m4a');
                 
-                // 這裡改為「觸發瀏覽器下載」的邏輯
+                // 3. 觸發瀏覽器下載
                 const blob = new Blob([data.buffer], { type: 'audio/mp4' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `audio_${Date.now()}.m4a`; // 設定下載的預設檔名
+                a.download = `audio_${Date.now()}.m4a`; 
                 document.body.appendChild(a);
-                a.click(); // 模擬點擊下載
+                a.click(); 
                 document.body.removeChild(a);
-                URL.revokeObjectURL(url); // 釋放記憶體
+                URL.revokeObjectURL(url); 
 
-                log(`🎉 處理完畢！檔案已下載至您的設備。`);
+                // 4. 清理虛擬記憶體 (超級重要！防止下一次轉碼時 OOM)
+                ffmpeg.FS('unlink', 'input.mp4');
+                ffmpeg.FS('unlink', 'output.m4a');
+
+                log(`🎉 處理完畢！純音訊已下載。`);
                 startBtn.disabled = false;
             } catch (e) {
                 log(`<span style="color:red">❌ 發生錯誤：${e.message}</span>`);
