@@ -1,32 +1,7 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M4A 轉碼測試 (單檔版)</title>
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 600px; margin: auto; background: #f0f0f0; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        input, button { margin-bottom: 15px; width: 100%; padding: 12px; box-sizing: border-box; border-radius: 5px; border: 1px solid #ccc; }
-        button { background: #007bff; color: white; font-weight: bold; border: none; cursor: pointer; }
-        button:disabled { background: #aaa; }
-        #log-box { background: #1e1e1e; color: #00ff00; padding: 10px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h2>影片轉 m4a (單檔測試)</h2>
-        <input type="file" id="uploader" accept="video/mp4, video/quicktime">
-        <input type="password" id="token" placeholder="GitHub Token (ghp_...)">
-        <input type="text" id="repo" placeholder="GitHub 儲存庫 (例: name/repo)">
-        
-        <button id="start-btn" disabled>載入轉碼引擎中...</button>
-        <div id="log-box">等待操作...<br></div>
-    </div>
-
-    <script type="module">
+<script type="module">
         import { FFmpeg } from 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm/index.js';
-        import { fetchFile } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
+        // 👉 這裡多引入了 toBlobURL
+        import { fetchFile, toBlobURL } from 'https://unpkg.com/@ffmpeg/util@0.12.1/dist/esm/index.js';
 
         const ffmpeg = new FFmpeg();
         const logBox = document.getElementById('log-box');
@@ -42,10 +17,17 @@
 
         async function init() {
             try {
+                log("正在透過 Blob 偽裝跨網域檔案...");
+                const coreBaseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+                const ffmpegBaseURL = 'https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/esm';
+
+                // 👉 這裡用 toBlobURL 把檔案轉換成本地 Blob 網址，破解瀏覽器限制
                 await ffmpeg.load({
-                    coreURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js',
-                    wasmURL: 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm'
+                    coreURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${coreBaseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    classWorkerURL: await toBlobURL(`${ffmpegBaseURL}/worker.js`, 'text/javascript')
                 });
+                
                 log("✅ 引擎準備完畢！");
                 startBtn.disabled = false;
                 startBtn.innerText = "開始轉碼並上傳";
@@ -109,5 +91,3 @@
             }
         });
     </script>
-</body>
-</html>
