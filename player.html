@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SNG 雲端校對播放器</title>
+    <style>
+        :root { --bg: #1c1c1e; --card: #2c2c2e; --primary: #30d158; --text: #ffffff; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; display: flex; justify-content: center; height: 100vh; overflow: hidden; }
+        .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--card); padding: 20px; box-sizing: border-box; }
+        @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
+        
+        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
+        #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
+        audio { width: 100%; display: block; }
+        
+        .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; margin-bottom: 10px; }
+        .subtitle-item { padding: 15px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; line-height: 1.5; }
+        .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
+        .time-badge { color: var(--primary); font-size: 13px; font-family: "Menlo", monospace; margin-right: 8px; }
+        
+        #status-msg { text-align: center; color: #aaa; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h3 style="text-align:center; margin-top:0; color:var(--primary);">SNG 雲端校對系統</h3>
+    <div id="status-msg">🔄 正在從 0x0.st 載入檔案...</div>
+    
+    <div id="wall-time">00:00:00</div>
+    <div id="media-container">
+        <audio id="mainAudio" controls playsinline></audio>
+    </div>
+    
+    <div class="list-container" id="list-container"></div>
+</div>
+
+<script>
+    let transcript = [];
+    const v = document.getElementById('mainAudio');
+    const list = document.getElementById('list-container');
+    const statusMsg = document.getElementById('status-msg');
+
+    // 格式轉換工具
+    function hmsToSec(t) {
+        const p = t.split(':');
+        return p.length === 3 ? parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0) : parseFloat(p[0] || 0);
+    }
+    function secToHms(s) {
+        const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
+        return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':');
+    }
+
+    // 啟動函式
+    async function initPlayer() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const audioUrl = urlParams.get('m4a');
+        const srtUrl = urlParams.get('srt');
+
+        if (!audioUrl || !srtUrl) {
+            statusMsg.innerText = "❌ 錯誤：網址缺少 m4a 或 srt 參數！";
+            statusMsg.style.color = "red";
+            return;
+        }
+
+        try {
+            // 1. 載入音檔
+            v.src = audioUrl;
+
+            // 2. 透過 fetch 抓取 0x0.st 上的 SRT 內容
+            const response = await fetch(srtUrl);
+            if (!response.ok) throw new Error("SRT 載入失敗");
+            let srtText = await response.text();
+
+            // 3. 解析 SRT
+            const reg = /(\d+)\n(\d{2}:\d{2}:\d{2},\d{3}) --> (\d{2}:\d{2}:\d{2},\d{3})\n([\s\S]*?)(?=\n{2}|\n*$)/g;
+            let m;
+            list.innerHTML = '';
+            transcript = [];
+
+            while ((m = reg.exec(srtText.replace(/\r\n/g, '\n'))) !== null) {
+                const start = hmsToSec(m[2].replace(',', '.'));
+                const end = hmsToSec(m[3].replace(',', '.'));
+                const text = m[4].replace(/\n/g, ' ').trim();
+                const wall = secToHms(start);
+                
+                transcript.push({ start, end, text, wall });
+                
+                const div = document.createElement('div');
+                div.className = 'subtitle-item';
+                div.onclick = () => { v.currentTime = start; v.play(); };
+                div.innerHTML = `<span class="time-badge">[${wall}]</span><span>${text}</span>`;
+                list.appendChild(div);
+            }
+
+            statusMsg.style.display = 'none';
+
+            // 4. 綁定時間軸滾動效果
+            v.ontimeupdate = () => {
+                const ct = v.currentTime;
+                document.getElementById('wall-time').innerText = secToHms(ct);
+                
+                if(transcript.length > 0) {
+                    const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
+                    if (idx !== -1) {
+                        document.querySelectorAll('.subtitle-item').forEach((el, i) => {
+                            if (i === idx) {
+                                if (!el.classList.contains('highlight')) {
+                                    el.classList.add('highlight');
+                                    if (!v.paused) list.scrollTo({ top: el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2), behavior: 'smooth' });
+                                }
+                            } else el.classList.remove('highlight');
+                        });
+                    }
+                }
+            };
+
+        } catch (error) {
+            statusMsg.innerText = "❌ 載入發生錯誤：" + error.message;
+            statusMsg.style.color = "red";
+        }
+    }
+
+    // 網頁載入後立即執行
+    initPlayer();
+</script>
+</body>
+</html>
