@@ -19,14 +19,15 @@
         .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
         .time-badge { color: var(--primary); font-size: 13px; font-family: "Menlo", monospace; margin-right: 8px; }
         
-        #status-msg { text-align: center; color: #aaa; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; }
+        #status-msg { text-align: center; color: #aaa; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; line-height: 1.5;}
+        .line-btn { display: inline-block; margin-top: 15px; padding: 12px 20px; background: var(--primary); color: #000; border-radius: 8px; font-weight: bold; font-size: 15px; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h3 style="text-align:center; margin-top:0; color:var(--primary);">SNG 雲端校對系統</h3>
-    <div id="status-msg">🔄 正在載入影音與字幕...</div>
+    <div id="status-msg">🔄 正在突破防火牆載入字幕...</div>
     
     <div id="wall-time">00:00:00</div>
     <div id="media-container">
@@ -75,6 +76,38 @@
         return result;
     }
 
+    // 🛡️ 針對 LINE 瀏覽器的「多重火力代理引擎」
+    async function fetchSubtitle(url) {
+        // 準備 4 條不同通道，如果被擋就無縫切換下一條
+        const proxies = [
+            url, // 通道一：直連
+            'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), // 通道二：最強穩定代理
+            'https://corsproxy.io/?' + encodeURIComponent(url), // 通道三：備用極速代理
+            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) // 通道四：舊版代理
+        ];
+
+        for (let proxy of proxies) {
+            try {
+                let res = await fetch(proxy);
+                if (res.ok) {
+                    let text = await res.text();
+                    // 確保抓回來的是真的 SRT 字幕，而不是圖床的錯誤網頁
+                    if (text && text.includes('-->')) return text; 
+                }
+            } catch (e) {
+                console.log("代理通道被擋: " + proxy);
+            }
+        }
+        throw new Error("ALL_BLOCKED");
+    }
+
+    // 一鍵複製網址功能
+    function copyAndOpen() {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert("✅ 網址已複製！\n請直接打開 Safari 或 Chrome，貼上網址即可順利開啟。");
+        });
+    }
+
     async function initPlayer() {
         const urlParams = new URLSearchParams(window.location.search);
         const audioUrl = urlParams.get('m4a');
@@ -89,25 +122,28 @@
         try {
             v.src = audioUrl;
 
-            // 🚀 雙重抓取機制：解決 Uguu 的跨網域限制
+            // 啟動多重代理抓取字幕
             let srtText = "";
             try {
-                // 第一關：先嘗試直接抓取
-                const response = await fetch(srtUrl);
-                if (!response.ok) throw new Error("Blocked");
-                srtText = await response.text();
-            } catch (e) {
-                // 第二關：如果直接抓取失敗（被 Uguu 擋下），立刻啟動代理引擎強行抓取
-                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(srtUrl);
-                const proxyResponse = await fetch(proxyUrl);
-                if (!proxyResponse.ok) throw new Error("代理載入失敗");
-                srtText = await proxyResponse.text();
+                srtText = await fetchSubtitle(srtUrl);
+            } catch(e) {
+                // 如果 4 條通道全死，判斷是否為 LINE 惹的禍
+                const isLine = navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE");
+                
+                if (isLine) {
+                    statusMsg.innerHTML = "⚠️ LINE 內部瀏覽器阻擋了字幕連線。<br><br>請點擊右上角「用預設瀏覽器開啟」，或點擊下方按鈕複製網址。<br><br><button class='line-btn' onclick='copyAndOpen()'>📋 複製網址 (去 Chrome 開)</button>";
+                    statusMsg.style.color = "#ff9800";
+                } else {
+                    statusMsg.innerText = "❌ 字幕載入失敗，可能檔案已超過 48 小時被圖床銷毀。";
+                    statusMsg.style.color = "#d93025";
+                }
+                return;
             }
 
             transcript = parseBulletproofSRT(srtText);
             
             if (transcript.length === 0) {
-                throw new Error("字幕解析出來是空白的，請確認字幕檔無損！");
+                throw new Error("字幕解析出來是空白的，請確認字幕檔內容！");
             }
 
             list.innerHTML = '';
@@ -143,7 +179,7 @@
             };
 
         } catch (error) {
-            statusMsg.innerText = "❌ 載入發生錯誤：" + error.message;
+            statusMsg.innerText = "❌ 發生錯誤：" + error.message;
             statusMsg.style.color = "#d93025";
         }
     }
