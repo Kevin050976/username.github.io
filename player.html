@@ -11,26 +11,26 @@
         @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
         
         #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
-        #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; }
-        audio { width: 100%; display: block; }
+        #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; padding: 10px 0; }
+        audio { width: 100%; display: block; outline: none; }
         
         .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; margin-bottom: 10px; }
         .subtitle-item { padding: 15px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; line-height: 1.5; }
         .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
         .time-badge { color: var(--primary); font-size: 13px; font-family: "Menlo", monospace; margin-right: 8px; }
         
-        #status-msg { text-align: center; color: #aaa; margin-top: 20px; }
+        #status-msg { text-align: center; color: #aaa; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h3 style="text-align:center; margin-top:0; color:var(--primary);">SNG 雲端校對系統</h3>
-    <div id="status-msg">🔄 正在從 0x0.st 載入檔案...</div>
+    <div id="status-msg">🔄 正在突破安全限制載入檔案...</div>
     
     <div id="wall-time">00:00:00</div>
     <div id="media-container">
-        <audio id="mainAudio" controls playsinline></audio>
+        <audio id="mainAudio" controls playsinline preload="metadata"></audio>
     </div>
     
     <div class="list-container" id="list-container"></div>
@@ -42,7 +42,6 @@
     const list = document.getElementById('list-container');
     const statusMsg = document.getElementById('status-msg');
 
-    // 格式轉換工具
     function hmsToSec(t) {
         const p = t.split(':');
         return p.length === 3 ? parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0) : parseFloat(p[0] || 0);
@@ -52,7 +51,6 @@
         return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':');
     }
 
-    // 啟動函式
     async function initPlayer() {
         const urlParams = new URLSearchParams(window.location.search);
         const audioUrl = urlParams.get('m4a');
@@ -60,17 +58,19 @@
 
         if (!audioUrl || !srtUrl) {
             statusMsg.innerText = "❌ 錯誤：網址缺少 m4a 或 srt 參數！";
-            statusMsg.style.color = "red";
+            statusMsg.style.color = "#d93025";
             return;
         }
 
         try {
-            // 1. 載入音檔
+            // 1. 載入音檔 (音訊通常不受 CORS 嚴格限制)
             v.src = audioUrl;
 
-            // 2. 透過 fetch 抓取 0x0.st 上的 SRT 內容
-            const response = await fetch(srtUrl);
-            if (!response.ok) throw new Error("SRT 載入失敗");
+            // 2. 🚀 核心破解：透過 allorigins 代理伺服器抓取 SRT，避開 CORS 阻擋
+            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(srtUrl);
+            const response = await fetch(proxyUrl);
+            
+            if (!response.ok) throw new Error("SRT 代理載入失敗");
             let srtText = await response.text();
 
             // 3. 解析 SRT
@@ -94,9 +94,10 @@
                 list.appendChild(div);
             }
 
+            // 隱藏狀態訊息，顯示成功
             statusMsg.style.display = 'none';
 
-            // 4. 綁定時間軸滾動效果
+            // 4. 綁定時間軸
             v.ontimeupdate = () => {
                 const ct = v.currentTime;
                 document.getElementById('wall-time').innerText = secToHms(ct);
@@ -108,7 +109,10 @@
                             if (i === idx) {
                                 if (!el.classList.contains('highlight')) {
                                     el.classList.add('highlight');
-                                    if (!v.paused) list.scrollTo({ top: el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2), behavior: 'smooth' });
+                                    // 加上錯誤處理，避免因捲動造成的卡頓
+                                    try {
+                                        if (!v.paused) list.scrollTo({ top: el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2), behavior: 'smooth' });
+                                    } catch(e) {}
                                 }
                             } else el.classList.remove('highlight');
                         });
@@ -118,11 +122,10 @@
 
         } catch (error) {
             statusMsg.innerText = "❌ 載入發生錯誤：" + error.message;
-            statusMsg.style.color = "red";
+            statusMsg.style.color = "#d93025";
         }
     }
 
-    // 網頁載入後立即執行
     initPlayer();
 </script>
 </body>
