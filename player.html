@@ -42,9 +42,7 @@
     const list = document.getElementById('list-container');
     const statusMsg = document.getElementById('status-msg');
 
-    // 時間轉換工具
     function hmsToSec(t) {
-        // 容錯處理：把逗號換成小數點
         t = t.replace(',', '.');
         const p = t.split(':');
         return p.length === 3 ? parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0) : parseFloat(p[0] || 0);
@@ -55,23 +53,18 @@
         return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':');
     }
 
-    // 🚀 超強防彈 SRT 解析器 (不怕 AI 亂標格式)
     function parseBulletproofSRT(data) {
         let result = [];
-        // 統一換行符號，並用連續空行把區塊切開
         let blocks = data.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split(/\n\n+/);
         
         blocks.forEach(block => {
             let lines = block.trim().split('\n');
-            // 找尋有 '-->' 的那一行，這絕對是時間軸
             let timeLineIdx = lines.findIndex(l => l.includes('-->'));
             
             if(timeLineIdx !== -1) {
                 let timeParts = lines[timeLineIdx].split('-->');
                 let start = hmsToSec(timeParts[0].trim());
                 let end = hmsToSec(timeParts[1].trim());
-                
-                // 把時間軸之後的所有行數合併起來當作字幕文字
                 let text = lines.slice(timeLineIdx + 1).join(' ').trim();
                 
                 if(text) {
@@ -96,19 +89,27 @@
         try {
             v.src = audioUrl;
 
-            // 抓取 SRT 檔案
-            const response = await fetch(srtUrl);
-            if (!response.ok) throw new Error("SRT 字幕載入失敗");
-            let srtText = await response.text();
+            // 🚀 雙重抓取機制：解決 Uguu 的跨網域限制
+            let srtText = "";
+            try {
+                // 第一關：先嘗試直接抓取
+                const response = await fetch(srtUrl);
+                if (!response.ok) throw new Error("Blocked");
+                srtText = await response.text();
+            } catch (e) {
+                // 第二關：如果直接抓取失敗（被 Uguu 擋下），立刻啟動代理引擎強行抓取
+                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(srtUrl);
+                const proxyResponse = await fetch(proxyUrl);
+                if (!proxyResponse.ok) throw new Error("代理載入失敗");
+                srtText = await proxyResponse.text();
+            }
 
-            // 呼叫防彈解析器
             transcript = parseBulletproofSRT(srtText);
             
             if (transcript.length === 0) {
-                throw new Error("字幕解析出來是空白的，請檢查 SRT 內容！");
+                throw new Error("字幕解析出來是空白的，請確認字幕檔無損！");
             }
 
-            // 生成字幕清單畫面
             list.innerHTML = '';
             transcript.forEach(item => {
                 const div = document.createElement('div');
@@ -120,7 +121,6 @@
 
             statusMsg.style.display = 'none';
 
-            // 綁定時間軸與字幕捲動
             v.ontimeupdate = () => {
                 const ct = v.currentTime;
                 document.getElementById('wall-time').innerText = secToHms(ct);
