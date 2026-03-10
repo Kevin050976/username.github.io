@@ -26,7 +26,7 @@
 
 <div class="container">
     <h3 style="text-align:center; margin-top:0; color:var(--primary);">SNG 雲端校對系統</h3>
-    <div id="status-msg">🔄 正在突破安全限制載入檔案...</div>
+    <div id="status-msg">🔄 正在載入影音與字幕...</div>
     
     <div id="wall-time">00:00:00</div>
     <div id="media-container">
@@ -63,14 +63,13 @@
         }
 
         try {
-            // 1. 載入音檔 (音訊通常不受 CORS 嚴格限制)
+            // 1. 載入音檔 (Catbox 原生支援直接播放)
             v.src = audioUrl;
 
-            // 2. 🚀 核心破解：透過 allorigins 代理伺服器抓取 SRT，避開 CORS 阻擋
-            const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(srtUrl);
-            const response = await fetch(proxyUrl);
+            // 2. 直接 Fetch SRT (Catbox 自帶 CORS 解禁，不需要代理了！)
+            const response = await fetch(srtUrl);
             
-            if (!response.ok) throw new Error("SRT 代理載入失敗");
+            if (!response.ok) throw new Error("SRT 字幕載入失敗，可能檔案被刪除或網路異常");
             let srtText = await response.text();
 
             // 3. 解析 SRT
@@ -94,10 +93,9 @@
                 list.appendChild(div);
             }
 
-            // 隱藏狀態訊息，顯示成功
             statusMsg.style.display = 'none';
 
-            // 4. 綁定時間軸
+            // 4. 綁定時間軸滾動
             v.ontimeupdate = () => {
                 const ct = v.currentTime;
                 document.getElementById('wall-time').innerText = secToHms(ct);
@@ -109,7 +107,6 @@
                             if (i === idx) {
                                 if (!el.classList.contains('highlight')) {
                                     el.classList.add('highlight');
-                                    // 加上錯誤處理，避免因捲動造成的卡頓
                                     try {
                                         if (!v.paused) list.scrollTo({ top: el.offsetTop - (list.clientHeight / 2) + (el.clientHeight / 2), behavior: 'smooth' });
                                     } catch(e) {}
