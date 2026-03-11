@@ -10,14 +10,14 @@
         .container { width: 100%; max-width: 500px; height: 100%; display: flex; flex-direction: column; background: var(--card); padding: 20px; box-sizing: border-box; }
         @media (min-width: 500px) { .container { height: 95vh; margin-top: 2.5vh; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); } }
         
-        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; }
+        #wall-time { font-family: "Menlo", monospace; font-size: 42px; text-align: center; color: var(--primary); margin: 5px 0; font-weight: bold; flex-shrink: 0; letter-spacing: 2px;}
         #media-container { width: 100%; margin-top: 10px; background: #000; border-radius: 12px; overflow: hidden; flex-shrink: 0; padding: 10px 0; }
         audio { width: 100%; display: block; outline: none; }
         
         .list-container { flex: 1; overflow-y: auto; border-radius: 12px; background: rgba(0,0,0,0.2); margin-top: 15px; border: 1px solid #3a3a3c; position: relative; scroll-behavior: smooth; margin-bottom: 10px; }
         .subtitle-item { padding: 15px; border-bottom: 1px solid #3a3a3c; font-size: 16px; cursor: pointer; transition: background 0.2s; line-height: 1.5; }
         .highlight { background: rgba(48, 209, 88, 0.25) !important; color: #fff; border-left: 4px solid var(--primary); }
-        .time-badge { color: var(--primary); font-size: 13px; font-family: "Menlo", monospace; margin-right: 8px; }
+        .time-badge { color: var(--primary); font-size: 14px; font-family: "Menlo", monospace; margin-right: 8px; font-weight: bold;}
         
         #status-msg { text-align: center; color: #aaa; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.05); border-radius: 8px; line-height: 1.5;}
         .line-btn { display: inline-block; margin-top: 15px; padding: 12px 20px; background: var(--primary); color: #000; border-radius: 8px; font-weight: bold; font-size: 15px; border: none; cursor: pointer; }
@@ -27,7 +27,7 @@
 
 <div class="container">
     <h3 style="text-align:center; margin-top:0; color:var(--primary);">SNG 雲端校對系統</h3>
-    <div id="status-msg">🔄 正在突破防火牆載入字幕...</div>
+    <div id="status-msg">🔄 正在載入影音與字幕...</div>
     
     <div id="wall-time">00:00:00</div>
     <div id="media-container">
@@ -39,9 +39,25 @@
 
 <script>
     let transcript = [];
+    let baseSeconds = 0; // 紀錄真實時間的基準秒數
     const v = document.getElementById('mainAudio');
     const list = document.getElementById('list-container');
     const statusMsg = document.getElementById('status-msg');
+
+    // 🕵️‍♂️ 萃取網址中檔名的真實時間
+    function extractBaseTime(url) {
+        if (!url) return 0;
+        // 抓取格式：A001_MMDDHHMMSS_C001 (共10碼數字)
+        const match = url.match(/A001_(\d{10})_C001/i);
+        if (match) {
+            const timeStr = match[1]; // 例如 0201200806
+            const hh = parseInt(timeStr.substring(4, 6), 10);
+            const mm = parseInt(timeStr.substring(6, 8), 10);
+            const ss = parseInt(timeStr.substring(8, 10), 10);
+            return (hh * 3600) + (mm * 60) + ss; // 轉換為當天總秒數
+        }
+        return 0;
+    }
 
     function hmsToSec(t) {
         t = t.replace(',', '.');
@@ -49,9 +65,12 @@
         return p.length === 3 ? parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0) : parseFloat(p[0] || 0);
     }
     
-    function secToHms(s) {
-        const h = Math.floor(s/3600)%24, m = Math.floor((s%3600)/60), sec = Math.floor(s%60);
-        return [h,m,sec].map(v=>v.toString().padStart(2,'0')).join(':');
+    // 🕒 將總秒數轉換為真實時間格式 (跨越 24 小時自動循環)
+    function secToRealTime(s) {
+        const h = Math.floor(s / 3600) % 24;
+        const m = Math.floor((s % 3600) / 60);
+        const sec = Math.floor(s % 60);
+        return [h, m, sec].map(val => val.toString().padStart(2, '0')).join(':');
     }
 
     function parseBulletproofSRT(data) {
@@ -69,21 +88,21 @@
                 let text = lines.slice(timeLineIdx + 1).join(' ').trim();
                 
                 if(text) {
-                    result.push({ start, end, text, wall: secToHms(start) });
+                    // 將真實時間基準加上影片進度時間
+                    let realWallTime = secToRealTime(baseSeconds + start);
+                    result.push({ start, end, text, wall: realWallTime });
                 }
             }
         });
         return result;
     }
 
-    // 🛡️ 針對 LINE 瀏覽器的「多重火力代理引擎」
     async function fetchSubtitle(url) {
-        // 準備 4 條不同通道，如果被擋就無縫切換下一條
         const proxies = [
-            url, // 通道一：直連
-            'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), // 通道二：最強穩定代理
-            'https://corsproxy.io/?' + encodeURIComponent(url), // 通道三：備用極速代理
-            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url) // 通道四：舊版代理
+            url, 
+            'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url), 
+            'https://corsproxy.io/?' + encodeURIComponent(url), 
+            'https://api.allorigins.win/raw?url=' + encodeURIComponent(url)
         ];
 
         for (let proxy of proxies) {
@@ -91,7 +110,6 @@
                 let res = await fetch(proxy);
                 if (res.ok) {
                     let text = await res.text();
-                    // 確保抓回來的是真的 SRT 字幕，而不是圖床的錯誤網頁
                     if (text && text.includes('-->')) return text; 
                 }
             } catch (e) {
@@ -101,7 +119,6 @@
         throw new Error("ALL_BLOCKED");
     }
 
-    // 一鍵複製網址功能
     function copyAndOpen() {
         navigator.clipboard.writeText(window.location.href).then(() => {
             alert("✅ 網址已複製！\n請直接打開 Safari 或 Chrome，貼上網址即可順利開啟。");
@@ -120,21 +137,22 @@
         }
 
         try {
+            // 💡 解析檔名，算出起始真實時間，並顯示在畫面上！
+            baseSeconds = extractBaseTime(audioUrl);
+            document.getElementById('wall-time').innerText = secToRealTime(baseSeconds);
+
             v.src = audioUrl;
 
-            // 啟動多重代理抓取字幕
             let srtText = "";
             try {
                 srtText = await fetchSubtitle(srtUrl);
             } catch(e) {
-                // 如果 4 條通道全死，判斷是否為 LINE 惹的禍
                 const isLine = navigator.userAgent.includes("Line") || navigator.userAgent.includes("LINE");
-                
                 if (isLine) {
                     statusMsg.innerHTML = "⚠️ LINE 內部瀏覽器阻擋了字幕連線。<br><br>請點擊右上角「用預設瀏覽器開啟」，或點擊下方按鈕複製網址。<br><br><button class='line-btn' onclick='copyAndOpen()'>📋 複製網址 (去 Chrome 開)</button>";
                     statusMsg.style.color = "#ff9800";
                 } else {
-                    statusMsg.innerText = "❌ 字幕載入失敗，可能檔案已超過 48 小時被圖床銷毀。";
+                    statusMsg.innerText = "❌ 字幕載入失敗，可能檔案已超過自毀時間。";
                     statusMsg.style.color = "#d93025";
                 }
                 return;
@@ -159,7 +177,8 @@
 
             v.ontimeupdate = () => {
                 const ct = v.currentTime;
-                document.getElementById('wall-time').innerText = secToHms(ct);
+                // 💡 把播放進度加上真實時間基準
+                document.getElementById('wall-time').innerText = secToRealTime(baseSeconds + ct);
                 
                 if(transcript.length > 0) {
                     const idx = transcript.findIndex(t => ct >= t.start && ct <= t.end);
