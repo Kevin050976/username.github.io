@@ -39,22 +39,20 @@
 
 <script>
     let transcript = [];
-    let baseSeconds = 0; // 紀錄真實時間的基準秒數
+    let baseSeconds = 0; 
     const v = document.getElementById('mainAudio');
     const list = document.getElementById('list-container');
     const statusMsg = document.getElementById('status-msg');
 
-    // 🕵️‍♂️ 萃取網址中檔名的真實時間
-    function extractBaseTime(url) {
-        if (!url) return 0;
-        // 抓取格式：A001_MMDDHHMMSS_C001 (共10碼數字)
-        const match = url.match(/A001_(\d{10})_C001/i);
+    function extractBaseTime(fileNameStr) {
+        if (!fileNameStr) return 0;
+        const match = fileNameStr.match(/A001_(\d{10})_C001/i);
         if (match) {
-            const timeStr = match[1]; // 例如 0201200806
+            const timeStr = match[1]; 
             const hh = parseInt(timeStr.substring(4, 6), 10);
             const mm = parseInt(timeStr.substring(6, 8), 10);
             const ss = parseInt(timeStr.substring(8, 10), 10);
-            return (hh * 3600) + (mm * 60) + ss; // 轉換為當天總秒數
+            return (hh * 3600) + (mm * 60) + ss; 
         }
         return 0;
     }
@@ -65,7 +63,6 @@
         return p.length === 3 ? parseInt(p[0]) * 3600 + parseInt(p[1]) * 60 + parseFloat(p[2] || 0) : parseFloat(p[0] || 0);
     }
     
-    // 🕒 將總秒數轉換為真實時間格式 (跨越 24 小時自動循環)
     function secToRealTime(s) {
         const h = Math.floor(s / 3600) % 24;
         const m = Math.floor((s % 3600) / 60);
@@ -88,7 +85,6 @@
                 let text = lines.slice(timeLineIdx + 1).join(' ').trim();
                 
                 if(text) {
-                    // 將真實時間基準加上影片進度時間
                     let realWallTime = secToRealTime(baseSeconds + start);
                     result.push({ start, end, text, wall: realWallTime });
                 }
@@ -129,6 +125,9 @@
         const urlParams = new URLSearchParams(window.location.search);
         const audioUrl = urlParams.get('m4a');
         const srtUrl = urlParams.get('srt');
+        
+        // 💡 關鍵更新：優先讀取我們硬塞進去的原始檔名參數！
+        const originalName = urlParams.get('name') || audioUrl;
 
         if (!audioUrl || !srtUrl) {
             statusMsg.innerText = "❌ 錯誤：網址缺少參數！";
@@ -137,8 +136,8 @@
         }
 
         try {
-            // 💡 解析檔名，算出起始真實時間，並顯示在畫面上！
-            baseSeconds = extractBaseTime(audioUrl);
+            // 💡 交給解析器算出精準時間
+            baseSeconds = extractBaseTime(originalName);
             document.getElementById('wall-time').innerText = secToRealTime(baseSeconds);
 
             v.src = audioUrl;
@@ -177,7 +176,6 @@
 
             v.ontimeupdate = () => {
                 const ct = v.currentTime;
-                // 💡 把播放進度加上真實時間基準
                 document.getElementById('wall-time').innerText = secToRealTime(baseSeconds + ct);
                 
                 if(transcript.length > 0) {
