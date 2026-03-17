@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (SNG 戰情同步版)</title>
+    <title>LINE 直播鬧鐘擷取工具 (SNG 戰情終極版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -244,7 +244,6 @@
             checkAndHandleDayCrossing(); 
 
             // --- ⭐【新增跨分頁同步機制】⭐ ---
-            // 監聽其他分頁傳來的資料變更，實現「免重整自動更新」
             window.addEventListener('storage', function(e) {
                 if (e.key === 'lineAlarmsData_v5') {
                     const latestAlarms = localStorage.getItem('lineAlarmsData_v5');
@@ -256,11 +255,13 @@
             });
             // ---------------------------------
 
-            // --- 【AI 自動化：網址參數攔截與銷毀判定】 ---
+            // --- ⭐【AI 自動化：網址參數攔截與銷毀判定 (支援開始/結束)】⭐ ---
             const urlParams = new URLSearchParams(window.location.search);
+            
+            // 讓網頁可以讀取 suffix1 和 suffix2，如果沒填預設就是「開始」
             const alarmsToAdd = [
-                { time: urlParams.get('time1'), title: urlParams.get('title1') },
-                { time: urlParams.get('time2'), title: urlParams.get('title2') }
+                { time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
+                { time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
             ];
 
             let addedCount = 0;
@@ -274,14 +275,15 @@
                         let formattedTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
                         let today = getTodayMD();
 
-                        if (!alarms.some(a => a.date === today && a.title === item.title && a.alarmTime === formattedTime)) {
+                        // 防呆檢查時，把 suffix 也加入判斷，避免把開始跟結束搞混
+                        if (!alarms.some(a => a.date === today && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
                             alarms.push({
                                 date: today, 
                                 title: item.title, 
                                 origTime: item.time, 
                                 alarmTime: formattedTime, 
                                 raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), 
-                                suffix: "開始", 
+                                suffix: item.suffix, // 🟢 讓字尾跟隨網址參數變化（開始/結束）
                                 checked: true, 
                                 id: generateId(),
                                 hasExplicitDate: true
@@ -317,6 +319,7 @@
                 }
                 // ---------------------------------
             }
+            // --- 【AI 自動化結束】 ---
 
             renderAlarms();
         };
@@ -773,7 +776,7 @@
 
         // --- ⭐ 核心倒數與響鈴邏輯 ---
         setInterval(() => {
-            // ⭐ 發送心跳 (讓由Gemini意外開啟的新分頁知道主畫面還活著)
+            // 發送心跳 (讓由Gemini意外開啟的新分頁知道主畫面還活著)
             localStorage.setItem('sng_alarm_heartbeat', Date.now());
 
             checkAndHandleDayCrossing();
