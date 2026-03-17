@@ -255,13 +255,12 @@
             });
             // ---------------------------------
 
-            // --- ⭐【AI 自動化：網址參數攔截與銷毀判定 (支援開始/結束)】⭐ ---
+            // --- ⭐【AI 自動化：攔截網址參數 (支援日期與開始/結束)】⭐ ---
             const urlParams = new URLSearchParams(window.location.search);
             
-            // 讓網頁可以讀取 suffix1 和 suffix2，如果沒填預設就是「開始」
             const alarmsToAdd = [
-                { time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
-                { time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
+                { date: urlParams.get('date1'), time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
+                { date: urlParams.get('date2'), time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
             ];
 
             let addedCount = 0;
@@ -273,17 +272,27 @@
                     
                     if (h < 24 && m < 60) {
                         let formattedTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        let today = getTodayMD();
+                        
+                        // 處理日期：如果有傳 date 就轉格式，沒有就預設今天
+                        let targetDate = item.date ? item.date.trim() : getTodayMD();
+                        
+                        // 若 AI 傳入 0318，轉換成 3/18 或 03/18，統一網頁內的日期格式 M/D
+                        if (targetDate.length === 4 && !targetDate.includes('/')) {
+                            targetDate = `${parseInt(targetDate.substring(0,2))}/${parseInt(targetDate.substring(2,4))}`;
+                        } else if (targetDate.includes('/')) {
+                            const [month, day] = targetDate.split('/');
+                            targetDate = `${parseInt(month)}/${parseInt(day)}`;
+                        }
 
-                        // 防呆檢查時，把 suffix 也加入判斷，避免把開始跟結束搞混
-                        if (!alarms.some(a => a.date === today && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
+                        // 防呆檢查：連同日期與 suffix 一起檢查
+                        if (!alarms.some(a => a.date === targetDate && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
                             alarms.push({
-                                date: today, 
+                                date: targetDate, 
                                 title: item.title, 
                                 origTime: item.time, 
                                 alarmTime: formattedTime, 
                                 raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), 
-                                suffix: item.suffix, // 🟢 讓字尾跟隨網址參數變化（開始/結束）
+                                suffix: item.suffix,
                                 checked: true, 
                                 id: generateId(),
                                 hasExplicitDate: true
@@ -295,16 +304,14 @@
             });
 
             if (addedCount > 0) {
-                save(); // 確保資料寫入記憶體，觸發主畫面的 'storage' 事件更新
+                save(); // 寫入記憶體觸發其他分頁更新
                 window.history.replaceState({}, document.title, window.location.pathname);
 
                 // --- ⭐【心跳偵測與自動銷毀】⭐ ---
-                // 檢查是否有主畫面正在運行 (3秒內有發出心跳)
                 const lastHeartbeat = parseInt(localStorage.getItem('sng_alarm_heartbeat') || '0');
                 const isMainTabAlive = (Date.now() - lastHeartbeat) < 3000; 
 
                 if (isMainTabAlive) {
-                    // 若主畫面活著，這個分頁只需顯示成功訊息，然後自我毀滅
                     document.body.innerHTML = `
                         <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f4f7f6; font-family:sans-serif; text-align:center;">
                             <h1 style="font-size: 80px; margin: 0; color: #27ae60;">✅</h1>
@@ -313,9 +320,8 @@
                             <button onclick="window.close()" style="margin-top:20px; padding:15px 30px; font-size:16px; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">手動關閉此分頁</button>
                         </div>
                     `;
-                    // 嘗試讓 Android Chrome 自動關閉這個被系統意外喚醒的分頁
                     setTimeout(() => window.close(), 2000);
-                    return; // 終止這支備用分頁去渲染完整的鬧鐘清單，節省效能
+                    return; 
                 }
                 // ---------------------------------
             }
@@ -401,15 +407,20 @@
             const text = document.getElementById('inputText').value;
             if (!text.trim()) return;
 
-            const regex = /(?:(\d{1,2}\/\d{1,2})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
+            // ⭐ 連同手動貼上的防呆處理也加上 0318 這種四位數的支援
+            const regex = /(?:(\d{1,2}\/\d{1,2}|\d{4})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
             const match = text.match(regex);
             
             if (match) {
                 let date = match[1];
                 let hasExplicitDate = false;
                 if (date) {
-                    const dateParts = date.split('/');
-                    date = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                    if (date.length === 4 && !date.includes('/')) {
+                        date = `${parseInt(date.substring(0,2))}/${parseInt(date.substring(2,4))}`;
+                    } else if (date.includes('/')) {
+                        const dateParts = date.split('/');
+                        date = `${parseInt(dateParts[0])}/${parseInt(dateParts[1])}`;
+                    }
                     hasExplicitDate = true;
                 } else {
                     date = getTodayMD();
