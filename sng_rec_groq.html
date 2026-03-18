@@ -3,250 +3,511 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG AKIRA 終極實戰版</title>
+    <title>SNG AKIRA 純血極速版</title>
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 120px; }
-        
-        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 10px; }
-        textarea { height: 60px; resize: none; }
-        
-        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 5px; font-weight: bold; }
-        .danger { background: #dc3545; }
-        .success { background: #28a745; }
-        .secondary { background: #6c757d; }
-        
-        .controls { background: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 15px; }
-        .vocab-btn { padding: 6px 10px; font-size: 0.85em; background: #6c757d; }
-        
-        #toggleBtn { width: 100%; height: 65px; font-size: 1.2em; background: #28a745; transition: 0.2s; margin-bottom: 10px;}
-        #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
-        
-        #livePreview { color: #007bff; font-size: 1em; text-align: center; margin-bottom: 10px; font-weight: bold; min-height: 1.2em; }
-        
-        .timer-setting { text-align: center; margin-bottom: 15px; padding: 8px; background: #d4edda; border-radius: 5px; font-size: 0.9em; }
+        :root {
+            --primary: #007bff;
+            --success: #28a745;
+            --danger: #dc3545;
+            --dark: #343a40;
+            --light: #f4f4f9;
+        }
 
-        .log-item { background: #fff; border: 1px solid #ddd; padding: 12px; margin-bottom: 10px; border-radius: 8px; display: flex; align-items: flex-start; position: relative; }
-        .log-item.selected { border-left: 5px solid #007bff; background: #f8fbff; }
-        .log-checkbox { margin-top: 5px; margin-right: 12px; transform: scale(1.5); }
-        .log-content { flex-grow: 1; overflow: hidden; }
-        .log-time { color: #888; font-size: 0.8em; margin-bottom: 5px; }
-        .raw-text { color: #bbb; text-decoration: line-through; font-size: 0.8em; margin-bottom: 5px; }
-        
-        .choice-container { display: flex; flex-direction: column; gap: 8px; }
-        .choice-btn { padding: 10px; border-radius: 6px; cursor: pointer; font-size: 1.1em; font-weight: bold; border: 2px solid #eee; background: #f9f9f9; color: #888; line-height: 1.4; }
-        .choice-btn.active { background-color: #212529 !important; color: #fff !important; border-color: #212529 !important; }
-        
-        .log-actions { display: flex; flex-direction: column; gap: 8px; margin-left: 10px; }
-        .icon-btn { padding: 6px 10px; font-size: 1.1em; background: #f0f0f0; color: #333; border: 1px solid #ccc; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light);
+            display: flex;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+        }
 
-        .edit-area { width: 100%; margin-top: 5px; }
-        .edit-input { font-size: 1.1em; padding: 8px; margin-bottom: 5px; border: 2px solid #007bff; }
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
 
-        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #343a40; padding: 15px; display: flex; justify-content: center; gap: 8px; z-index: 100; box-shadow: 0 -2px 10px rgba(0,0,0,0.2); }
-        .bottom-bar button { flex: 1; max-width: 110px; font-size: 0.9em; margin: 0; height: 45px; }
+        /* 頂部標題列 */
+        .header {
+            padding: 15px 20px;
+            background: white;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 1.4em;
+            color: var(--dark);
+        }
+
+        /* 紀錄顯示區 */
+        .log-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 15px;
+            padding-bottom: 180px;
+            background: #fafafa;
+        }
+
+        /* 🌟 預覽區優化：平常隱藏，錄音有字才出現 */
+        .live-preview {
+            color: var(--primary);
+            font-size: 1.1em;
+            text-align: center;
+            padding: 0px;
+            font-weight: bold;
+            min-height: 0;
+            border-bottom: none;
+            margin-bottom: 0;
+            transition: all 0.2s;
+            overflow: hidden;
+        }
+
+        .live-preview.active {
+            padding: 10px;
+            min-height: 1.4em;
+            border-bottom: 1px dashed #ccc;
+            margin-bottom: 15px;
+        }
+
+        .log-item {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 10px;
+            display: flex;
+            align-items: flex-start;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+
+        .log-item.selected {
+            border-left: 6px solid var(--primary);
+            background: #f0f7ff;
+        }
+
+        .log-checkbox {
+            margin-top: 8px;
+            margin-right: 15px;
+            transform: scale(1.8);
+        }
+
+        .log-content {
+            flex-grow: 1;
+            cursor: pointer;
+        }
+
+        .log-time {
+            color: #888;
+            font-size: 0.85em;
+            margin-bottom: 6px;
+        }
+
+        .log-text {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #212529;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .log-actions {
+            display: flex;
+            gap: 10px;
+            margin-left: 10px;
+        }
+
+        .icon-btn {
+            padding: 8px 12px;
+            font-size: 1.1em;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        /* 底部固定控制面板 */
+        .bottom-panel {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--dark);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 -4px 15px rgba(0,0,0,0.2);
+            z-index: 100;
+        }
+
+        #toggleBtn {
+            width: 100%;
+            height: 70px;
+            font-size: 1.6em;
+            font-weight: bold;
+            color: white;
+            background: var(--success);
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        #toggleBtn.active {
+            background: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
+        }
+
+        .action-bar {
+            display: flex;
+            gap: 10px;
+        }
+
+        .action-bar button {
+            flex: 1;
+            height: 50px;
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 1em;
+            cursor: pointer;
+        }
+
+        /* 彈出視窗 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            max-height: 80vh;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        #vocabInput {
+            width: 100%;
+            flex-grow: 1;
+            min-height: 200px;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 1em;
+            resize: none;
+            font-family: monospace;
+        }
+
+        .btn-edit-save {
+            width: 100%;
+            font-size: 1.2em;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            z-index: 3000;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2 style="margin-top: 0; font-size: 1.4em;">🎙️ SNG AKIRA 實戰終端</h2>
-    
-    <div class="api-setup" style="display: flex; gap: 5px; margin-bottom: 10px;">
-        <input type="password" id="groqApiKey" placeholder="Groq API Key" style="margin-bottom: 0;">
-        <button class="success" onclick="saveApiKey()">儲存</button>
+<div id="toast">已複製到剪貼簿</div>
+
+<div class="app-container">
+    <header class="header">
+        <h1>🎙️ SNG AKIRA</h1>
+        <button class="icon-btn" onclick="openVocabModal()">⚙️ 設定</button>
+    </header>
+
+    <div class="log-area" id="logArea">
+        <!-- 🌟 預覽區初始為空，不佔空間 -->
+        <div class="live-preview" id="livePreview"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <span style="font-weight: bold; color: #666;">📝 轉錄紀錄</span>
+            <div>
+                <button class="icon-btn" onclick="selectAll()" style="font-size: 0.85em;">全選</button>
+                <button class="icon-btn" onclick="clearLogs()" style="font-size: 0.85em; color: var(--danger);">清空</button>
+            </div>
+        </div>
+        <div id="logsContainer"></div>
     </div>
 
-    <div class="controls">
-        <strong>📚 詞彙庫</strong>
-        <textarea id="vocab">喇叭紅/喇叭洪/喇叭府/喇叭=喇叭宏, 國士論壇, 黃國昌, 韓國瑜, SNG連線</textarea>
-        <div style="display: flex; justify-content: space-between;">
-            <button class="vocab-btn" onclick="document.getElementById('fileInput').click()">📥 匯入</button>
-            <input type="file" id="fileInput" accept=".txt" style="display:none">
-            <button class="vocab-btn" onclick="exportVocab()">📤 匯出</button>
+    <div class="bottom-panel">
+        <button id="toggleBtn">🎤 點擊開始錄音</button>
+        <div class="action-bar">
+            <button onclick="copyText()" style="background: #17a2b8;">📋 複製</button>
+            <button onclick="shareText()" style="background: var(--success);">📲 分享</button>
+            <button onclick="exportText()" style="background: #ffc107; color: black;">💾 匯出</button>
         </div>
     </div>
-
-    <button id="toggleBtn">🎤 點擊開始錄音</button>
-    <div id="livePreview"></div>
-
-    <div class="timer-setting">
-        ⏱️ 錄音：<select id="recordTimerSelect"><option value="0">手動</option><option value="3000">3秒</option><option value="5000" selected>5秒</option><option value="8000">8秒</option></select>
-    </div>
-
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <strong>📝 轉錄紀錄：</strong>
-        <div>
-            <button onclick="selectAll()" class="secondary" style="padding: 4px 10px; font-size: 0.85em;">☑️ 全選</button>
-            <button onclick="clearAllLogs()" class="danger" style="padding: 4px 10px; font-size: 0.85em;">🗑️ 刪除全部</button>
-        </div>
-    </div>
-
-    <div id="logArea"></div>
 </div>
 
-<div class="bottom-bar">
-    <button onclick="copySelected()" style="background:#17a2b8;">📋 複製</button>
-    <button onclick="shareSelected()" style="background:#28a745;">📲 分享</button>
-    <button onclick="exportSelected()" style="background:#ffc107; color:#000;">💾 完整匯出</button>
+<!-- 詞彙設定視窗 -->
+<div id="vocabModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 style="margin:0;">📚 詞彙攔截設定</h2>
+            <button class="icon-btn" onclick="closeVocabModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <p style="font-size: 0.85em; color: #666; margin:0;">
+                格式：錯誤1/錯誤2=正確詞彙 (換行分隔)
+            </p>
+            <textarea id="vocabInput"></textarea>
+            <div style="display: flex; gap: 10px; margin-top:10px;">
+                <button class="icon-btn" style="flex:1" onclick="importVocab()">📥 匯入</button>
+                <button class="icon-btn" style="flex:1" onclick="exportVocab()">📤 匯出</button>
+                <input type="file" id="fileInput" style="display:none" accept=".txt">
+            </div>
+        </div>
+        <div class="modal-footer" style="margin-top:20px;">
+            <button class="icon-btn success" style="width:100%; background: var(--success); color:white; padding: 15px;" onclick="closeVocabModal()">✅ 儲存並關閉</button>
+        </div>
+    </div>
 </div>
 
 <script>
-    const apiKeyInput = document.getElementById('groqApiKey');
-    if (localStorage.getItem('sng_groq_key')) apiKeyInput.value = localStorage.getItem('sng_groq_key');
-    function saveApiKey() { localStorage.setItem('sng_groq_key', apiKeyInput.value.trim()); alert('密鑰已儲存'); }
-
-    const vocabBox = document.getElementById('vocab');
-    function exportVocab() { const url = URL.createObjectURL(new Blob([vocabBox.value], {type: "text/plain"})); const a = document.createElement('a'); a.href = url; a.download = "詞庫.txt"; a.click(); }
-
-    const logArea = document.getElementById('logArea');
     let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    let vocabData = localStorage.getItem('sng_vocab') || "喇叭紅/喇叭洪/喇叭府/喇叭=喇叭宏\n國士論壇\n黃國昌\n韓國瑜\nSNG連線";
+    
+    const logsContainer = document.getElementById('logsContainer');
+    const livePreview = document.getElementById('livePreview');
+    const toggleBtn = document.getElementById('toggleBtn');
+    const vocabInput = document.getElementById('vocabInput');
+    const vocabModal = document.getElementById('vocabModal');
 
-    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+    vocabInput.value = vocabData;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 2000);
+    }
+
+    function openVocabModal() { vocabModal.classList.add('active'); }
+    function closeVocabModal() { 
+        vocabData = vocabInput.value;
+        localStorage.setItem('sng_vocab', vocabData);
+        vocabModal.classList.remove('active'); 
+    }
+
+    function exportVocab() {
+        const blob = new Blob([vocabInput.value], {type: "text/plain"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `SNG_詞彙庫.txt`;
+        a.click();
+    }
+
+    function importVocab() {
+        const fInput = document.getElementById('fileInput');
+        fInput.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = event => { vocabInput.value = event.target.result; showToast("匯入成功"); };
+            reader.readAsText(e.target.files[0]);
+        };
+        fInput.click();
+    }
 
     function renderLogs() {
-        logArea.innerHTML = '';
-        [...logs].reverse().forEach((log, reversedIndex) => {
-            const realIndex = logs.length - 1 - reversedIndex;
+        logsContainer.innerHTML = '';
+        [...logs].reverse().forEach((log, reversedIdx) => {
+            const idx = logs.length - 1 - reversedIdx;
             const item = document.createElement('div');
             item.className = `log-item ${log.checked ? 'selected' : ''}`;
             
             if (log.isEditing) {
-                let currentEditStr = log.selectedType === 'ai' ? log.aiText : log.jsText;
                 item.innerHTML = `
-                    <div class="edit-area">
-                        <input type="text" id="edit-input-${realIndex}" class="edit-input" value="${currentEditStr}">
-                        <div style="display:flex; gap:5px;">
-                            <button class="success" onclick="saveEdit(${realIndex})">💾 儲存</button>
-                            <button class="secondary" onclick="cancelEdit(${realIndex})">取消</button>
+                    <div style="width:100%;">
+                        <input type="text" id="edit-input-${idx}" class="btn-edit-save" value="${log.text}">
+                        <div style="display:flex; gap:10px;">
+                            <button class="icon-btn" style="flex:1; background: var(--success); color:white;" onclick="saveEdit(${idx})">儲存</button>
+                            <button class="icon-btn" style="flex:1;" onclick="cancelEdit(${idx})">取消</button>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             } else {
-                const jsActive = log.selectedType === 'js' ? 'active' : '';
-                const aiActive = log.selectedType === 'ai' ? 'active' : '';
-                const aiDisplay = log.aiText === '⏳...' ? '⏳ 提煉中...' : log.aiText;
-
                 item.innerHTML = `
-                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${realIndex})" ${log.checked ? 'checked' : ''}>
-                    <div class="log-content">
-                        <div class="log-time">[${log.time}]</div>
-                        <div class="raw-text">原音: ${log.raw}</div>
-                        <div class="choice-container">
-                            <div class="choice-btn ${jsActive}" onclick="selectVersion(${realIndex}, 'js')">📌 辨識: ${log.jsText}</div>
-                            <div class="choice-btn ${aiActive}" onclick="selectVersion(${realIndex}, 'ai')">🤖 智能: ${aiDisplay}</div>
-                        </div>
+                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${idx})" ${log.checked ? 'checked' : ''}>
+                    <div class="log-content" onclick="toggleCheck(${idx})">
+                        <div class="log-time">${log.time}</div>
+                        <div class="log-text">${log.text}</div>
                     </div>
                     <div class="log-actions">
-                        <button class="icon-btn" onclick="editLog(${realIndex})">✏️</button>
-                        <button class="icon-btn danger" style="color:white;" onclick="deleteLog(${realIndex})">🗑️</button>
-                    </div>
-                `;
+                        <button class="icon-btn" onclick="editLog(${idx})">✏️</button>
+                        <button class="icon-btn" style="color:var(--danger);" onclick="deleteLog(${idx})">🗑️</button>
+                    </div>`;
             }
-            logArea.appendChild(item);
+            logsContainer.appendChild(item);
         });
+        localStorage.setItem('sng_logs', JSON.stringify(logs));
     }
 
-    function selectVersion(i, type) { if(type==='ai' && logs[i].aiText==='⏳...') return; logs[i].selectedType = type; saveLogs(); }
-    function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
-    function selectAll() { const allChecked = logs.every(l => l.checked); logs.forEach(l => l.checked = !allChecked); saveLogs(); }
-    function deleteLog(i) { if(confirm('刪除這筆？')) { logs.splice(i, 1); saveLogs(); } }
-    function clearAllLogs() { if(confirm('確定要清空所有紀錄嗎？')) { logs = []; saveLogs(); } }
-    
+    function toggleCheck(i) { logs[i].checked = !logs[i].checked; renderLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); renderLogs(); }
+    function deleteLog(i) { logs.splice(i, 1); renderLogs(); }
+    function clearLogs() { if(confirm("清空紀錄？")) { logs = []; renderLogs(); } }
     function editLog(i) { logs[i].isEditing = true; renderLogs(); }
     function cancelEdit(i) { logs[i].isEditing = false; renderLogs(); }
-    function saveEdit(i) { 
-        const val = document.getElementById(`edit-input-${i}`).value;
-        if(logs[i].selectedType === 'ai') logs[i].aiText = val; else logs[i].jsText = val;
-        logs[i].isEditing = false; saveLogs(); 
-    }
+    function saveEdit(i) { logs[i].text = document.getElementById(`edit-input-${i}`).value; logs[i].isEditing = false; renderLogs(); }
 
     function getSelectedText() {
-        const selected = logs.filter(l => l.checked);
-        if(!selected.length) { alert('請先勾選紀錄'); return null; }
-        return selected.map(l => l.selectedType === 'ai' ? l.aiText : l.jsText).join('\n');
+        const sel = logs.filter(l => l.checked);
+        if (sel.length === 0) { showToast("請勾選紀錄"); return ""; }
+        return sel.map(l => l.text).join('\n');
     }
 
-    function copySelected() { const t = getSelectedText(); if(t) navigator.clipboard.writeText(t).then(() => alert('✅ 已複製')); }
-    function shareSelected() { const t = getSelectedText(); if(t && navigator.share) navigator.share({text: t}); }
-    
-    function exportSelected() {
+    function copyText() {
         const t = getSelectedText();
-        if(!t) return;
-        const blob = new Blob([`【SNG 紀錄】\n${new Date().toLocaleString()}\n\n${t}`], {type: "text/plain"});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `SNG_${Date.now()}.txt`; a.click();
+        if (!t) return;
+        const textArea = document.createElement("textarea");
+        textArea.value = t;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        showToast("✅ 已複製");
     }
 
-    // --- 🎤 錄音邏輯 ---
-    let recognition, isRecording = false, currentText = "", timerObj = null;
+    function shareText() {
+        const t = getSelectedText();
+        if (t && navigator.share) navigator.share({ text: t });
+    }
+
+    function exportText() {
+        const t = getSelectedText();
+        if (!t) return;
+        const blob = new Blob([t], {type: "text/plain"});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `SNG_紀錄.txt`;
+        a.click();
+    }
+
+    function applyDictionary(text) {
+        let dict = {};
+        vocabData.split('\n').forEach(line => {
+            const row = line.trim();
+            if (!row) return;
+            if (row.includes('=')) {
+                const [keys, value] = row.split('=');
+                keys.split('/').forEach(k => { if (k.trim()) dict[k.trim()] = value.trim(); });
+            } else { dict[row] = row; }
+        });
+        const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+        let processed = text;
+        sortedKeys.forEach(key => { processed = processed.split(key).join(dict[key]); });
+        return processed;
+    }
+
+    let recognition, isRecording = false, currentFinal = "";
+
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
-        recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'zh-TW';
-        recognition.onresult = (e) => {
-            let final = '';
-            for (let i = e.resultIndex; i < e.results.length; ++i) if (e.results[i].isFinal) final += e.results[i][0].transcript;
-            if(final) currentText = final;
-            document.getElementById('livePreview').innerText = "🗣️ " + (final || "聽寫中...");
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'zh-TW';
+
+        recognition.onresult = event => {
+            let interim = '';
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) currentFinal += event.results[i][0].transcript;
+                else interim += event.results[i][0].transcript;
+            }
+            // 🌟 有字才顯示並加上 active 樣式
+            const displayText = currentFinal + interim;
+            if(displayText) {
+                livePreview.innerText = "🗣️ " + displayText;
+                livePreview.classList.add('active');
+            }
         };
-        recognition.onend = async () => {
+
+        recognition.onend = () => {
             isRecording = false;
-            document.getElementById('toggleBtn').classList.remove('active');
-            document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
-            let raw = currentText.trim();
-            if(!raw) return;
-            let jsFixed = applyJsDict(raw);
-            logs.push({ time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), raw, jsText: jsFixed, aiText: '⏳...', selectedType: 'js', checked: true, isEditing: false });
-            const idx = logs.length - 1; saveLogs();
-            if(jsFixed.length > 5) {
-                const aiRes = await sendToGroq(jsFixed);
-                logs[idx].aiText = aiRes; saveLogs();
-            } else { logs[idx].aiText = jsFixed; saveLogs(); }
+            toggleBtn.classList.remove('active');
+            toggleBtn.innerText = '🎤 點擊開始錄音';
+            
+            const raw = currentFinal.trim();
+            currentFinal = "";
+            if (raw) {
+                logs.push({
+                    time: new Date().toLocaleTimeString('zh-TW', {hour12: false}),
+                    text: applyDictionary(raw),
+                    checked: true,
+                    isEditing: false
+                });
+                renderLogs();
+            }
+            // 🌟 結束後清空文字並移除樣式，讓它不佔版面
+            livePreview.innerText = "";
+            livePreview.classList.remove('active');
         };
     }
 
-    document.getElementById('toggleBtn').onclick = () => {
-        if(!isRecording) {
-            currentText = ""; recognition.start(); isRecording = true;
-            document.getElementById('toggleBtn').classList.add('active');
-            const sec = document.getElementById('recordTimerSelect').value;
-            if(sec > 0) {
-                document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}s)`;
-                timerObj = setTimeout(() => recognition.stop(), sec);
-            }
-        } else { clearTimeout(timerObj); recognition.stop(); }
+    toggleBtn.onclick = () => {
+        if (!isRecording) {
+            currentFinal = "";
+            recognition.start();
+            isRecording = true;
+            toggleBtn.classList.add('active');
+            toggleBtn.innerText = '🔴 錄音中';
+        } else { recognition.stop(); }
     };
 
-    function applyJsDict(txt) {
-        let dict = {};
-        vocabBox.value.split(/[,，\n]+/).forEach(v => {
-            if(v.includes('=')) {
-                let [keys, val] = v.split('=');
-                keys.split('/').forEach(k => { if(k.trim()) dict[k.trim()] = val.trim(); });
-            } else if(v.trim()) dict[v.trim()] = v.trim();
-        });
-        Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
-        return txt;
-    }
-
-    async function sendToGroq(txt) {
-        const key = localStorage.getItem('sng_groq_key');
-        if(!key) return "請設 Key";
-        const ctrl = new AbortController(); setTimeout(() => ctrl.abort(), 2500);
-        try {
-            const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-                method: 'POST',
-                headers: {'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    model: "llama-3.1-8b-instant",
-                    messages: [{role: "system", content: "你是一個 SNG 工程師助理。請濃縮輸入文字，刪除口語贅字與重複，只保留最終的人名、事件、狀態。不要標點符號。"}, {role: "user", content: txt}],
-                    temperature: 0.1, max_tokens: 40
-                }), signal: ctrl.signal
-            });
-            const d = await res.json(); return d.choices[0].message.content.trim();
-        } catch(e) { return "逾時或錯誤"; }
-    }
     renderLogs();
 </script>
 </body>
