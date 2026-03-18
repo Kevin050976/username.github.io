@@ -52,8 +52,25 @@
 
         .header h1 {
             margin: 0;
-            font-size: 1.4em;
+            font-size: 1.2em;
             color: var(--dark);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #recordTimerSelect {
+            padding: 4px 6px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #f8f9fa;
+            font-size: 0.9em;
+            font-weight: bold;
+            color: #555;
+            outline: none;
         }
 
         /* 紀錄顯示區 */
@@ -290,7 +307,16 @@
 
 <div class="app-container">
     <header class="header">
-        <h1>🎙️ SNG AKIRA</h1>
+        <div class="header-left">
+            <select id="recordTimerSelect">
+                <option value="0">手動</option>
+                <option value="3000">3秒</option>
+                <option value="5000" selected>5秒</option>
+                <option value="8000">8秒</option>
+                <option value="10000">10秒</option>
+            </select>
+            <h1>🎙️ SNG AKIRA</h1>
+        </div>
         <button class="icon-btn" onclick="openVocabModal()">⚙️ 設定</button>
     </header>
 
@@ -349,6 +375,7 @@
     const toggleBtn = document.getElementById('toggleBtn');
     const vocabInput = document.getElementById('vocabInput');
     const vocabModal = document.getElementById('vocabModal');
+    const recordTimerSelect = document.getElementById('recordTimerSelect');
 
     vocabInput.value = vocabData;
 
@@ -475,6 +502,7 @@
     }
 
     let recognition, isRecording = false, currentFinal = "";
+    let autoStopTimer = null;
 
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
@@ -497,6 +525,7 @@
 
         recognition.onend = () => {
             isRecording = false;
+            if (autoStopTimer) clearTimeout(autoStopTimer);
             toggleBtn.classList.remove('active');
             toggleBtn.innerText = '🎤 點擊開始錄音';
             
@@ -519,11 +548,26 @@
     toggleBtn.onclick = () => {
         if (!isRecording) {
             currentFinal = "";
-            recognition.start();
-            isRecording = true;
-            toggleBtn.classList.add('active');
-            toggleBtn.innerText = '🔴 錄音中';
-        } else { recognition.stop(); }
+            try {
+                recognition.start();
+                isRecording = true;
+                toggleBtn.classList.add('active');
+                
+                const stopDelay = parseInt(recordTimerSelect.value);
+                if (stopDelay > 0) {
+                    toggleBtn.innerText = `🔴 錄音中 (${stopDelay/1000}秒)`;
+                    autoStopTimer = setTimeout(() => {
+                        recognition.stop();
+                    }, stopDelay);
+                } else {
+                    toggleBtn.innerText = '🔴 錄音中';
+                }
+            } catch(e) {
+                showToast("錄音啟動失敗");
+            }
+        } else {
+            recognition.stop();
+        }
     };
 
     renderLogs();
