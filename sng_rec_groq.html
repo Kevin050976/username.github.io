@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNG AKIRA 語音終端 (Groq 智能提煉版)</title>
+    <style>
+        /* 🌟 核心修改：鎖定整個螢幕，不准整體滑動 */
+        body { 
+            font-family: sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f9; 
+            height: 100vh; 
+            height: 100dvh; 
+            overflow: hidden; 
+            display: flex; 
+            justify-content: center; 
+        }
+        .container { 
+            width: 100%; 
+            max-width: 600px; 
+            background: white; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100%; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+            position: relative;
+        }
+        
+        /* 🌟 釘死上半部所有控制項 */
+        .fixed-top {
+            padding: 20px 20px 10px 20px;
+            flex-shrink: 0; 
+            border-bottom: 2px solid #eee;
+            background: white;
+            z-index: 10;
+        }
+
+        /* 🌟 讓紀錄區獨立滑動 */
+        #logArea { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            padding: 10px 20px 90px 20px; 
+            background-color: #fafafa;
+        }
+
+        textarea, input[type="text"], input[type="password"] { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 5px; }
+        textarea { height: 50px; margin-bottom: 10px; resize: none; }
+        button { padding: 10px 15px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-right: 5px; font-weight: bold; }
+        .danger { background: #dc3545; }
+        .success { background: #28a745; }
+        .secondary { background: #6c757d; }
+        .controls { background: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 10px; }
+        .vocab-btn { padding: 6px 12px; font-size: 0.9em; background: #6c757d; }
+        
+        .api-setup { display: flex; gap: 5px; margin-bottom: 10px; }
+        .api-setup input { flex-grow: 1; padding: 8px; font-size: 0.9em; }
+
+        #toggleBtn { width: 100%; height: 60px; font-size: 1.2em; background: #28a745; transition: 0.2s; margin-bottom: 5px;}
+        #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        
+        #livePreview { color: #007bff; font-size: 0.95em; min-height: 1.5em; text-align: center; margin-bottom: 10px; font-weight: bold; }
+        
+        .timer-setting { text-align: center; margin-bottom: 10px; font-size: 0.95em; color: #155724; background: #d4edda; padding: 8px; border-radius: 5px; border: 1px solid #c3e6cb;}
+        .timer-setting select { padding: 3px 8px; font-size: 1em; border-radius: 4px; border: 1px solid #ccc; background: white;}
+        
+        .log-item { background: #fff; border: 1px solid #ddd; padding: 10px; margin-bottom: 8px; border-radius: 5px; display: flex; align-items: flex-start; transition: 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05);}
+        .log-item.selected { border-left: 4px solid #007bff; background: #f8fbff; }
+        .log-checkbox { margin-top: 5px; margin-right: 12px; transform: scale(1.5); }
+        .log-content { flex-grow: 1; width: 100%; }
+        .log-time { color: #888; font-size: 0.85em; margin-bottom: 4px; }
+        .raw-text { color: #aaa; text-decoration: line-through; font-size: 0.85em; margin-bottom: 4px; }
+        
+        .choice-container { display: flex; flex-direction: column; gap: 6px; margin-bottom: 5px; }
+        .choice-btn { padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 1.05em; font-weight: bold; border: 2px solid transparent; transition: all 0.2s; line-height: 1.4; }
+        .choice-btn.active { background-color: #212529; color: #ffffff; border-color: #212529; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .choice-btn.inactive { background-color: #f8f9fa; color: #adb5bd; border-color: #e9ecef; }
+        
+        .log-note { color: #d97706; font-size: 0.9em; background: #fffbeb; padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 4px;}
+        .log-actions { display: flex; flex-direction: column; gap: 5px; margin-left: 10px; }
+        .icon-btn { padding: 6px; font-size: 1em; background: #eee; color: #333; }
+        .edit-input { margin-bottom: 8px; font-size: 1em; }
+        
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #343a40; padding: 15px; display: flex; justify-content: center; gap: 10px; z-index: 100; }
+        .bottom-bar button { margin: 0; flex: 1; max-width: 150px; font-size: 1em; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="fixed-top">
+        <h2 style="margin-top: 0; margin-bottom: 10px; font-size: 1.5em;">🎙️ SNG 語音終端 (Groq 智能版)</h2>
+        
+        <div class="api-setup">
+            <input type="password" id="groqApiKey" placeholder="貼上你的 Groq API Key (gsk_...)">
+            <button class="success" onclick="saveApiKey()" style="padding: 8px 12px; font-size: 0.9em;">儲存密鑰</button>
+        </div>
+
+        <div class="controls">
+            <strong>📚 專屬詞彙庫 (JS極速攔截)</strong>
+            <textarea id="vocab">喇叭紅/喇叭洪/喇叭府/喇叭=喇叭宏, 國士論壇, 黃國昌, 韓國瑜, SNG連線</textarea>
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 5px;">
+                <div>
+                    <input type="file" id="fileInput" accept=".txt" style="display:none">
+                    <button class="vocab-btn" onclick="document.getElementById('fileInput').click()">📥 匯入</button>
+                    <input type="checkbox" id="appendMode"> <label for="appendMode" style="font-size: 0.9em;">附加</label>
+                </div>
+                <button class="vocab-btn" onclick="exportVocab()">📤 匯出</button>
+            </div>
+        </div>
+
+        <button id="toggleBtn">🎤 點擊開始錄音</button>
+        <div id="livePreview"></div>
+
+        <div class="timer-setting">
+            ⏱️ 錄音模式：
+            <select id="recordTimerSelect">
+                <option value="0">完全手動 (按開始/按停止)</option>
+                <option value="3000">定時 3 秒</option>
+                <option value="5000" selected>定時 5 秒</option>
+                <option value="8000">定時 8 秒</option>
+                <option value="10000">定時 10 秒</option>
+            </select>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+            <strong>📝 轉錄紀錄：</strong>
+            <div>
+                <button onclick="selectAll()" class="secondary" style="padding: 5px 10px; font-size: 0.9em;">☑️ 全選</button>
+                <button onclick="clearAllLogs()" class="danger" style="padding: 5px 10px; font-size: 0.9em;">🗑️ 刪除全部</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="logArea"></div>
+</div>
+
+<div class="bottom-bar">
+    <button onclick="copySelected()" style="background:#17a2b8;">📋 複製</button>
+    <button onclick="shareSelected()" style="background:#28a745;">📲 分享</button>
+    <button onclick="exportSelected()" style="background:#ffc107; color:#000;">💾 完整匯出</button>
+</div>
+
+<script>
+    // --- 🔑 API Key 管理 ---
+    const apiKeyInput = document.getElementById('groqApiKey');
+    if (localStorage.getItem('sng_groq_key')) {
+        apiKeyInput.value = localStorage.getItem('sng_groq_key');
+    }
+    function saveApiKey() {
+        const key = apiKeyInput.value.trim();
+        if (key) {
+            localStorage.setItem('sng_groq_key', key);
+            alert('✅ Groq API Key 已安全儲存於平板！');
+        } else {
+            localStorage.removeItem('sng_groq_key');
+            alert('🗑️ API Key 已清除。');
+        }
+    }
+
+    // --- 📚 詞庫管理 ---
+    const vocabBox = document.getElementById('vocab');
+    const fileInput = document.getElementById('fileInput');
+    const appendMode = document.getElementById('appendMode');
+
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const newText = e.target.result.trim();
+            if (appendMode.checked) { vocabBox.value = vocabBox.value + (vocabBox.value ? ",\n" : "") + newText; } 
+            else { vocabBox.value = newText; }
+            alert("✅ 詞庫匯入成功！");
+        };
+        reader.readAsText(file);
+        fileInput.value = ''; 
+    });
+
+    function exportVocab() {
+        const url = URL.createObjectURL(new Blob([vocabBox.value], { type: "text/plain" }));
+        const a = document.createElement('a'); a.href = url; a.download = "SNG專屬詞庫.txt"; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // --- 📝 日誌渲染系統 ---
+    const logArea = document.getElementById('logArea');
+    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    logs.forEach(log => log.isEditing = false); 
+
+    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+
+    function renderLogs() {
+        logArea.innerHTML = '';
+        [...logs].reverse().forEach((log, reversedIndex) => {
+            const realIndex = logs.length - 1 - reversedIndex;
+            const item = document.createElement('div');
+            item.className = `log-item ${log.checked ? 'selected' : ''}`;
+            
+            if (log.isEditing) {
+                let currentText = log.selectedType === 'ai' ? log.aiText : log.jsText;
+                item.innerHTML = `
+                    <div style="flex-grow:1; padding-right: 10px;">
+                        <input type="text" id="edit-text-${realIndex}" class="edit-input" value="${currentText}">
+                        <input type="text" id="edit-note-${realIndex}" class="edit-input" value="${log.note || ''}" placeholder="📝 新增附註 (選填)">
+                        <div style="margin-top: 5px;">
+                            <button class="success" onclick="saveEdit(${realIndex})">💾 儲存</button>
+                            <button class="secondary" onclick="cancelEdit(${realIndex})">取消</button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const checkedAttr = log.checked ? 'checked' : '';
+                const noteDisplay = log.note ? `<div class="log-note">📝 附註: ${log.note}</div>` : '';
+                
+                const jsStatus = log.selectedType === 'js' ? 'active' : 'inactive';
+                const aiStatus = log.selectedType === 'ai' ? 'active' : 'inactive';
+                const aiDisplayText = log.aiText === '⏳ 雲端智能提煉中...' ? '⏳ 處理中...' : log.aiText;
+
+                item.innerHTML = `
+                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${realIndex})" ${checkedAttr}>
+                    <div class="log-content">
+                        <div class="log-time">[${log.time}]</div>
+                        <div class="raw-text">原音: ${log.raw}</div>
+                        
+                        <div class="choice-container">
+                            <div class="choice-btn ${jsStatus}" onclick="selectVersion(${realIndex}, 'js')">
+                                📌 辨識: ${log.jsText}
+                            </div>
+                            <div class="choice-btn ${aiStatus}" onclick="selectVersion(${realIndex}, 'ai')">
+                                🤖 智能: ${aiDisplayText}
+                            </div>
+                        </div>
+                        
+                        ${noteDisplay}
+                    </div>
+                    <div class="log-actions">
+                        <button class="icon-btn" onclick="editLog(${realIndex})">✏️</button>
+                        <button class="icon-btn danger" style="color:white;" onclick="deleteLog(${realIndex})">🗑️</button>
+                    </div>
+                `;
+            }
+            logArea.appendChild(item);
+        });
+    }
+
+    function selectVersion(index, type) {
+        if (type === 'ai' && logs[index].aiText === '⏳ 雲端智能提煉中...') return;
+        logs[index].selectedType = type;
+        saveLogs();
+    }
+
+    function toggleCheck(index) { logs[index].checked = !logs[index].checked; saveLogs(); }
+    function selectAll() { const allChecked = logs.every(log => log.checked); logs.forEach(log => log.checked = !allChecked); saveLogs(); }
+    function deleteLog(index) { if(confirm('確定刪除這筆紀錄嗎？')) { logs.splice(index, 1); saveLogs(); } }
+    function clearAllLogs() { if(confirm('確定要清空嗎？')) { logs = []; saveLogs(); } }
+    function editLog(index) { logs[index].isEditing = true; renderLogs(); }
+    function cancelEdit(index) { logs[index].isEditing = false; renderLogs(); }
+    
+    function saveEdit(index) { 
+        let newText = document.getElementById(`edit-text-${index}`).value;
+        if(logs[index].selectedType === 'ai') { logs[index].aiText = newText; } 
+        else { logs[index].jsText = newText; }
+        logs[index].note = document.getElementById(`edit-note-${index}`).value; 
+        logs[index].isEditing = false; 
+        saveLogs(); 
+    }
+
+    function getSelectedCorrectedText() { 
+        const selectedLogs = logs.filter(log => log.checked); 
+        if (selectedLogs.length === 0) { alert('請先勾選紀錄！'); return null; } 
+        return selectedLogs.map(log => log.selectedType === 'ai' ? log.aiText : log.jsText).join('\n'); 
+    }
+    
+    function copySelected() { const text = getSelectedCorrectedText(); if(text) navigator.clipboard.writeText(text).then(()=>alert('✅ 已複製！')); }
+    function shareSelected() { const text = getSelectedCorrectedText(); if(text) { navigator.share ? navigator.share({text: text}) : alert('不支援原生分享'); } }
+    function exportSelected() {
+        const selectedLogs = logs.filter(log => log.checked);
+        if (selectedLogs.length === 0) return alert('請先勾選紀錄！');
+        let exportStr = "【SNG 語音完整紀錄】\n" + new Date().toLocaleString('zh-TW') + "\n\n";
+        selectedLogs.forEach(log => { 
+            let finalText = log.selectedType === 'ai' ? log.aiText : log.jsText;
+            exportStr += `[${log.time}]\n最終輸出: ${finalText}\n` + (log.note ? `附註: ${log.note}\n` : '') + `------------------------\n`; 
+        });
+        const url = URL.createObjectURL(new Blob([exportStr], { type: "text/plain" }));
+        const a = document.createElement('a'); a.href = url; a.download = `SNG紀錄_${new Date().getTime()}.txt`; a.click(); URL.revokeObjectURL(url);
+    }
+
+    // --- 🎤 錄音控制 ---
+    let fixedTimer = null;
+    const recordTimerSelect = document.getElementById('recordTimerSelect');
+    const livePreview = document.getElementById('livePreview');
+    let isRecording = false;
+    let currentSessionText = ""; 
+
+    let recognition;
+    if ('webkitSpeechRecognition' in window) {
+        recognition = new webkitSpeechRecognition();
+        recognition.continuous = true; 
+        recognition.interimResults = true; 
+        recognition.lang = 'zh-TW';
+
+        recognition.onresult = function(event) {
+            let finalTranscript = '';
+            let interimTranscript = '';
+            for (let i = 0; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript;
+                else interimTranscript += event.results[i][0].transcript;
+            }
+            currentSessionText = finalTranscript; 
+            livePreview.innerText = "🗣️ 聽寫中: " + finalTranscript + interimTranscript;
+        };
+        
+        recognition.onend = async function() {
+            isRecording = false;
+            clearTimeout(fixedTimer); 
+            
+            const btn = document.getElementById('toggleBtn');
+            btn.classList.remove('active');
+            btn.innerText = '🎤 點擊開始錄音';
+            livePreview.innerText = ""; 
+            
+            let rawText = currentSessionText.trim();
+            currentSessionText = ""; 
+            if (!rawText) return; 
+
+            // 防疊字保險
+            rawText = rawText.replace(/(.{2,15})\1+/g, '$1');
+            const timeStr = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+            
+            // 第一道防線：極速 JS 攔截
+            let jsProcessedText = applyJsDictionary(rawText);
+
+            const newLog = { 
+                time: timeStr, 
+                raw: rawText, 
+                jsText: jsProcessedText,
+                aiText: '⏳ 雲端智能提煉中...', 
+                selectedType: 'js', // 預設黑底永遠是最安全的 JS 版
+                checked: false, 
+                isEditing: false 
+            };
+            logs.push(newLog);
+            const logIndex = logs.length - 1;
+            saveLogs();
+
+            // 如果字數大於6，啟動第二道防線：呼叫 Groq 進行提煉
+            let pureText = jsProcessedText.replace(/[.,!?，。！？\s]/g, '');
+            if (pureText.length > 6) {
+                const finalResult = await sendToGroq(jsProcessedText);
+                logs[logIndex].aiText = finalResult;
+                saveLogs(); 
+            } else {
+                logs[logIndex].aiText = jsProcessedText;
+                saveLogs();
+            }
+        };
+    }
+
+    const toggleBtn = document.getElementById('toggleBtn');
+    toggleBtn.onclick = function() {
+        if (!isRecording) {
+            currentSessionText = ""; 
+            livePreview.innerText = "🗣️ 請開始說話...";
+            try { recognition.start(); } catch(e){}
+            isRecording = true;
+            toggleBtn.classList.add('active');
+            
+            const delay = parseInt(recordTimerSelect.value, 10);
+            if (delay > 0) {
+                toggleBtn.innerText = `🔴 錄音中... (定時 ${delay/1000} 秒)`;
+                fixedTimer = setTimeout(() => {
+                    if (isRecording && recognition) recognition.stop(); 
+                }, delay);
+            } else {
+                toggleBtn.innerText = '🔴 錄音中... (手動點擊停止)';
+            }
+        } else {
+            clearTimeout(fixedTimer);
+            recognition.stop(); 
+        }
+    };
+
+    function applyJsDictionary(rawText) {
+        let processedText = rawText;
+        let dict = {}; 
+        
+        const vocabItems = vocabBox.value.split(/[,，\n]+/);
+        vocabItems.forEach(item => {
+            let text = item.trim();
+            if (!text) return;
+
+            if (text.includes('=')) {
+                let parts = text.split('=');
+                let rightWord = parts[1].trim(); 
+                dict[rightWord] = rightWord;
+                parts[0].split('/').forEach(w => {
+                    w = w.trim();
+                    if (w) dict[w] = rightWord; 
+                });
+            } else {
+                dict[text] = text; 
+            }
+        });
+
+        let sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
+        if (sortedKeys.length > 0 && sortedKeys[0] !== "") {
+            let escapedKeys = sortedKeys.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+            let replaceRegex = new RegExp(escapedKeys.join('|'), 'g');
+            processedText = processedText.replace(replaceRegex, matched => dict[matched]);
+        }
+        return processedText;
+    }
+
+    // --- 🚀 核心升級：Groq 極速提煉引擎與超時斬斷 ---
+    async function sendToGroq(text) {
+        const apiKey = localStorage.getItem('sng_groq_key');
+        if (!apiKey) return "⚠ 系統提示：請於上方設定 Groq API Key";
+
+        // 專為 SNG 現場設計的強大 Prompt
+        const prompt = `你是一個 SNG 轉播車導播助理。前方工程師講話會有很多口語重複與自我修正，請直接提取他最後確認的「事件與連線狀態」。
+【嚴格規則】：
+1. 提取並濃縮結論，例如聽到「韓國瑜查看勘災國瑜勘災15準」，請直接輸出「國瑜勘災15準」。
+2. 只保留人名、事件、以及時間狀態（如 15準、已連線、斷訊）。
+3. 絕對不要改變任何專有名詞。
+4. 絕對不要輸出任何解釋、標點符號或問候語。若判斷無須修改，請直接精簡輸出原文。
+
+輸入語音：${text}
+精簡輸出：`;
+
+        // 🔪 設定無情斬斷器：2.5 秒沒反應就直接砍掉連線
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+        try {
+            const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: "llama-3.1-8b-instant", // 使用 Groq 最快的瞬發模型
+                    messages: [
+                        { role: "system", content: "你是一個嚴格的語音濃縮程式，只輸出精簡結果。" },
+                        { role: "user", content: prompt }
+                    ],
+                    temperature: 0.1, 
+                    max_tokens: 50 // 限制長度，讓它回傳更快
+                }),
+                signal: controller.signal // 綁定斬斷器
+            });
+            
+            clearTimeout(timeoutId); // 成功拿到資料，解除計時炸彈
+            
+            if (!response.ok) throw new Error('API 回應錯誤');
+            const data = await response.json();
+            return data.choices[0].message.content.trim();
+            
+        } catch (error) {
+            clearTimeout(timeoutId);
+            // 判斷是不是被我們 2.5 秒斬斷器砍掉的
+            if (error.name === 'AbortError') {
+                return "⚠ 連線逾時 (放棄智能處理)";
+            }
+            return "⚠ 雲端 API 發生錯誤";
+        }
+    }
+    
+    renderLogs();
+</script>
+</body>
+</html>
