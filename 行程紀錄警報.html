@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNG 勤務終端 (雲端警報版)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
+        
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
+        .modal-content { background: white; margin: 15% auto; padding: 20px; width: 85%; max-width: 450px; border-radius: 15px; text-align: center; }
+        
+        button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #007bff; color: white; padding: 8px 10px; }
+        .btn-success { background: #28a745; color: white; padding: 12px; }
+        .btn-danger { background: #dc3545; color: white; padding: 12px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
+
+        .tag-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; justify-content: center; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .tag-btn { padding: 12px; font-size: 1.1em; flex: 1 1 40%; border: 3px solid transparent; }
+        .tag-live { background: #28a745; color: white; } 
+        .tag-task { background: #17a2b8; color: white; } 
+        .tag-time { background: #fd7e14; color: white; } 
+        .tag-btn.selected { border-color: #212529; box-shadow: inset 0 0 8px rgba(0,0,0,0.4); transform: scale(0.96); }
+
+        .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; background: #212529; z-index: 100; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #toggleBtn { width: 100%; max-width: 500px; height: 75px; font-size: 1.6em; background: #28a745; color: white; border-radius: 12px; }
+        #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        
+        .log-item { background: #fff; border: 1px solid #eee; padding: 12px; margin-bottom: 12px; border-radius: 10px; display: flex; align-items: flex-start; }
+        .log-checkbox { margin-top: 5px; margin-right: 12px; transform: scale(1.6); }
+        .log-content { flex-grow: 1; }
+        .log-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .log-time { color: #888; font-size: 0.85em; }
+        .log-timer { color: #dc3545; font-size: 0.85em; font-weight: bold; cursor: pointer; background: #fff5f5; padding: 2px 6px; border-radius: 4px; }
+        .log-text { font-size: 1.25em; font-weight: bold; color: #333; line-height: 1.4; }
+
+        .badge { display: inline-block; padding: 2px 6px; font-size: 0.75em; border-radius: 4px; margin-left: 5px; color: white; vertical-align: middle; }
+        .badge-live { background: #28a745; }
+        .badge-task { background: #17a2b8; }
+        .badge-time { background: #fd7e14; }
+
+        .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
+        
+        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 8px; height: 1.2em; font-size: 1.1em; }
+        
+        .timer-input-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0; font-size: 1.2em; }
+        .timer-input-box input { width: 65px; padding: 10px; text-align: center; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; }
+
+        .action-bar-btn { flex: 1; height: 55px; color: white; border-radius: 8px; font-size: 1.1em; font-weight: bold; }
+        
+        textarea { box-sizing: border-box; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
+                <option value="0">手動</option>
+                <option value="3000">3秒</option>
+                <option value="4000">4秒</option>
+                <option value="5000" selected>5秒</option>
+                <option value="6000">6秒</option>
+            </select>
+            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️ SNG</h3>
+        </div>
+        <div style="display: flex; gap: 5px; white-space: nowrap;">
+            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
+            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
+        </div>
+    </div>
+    
+    <div id="livePreview"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">
+        <span style="font-weight:bold;">📝 紀錄列表</span>
+        <div>
+            <button onclick="selectAll()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.8em;">全選</button>
+            <button onclick="deleteSelectedLogs()" class="btn-danger" style="padding: 4px 8px; font-size: 0.8em; border: none;">刪除</button>
+        </div>
+    </div>
+    <div id="logArea"></div>
+</div>
+
+<div class="bottom-controls">
+    <button id="toggleBtn">🎤 點擊開始錄音</button>
+    <div style="display:flex; gap:8px; width:100%; max-width:500px;">
+        <button onclick="copySelected()" class="action-bar-btn" style="background:#17a2b8;">📋 複製</button>
+        <button onclick="shareSelected()" class="action-bar-btn" style="background:#28a745;">📲 分享</button>
+        <button onclick="exportSelected()" class="action-bar-btn" style="background:#6c757d;">💾 匯出</button>
+    </div>
+</div>
+
+<div id="timerEditModal" class="modal">
+    <div class="modal-content">
+        <h4>⏱️ 修改倒數時間</h4>
+        <div class="timer-input-box">
+            <input type="number" id="newTimerHour" placeholder="0"> 時
+            <input type="number" id="newTimerMin" placeholder="0"> 分
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn-success" onclick="updateTimerValue()">✅ 確定修改</button>
+            <button class="btn-danger" onclick="stopTimer()">⏹️ 不顯示</button>
+            <button class="btn-secondary" onclick="closeTimerModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="tagModal" class="modal">
+    <div class="modal-content">
+        <h4>🏷️ 標籤設定</h4>
+        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#28a745;">【綠色組】</p>
+        <div class="tag-container" id="groupLive">
+            <button class="tag-btn tag-live" onclick="toggleSingle(this, 'live')">直播</button>
+        </div>
+        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#17a2b8;">【藍色組】</p>
+        <div class="tag-container" id="groupTask">
+            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">側錄</button>
+            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">準連</button>
+            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">傳帶</button>
+        </div>
+        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#fd7e14;">【橘色組】</p>
+        <div class="tag-container" id="groupTime">
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 14400)">4時</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 10800)">3時</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 7200)">2時</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 3600)">1時</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 1800)">30分</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 1200)">20分</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 600)">10分</button>
+            <button class="tag-btn tag-time" onclick="toggleTime(this, 300)">5分</button>
+        </div>
+        <button class="btn-success" onclick="applyTags()" style="width:100%;">✅ 確定</button>
+    </div>
+</div>
+
+<div id="vocabModal" class="modal">
+    <div class="modal-content">
+        <h4>📚 詞彙庫</h4>
+        <textarea id="vocab" style="width:100%; height:150px; font-size: 1.2em; padding: 10px; border-radius: 8px;"></textarea>
+        <div style="display: flex; justify-content: space-between; gap: 5px; margin-top: 15px;">
+            <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('fileInput').click()">📥 匯入</button>
+            <input type="file" id="fileInput" accept=".txt" style="display:none">
+            <button class="btn-secondary" style="flex:1;" onclick="exportVocab()">📤 匯出</button>
+            <button class="btn-success" style="flex:1;" onclick="saveVocab()">💾 儲存</button>
+        </div>
+        <button class="btn-secondary" onclick="closeVocabModal()" style="width:100%; margin-top:10px; background:#e9ecef; color:#333;">關閉視窗</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 🚀 雲端警報設定區 (把你的 GAS 網址貼在下面)
+    // ==========================================
+    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzKY0klf8g0Jbro82AZPNcsNtb6zKtfdZaYSHC5cfqutywLL1OzbbOMnHw4j_mhZcNZ/exec';
+    // ==========================================
+
+    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    const logArea = document.getElementById('logArea');
+    const vocabBox = document.getElementById('vocab');
+    let currentIdx = null;
+    let selLive = null, selTask = null, selTime = null, tempEnd = null;
+
+    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
+
+    // --- 🚀 發送任務給 Google 雲端大腦 ---
+    function sendToGAS(text, delayMs) {
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的_GAS_網址')) return;
+        
+        // 使用 no-cors 模式，完美繞過 GitHub 靜態網頁與 Google 之間的跨域阻擋
+        fetch(GAS_WEBHOOK_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: text, delayMs: delayMs })
+        }).catch(e => console.log('Telegram 警報發送失敗:', e));
+    }
+
+    // --- 詞彙庫匯入/匯出功能 ---
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(e) { vocabBox.value = e.target.result; alert("✅ 詞彙匯入成功！請確認後點擊「儲存」。"); };
+        if(e.target.files[0]) reader.readAsText(e.target.files[0]);
+        fileInput.value = ''; 
+    });
+    function exportVocab() { const blob = new Blob([vocabBox.value], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download="SNG_詞彙庫.txt"; a.click(); }
+    function saveVocab() { localStorage.setItem('sng_vocab', vocabBox.value); alert("✅ 詞彙庫已成功儲存！"); document.getElementById('vocabModal').style.display='none'; }
+    function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
+    function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
+
+    setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        logs.forEach(log => {
+            if (log.timerEnd) {
+                const diff = Math.floor((log.timerEnd - now) / 1000);
+                if (diff > 0) {
+                    const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
+                    log.displayTimer = `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+                } else { log.displayTimer = "時間到"; }
+                changed = true;
+            }
+        });
+        if (changed) renderLogs();
+    }, 1000);
+
+    function toggleSingle(btn, group) {
+        const isSel = btn.classList.contains('selected');
+        const container = group === 'live' ? '#groupLive' : '#groupTask';
+        document.querySelectorAll(`${container} .tag-btn`).forEach(b => b.classList.remove('selected'));
+        if (!isSel) {
+            btn.classList.add('selected');
+            if(group === 'live') selLive = btn.innerText; else selTask = btn.innerText;
+        } else {
+            if(group === 'live') selLive = null; else selTask = null;
+        }
+    }
+
+    function toggleTime(btn, sec) {
+        const isSel = btn.classList.contains('selected');
+        document.querySelectorAll('#groupTime .tag-btn').forEach(b => b.classList.remove('selected'));
+        if (!isSel) {
+            btn.classList.add('selected');
+            selTime = btn.innerText.replace('分', '分鐘').replace('時', '小時');
+            tempEnd = Date.now() + (sec * 1000);
+        } else {
+            selTime = null; tempEnd = null;
+        }
+    }
+
+    function openTagModal(i) {
+        currentIdx = i;
+        selLive = logs[i].tags.find(t => t === '直播') || null;
+        selTask = logs[i].tags.find(t => ['側錄','準連','傳帶'].includes(t)) || null;
+        selTime = logs[i].tags.find(t => t.includes('小時') || t.includes('分鐘')) || null;
+        tempEnd = logs[i].timerEnd;
+
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            const txt = btn.innerText.replace('分', '分鐘').replace('時', '小時');
+            btn.classList.toggle('selected', txt === selLive || txt === selTask || txt === selTime);
+        });
+        document.getElementById('tagModal').style.display = 'block';
+    }
+
+    // 🌟 在按下「確定」套用標籤時，觸發雲端計時
+    function applyTags() {
+        logs[currentIdx].tags = [selLive, selTask, selTime].filter(t => t);
+        logs[currentIdx].timerEnd = tempEnd;
+        document.getElementById('tagModal').style.display = 'none';
+        saveLogs();
+
+        if (tempEnd) {
+            const delay = tempEnd - Date.now();
+            if (delay > 0) {
+                const taskName = logs[currentIdx].tags.join(' ');
+                const fullText = `[${taskName}] ${logs[currentIdx].text}`;
+                sendToGAS(fullText, delay);
+            }
+        }
+    }
+
+    function openTimerEdit(i) { currentIdx = i; document.getElementById('timerEditModal').style.display = 'block'; }
+    
+    // 🌟 在手動修改紅字倒數時間時，同步觸發雲端計時
+    function updateTimerValue() {
+        const h = parseInt(document.getElementById('newTimerHour').value) || 0;
+        const m = parseInt(document.getElementById('newTimerMin').value) || 0;
+        if (h || m) { 
+            const delay = (h * 3600 + m * 60) * 1000;
+            logs[currentIdx].timerEnd = Date.now() + delay; 
+            saveLogs(); 
+
+            const taskName = (logs[currentIdx].tags || []).join(' ');
+            const fullText = `[${taskName}] ${logs[currentIdx].text}`;
+            sendToGAS(fullText, delay);
+        }
+        closeTimerModal();
+    }
+    
+    function stopTimer() { logs[currentIdx].timerEnd = null; logs[currentIdx].displayTimer = null; saveLogs(); closeTimerModal(); }
+    function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
+
+    function addManualLog() {
+        logs.push({ time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, checked: false, isEditing: true });
+        saveLogs();
+        setTimeout(() => {
+            const newIndex = logs.length - 1;
+            const inputField = document.getElementById(`edit-${newIndex}`);
+            if(inputField) inputField.focus();
+        }, 50);
+    }
+
+    function deleteSelectedLogs() {
+        const hasSelected = logs.some(l => l.checked);
+        if (!hasSelected) { alert('請先勾選要刪除的紀錄！'); return; }
+        if (confirm('確定要刪除勾選的紀錄嗎？')) { logs = logs.filter(l => !l.checked); saveLogs(); }
+    }
+
+    function renderLogs() {
+        logArea.innerHTML = '';
+        [...logs].reverse().forEach((log, revIdx) => {
+            const i = logs.length - 1 - revIdx;
+            const item = document.createElement('div');
+            item.className = `log-item ${log.checked ? 'selected' : ''}`;
+            const tags = (log.tags || []).map(t => `<span class="badge badge-${t==='直播'?'live':(['側錄','準連','傳帶'].includes(t)?'task':'time')}">${t}</span>`).join('');
+            const timer = log.displayTimer ? `<span class="log-timer" onclick="openTimerEdit(${i})">⏳ ${log.displayTimer}</span>` : '';
+            
+            if (log.isEditing) {
+                item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
+                    <input type="text" id="edit-${i}" class="log-text" style="flex-grow:1; padding:10px; border:2px solid #007bff; border-radius:5px; font-size:1.2em;" value="${log.text}">
+                    <button class="btn-success" style="padding:10px 15px;" onclick="saveEdit(${i})">💾 儲存</button>
+                </div>`;
+            } else {
+                item.innerHTML = `
+                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
+                    <div class="log-content">
+                        <div class="log-header"><span class="log-time">${log.time}</span>${timer}</div>
+                        <div class="log-text" onclick="toggleCheck(${i})">${log.text}${tags}</div>
+                    </div>
+                    <div class="log-actions">
+                        <button class="icon-btn" onclick="openTagModal(${i})">🏷️</button>
+                        <button class="icon-btn" onclick="editLog(${i})">✏️</button>
+                    </div>`;
+            }
+            logArea.appendChild(item);
+        });
+    }
+
+    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+    function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); saveLogs(); }
+    function editLog(i) { logs[i].isEditing = true; renderLogs(); }
+    function saveEdit(i) { logs[i].text = document.getElementById(`edit-${i}`).value; logs[i].isEditing = false; saveLogs(); }
+    
+    function copySelected() { const sel = logs.filter(l => l.checked); if(sel.length) navigator.clipboard.writeText(sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')).then(()=>alert("複製成功")); }
+    function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
+    function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
+
+    let rec, isRec = false, curTxt = "", timerObj = null;
+    if ('webkitSpeechRecognition' in window) {
+        rec = new webkitSpeechRecognition();
+        rec.continuous = true; rec.interimResults = true; rec.lang = 'zh-TW';
+        rec.onresult = (e) => {
+            let finalTranscript = ''; let interimTranscript = '';
+            for (let i = 0; i < e.results.length; ++i) { if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } else { interimTranscript += e.results[i][0].transcript; } }
+            curTxt = finalTranscript;
+            document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
+        };
+        rec.onend = () => {
+            isRec = false; clearTimeout(timerObj); document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
+            if(!curTxt.trim()) return;
+            logs.push({ time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, checked: false, isEditing: false });
+            curTxt = ""; saveLogs();
+        };
+    }
+
+    document.getElementById('toggleBtn').onclick = () => {
+        if(!isRec) { 
+            curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); 
+            const sec = parseInt(document.getElementById('recordTimerSelect').value);
+            if (sec > 0) { document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; timerObj = setTimeout(() => rec.stop(), sec); } 
+            else { document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; }
+        } else { clearTimeout(timerObj); rec.stop(); }
+    };
+
+    function applyDict(txt) {
+        let dict = {};
+        vocabBox.value.split(/[,，\n]+/).forEach(v => {
+            if(v.includes('=')) { let [keys, val] = v.split('='); keys.split('/').forEach(k => { if(k.trim()) dict[k.trim()] = val.trim(); }); } 
+            else if(v.trim()) dict[v.trim()] = v.trim();
+        });
+        Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
+        return txt;
+    }
+
+    renderLogs();
+</script>
+</body>
+</html>
