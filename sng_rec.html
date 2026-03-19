@@ -3,29 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG AKIRA 勤務終端 (多重標籤版)</title>
+    <title>SNG AKIRA 勤務終端 (修復升級版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 180px; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
         
         /* 彈出視窗 */
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
         .modal-content { background: white; margin: 15% auto; padding: 20px; width: 85%; max-width: 450px; border-radius: 15px; text-align: center; }
         
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #007bff; color: white; padding: 10px 12px; }
         .btn-success { background: #28a745; color: white; padding: 12px; }
         .btn-danger { background: #dc3545; color: white; padding: 12px; }
-        .btn-secondary { background: #6c757d; color: white; padding: 10px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 10px 12px; }
 
         /* 標籤樣式分組 */
         .tag-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; justify-content: center; border-bottom: 1px solid #eee; padding-bottom: 15px; }
         .tag-btn { padding: 12px; font-size: 1.1em; flex: 1 1 40%; border: 3px solid transparent; }
         
-        .tag-live { background: #28a745; color: white; } /* 綠色組 */
-        .tag-task { background: #17a2b8; color: white; } /* 藍色組 */
-        .tag-time { background: #fd7e14; color: white; } /* 橘色組 */
+        .tag-live { background: #28a745; color: white; } 
+        .tag-task { background: #17a2b8; color: white; } 
+        .tag-time { background: #fd7e14; color: white; } 
         
         .tag-btn.selected { border-color: #212529; box-shadow: inset 0 0 8px rgba(0,0,0,0.4); transform: scale(0.96); }
+
+        /* 定時錄音選單 (恢復) */
+        .timer-setting { text-align: center; margin-bottom: 15px; padding: 8px; background: #d4edda; border-radius: 8px; font-size: 1em; font-weight: bold; color: #155724; }
+        .timer-setting select { padding: 5px 10px; font-size: 1em; border-radius: 5px; border: 1px solid #ccc; }
 
         /* 固定底部 */
         .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; background: #212529; z-index: 100; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -49,10 +54,13 @@
         .badge-time { background: #fd7e14; }
 
         .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
-        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 10px; height: 1.2em; }
+        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 10px; height: 1.2em; font-size: 1.1em; }
         
         .timer-input-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0; font-size: 1.2em; }
         .timer-input-box input { width: 65px; padding: 10px; text-align: center; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; }
+
+        /* 恢復底部按鈕字體大小 */
+        .action-bar-btn { flex: 1; height: 55px; color: white; border-radius: 8px; font-size: 1.1em; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -60,18 +68,40 @@
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h3 style="margin:0;">🎙️ SNG AKIRA</h3>
-        <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.85em;">⚙️ 詞彙</button>
+        <div>
+            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em; margin-right:5px;">➕ 增加</button>
+            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
+        </div>
     </div>
+    
     <div id="livePreview"></div>
+
+    <div class="timer-setting">
+        ⏱️ 錄音長度：
+        <select id="recordTimerSelect">
+            <option value="0">手動</option>
+            <option value="3000">3秒</option>
+            <option value="5000" selected>5秒</option>
+            <option value="8000">8秒</option>
+        </select>
+    </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">
+        <span style="font-weight:bold;">📝 紀錄列表</span>
+        <div>
+            <button onclick="selectAll()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.8em;">全選</button>
+            <button onclick="clearAllLogs()" class="btn-danger" style="padding: 4px 8px; font-size: 0.8em; border: none;">清空</button>
+        </div>
+    </div>
     <div id="logArea"></div>
 </div>
 
 <div class="bottom-controls">
     <button id="toggleBtn">🎤 點擊開始錄音</button>
     <div style="display:flex; gap:8px; width:100%; max-width:500px;">
-        <button onclick="copySelected()" style="flex:1; height:50px; background:#17a2b8; color:white;">📋 複製</button>
-        <button onclick="shareSelected()" style="flex:1; height:50px; background:#28a745; color:white;">📲 分享</button>
-        <button onclick="clearAllLogs()" style="flex:1; height:50px; background:#dc3545; color:white;">🗑️ 清空</button>
+        <button onclick="copySelected()" class="action-bar-btn" style="background:#17a2b8;">📋 複製</button>
+        <button onclick="shareSelected()" class="action-bar-btn" style="background:#28a745;">📲 分享</button>
+        <button onclick="exportSelected()" class="action-bar-btn" style="background:#6c757d;">💾 匯出</button>
     </div>
 </div>
 
@@ -92,20 +122,17 @@
 
 <div id="tagModal" class="modal">
     <div class="modal-content">
-        <h4>🏷️ 標籤設定 (按色分組單選)</h4>
-        
+        <h4>🏷️ 標籤設定</h4>
         <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#28a745;">【綠色組】</p>
         <div class="tag-container" id="groupLive">
             <button class="tag-btn tag-live" onclick="toggleSingle(this, 'live')">直播</button>
         </div>
-
         <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#17a2b8;">【藍色組】</p>
         <div class="tag-container" id="groupTask">
             <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">側錄</button>
-            <button class="tag-btn tag-task" onclick="toggleSingle(this, '準連')">準連</button>
-            <button class="tag-btn tag-task" onclick="toggleSingle(this, '傳帶')">傳帶</button>
+            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">準連</button>
+            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">傳帶</button>
         </div>
-
         <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#fd7e14;">【橘色組】</p>
         <div class="tag-container" id="groupTime">
             <button class="tag-btn tag-time" onclick="toggleTime(this, 14400)">4時</button>
@@ -124,7 +151,7 @@
 <div id="vocabModal" class="modal">
     <div class="modal-content">
         <h4>📚 詞彙庫</h4>
-        <textarea id="vocab" style="width:100%; height:120px;"></textarea>
+        <textarea id="vocab" style="width:100%; height:150px; font-size: 1.2em; padding: 10px; border-radius: 8px;"></textarea>
         <button class="btn-success" onclick="closeVocabModal()" style="width:100%; margin-top:10px;">儲存</button>
     </div>
 </div>
@@ -138,7 +165,6 @@
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
 
-    // 倒數核心
     setInterval(() => {
         const now = Date.now();
         let changed = false;
@@ -155,7 +181,6 @@
         if (changed) renderLogs();
     }, 1000);
 
-    // 標籤切換
     function toggleSingle(btn, group) {
         const isSel = btn.classList.contains('selected');
         const container = group === 'live' ? '#groupLive' : '#groupTask';
@@ -201,7 +226,6 @@
         saveLogs();
     }
 
-    // 修改倒數
     function openTimerEdit(i) { currentIdx = i; document.getElementById('timerEditModal').style.display = 'block'; }
     function updateTimerValue() {
         const h = parseInt(document.getElementById('newTimerHour').value) || 0;
@@ -212,7 +236,28 @@
     function stopTimer() { logs[currentIdx].timerEnd = null; logs[currentIdx].displayTimer = null; saveLogs(); closeTimerModal(); }
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
-    // 渲染
+    // 手動新增功能
+    function addManualLog() {
+        logs.push({
+            time: new Date().toLocaleTimeString('zh-TW', {hour12:false}),
+            text: "",
+            tags: [],
+            timerEnd: null,
+            checked: true,
+            isEditing: true // 直接進入編輯狀態
+        });
+        saveLogs();
+        
+        // 延遲一點點讓 DOM 渲染完畢，然後自動 Focus 輸入框
+        setTimeout(() => {
+            const newIndex = logs.length - 1;
+            const inputField = document.getElementById(`edit-${newIndex}`);
+            if(inputField) {
+                inputField.focus();
+            }
+        }, 50);
+    }
+
     function renderLogs() {
         logArea.innerHTML = '';
         [...logs].reverse().forEach((log, revIdx) => {
@@ -223,7 +268,11 @@
             const timer = log.displayTimer ? `<span class="log-timer" onclick="openTimerEdit(${i})">⏳ ${log.displayTimer}</span>` : '';
             
             if (log.isEditing) {
-                item.innerHTML = `<div style="width:100%"><input type="text" id="edit-${i}" class="log-text" style="width:85%;" value="${log.text}"><button class="btn-success" onclick="saveEdit(${i})">💾</button></div>`;
+                // 編輯狀態的字體也加大，方便打字
+                item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
+                    <input type="text" id="edit-${i}" class="log-text" style="flex-grow:1; padding:10px; border:2px solid #007bff; border-radius:5px; font-size:1.2em;" value="${log.text}">
+                    <button class="btn-success" style="padding:10px 15px;" onclick="saveEdit(${i})">💾 儲存</button>
+                </div>`;
             } else {
                 item.innerHTML = `
                     <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
@@ -243,21 +292,33 @@
 
     function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
     function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); saveLogs(); }
     function deleteLog(i) { if(confirm('刪除？')) { logs.splice(i,1); saveLogs(); } }
     function clearAllLogs() { if(confirm('清空紀錄？')) { logs=[]; saveLogs(); } }
     function editLog(i) { logs[i].isEditing = true; renderLogs(); }
     function saveEdit(i) { logs[i].text = document.getElementById(`edit-${i}`).value; logs[i].isEditing = false; saveLogs(); }
+    
     function copySelected() { 
         const sel = logs.filter(l => l.checked);
-        if(sel.length) navigator.clipboard.writeText(sel.map(l => `${l.text} ${l.tags.join(' ')}`).join('\n')).then(()=>alert("複製成功"));
+        if(sel.length) navigator.clipboard.writeText(sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')).then(()=>alert("複製成功"));
     }
     function shareSelected() { 
         const sel = logs.filter(l => l.checked);
-        if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${l.tags.join(' ')}`).join('\n')});
+        if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')});
+    }
+    function exportSelected() { 
+        const sel = logs.filter(l => l.checked); 
+        if(!sel.length) return; 
+        const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n');
+        const blob = new Blob([text], {type:"text/plain"}); 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download=`SNG_${Date.now()}.txt`; 
+        a.click(); 
     }
 
-    // 錄音
-    let rec, isRec = false, curTxt = "";
+    // 恢復 timerObj 邏輯
+    let rec, isRec = false, curTxt = "", timerObj = null;
     if ('webkitSpeechRecognition' in window) {
         rec = new webkitSpeechRecognition();
         rec.continuous = true; rec.interimResults = true; rec.lang = 'zh-TW';
@@ -268,16 +329,37 @@
             document.getElementById('livePreview').innerText = "🗣️ " + (f || "聽寫中...");
         };
         rec.onend = () => {
-            isRec = false; document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
+            isRec = false; 
+            clearTimeout(timerObj); // 清除定時器
+            document.getElementById('toggleBtn').classList.remove('active'); 
+            document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             if(!curTxt.trim()) return;
             logs.push({ time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, checked: true, isEditing: false });
             curTxt = ""; saveLogs();
         };
     }
+
     document.getElementById('toggleBtn').onclick = () => {
-        if(!isRec) { curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; } 
-        else { rec.stop(); }
+        if(!isRec) { 
+            curTxt = ""; 
+            rec.start(); 
+            isRec = true; 
+            document.getElementById('toggleBtn').classList.add('active'); 
+            
+            // 讀取下拉選單的定時器設定
+            const sec = parseInt(document.getElementById('recordTimerSelect').value);
+            if (sec > 0) {
+                document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`;
+                timerObj = setTimeout(() => rec.stop(), sec);
+            } else {
+                document.getElementById('toggleBtn').innerText = `🔴 錄音中...`;
+            }
+        } else { 
+            clearTimeout(timerObj);
+            rec.stop(); 
+        }
     };
+
     function applyDict(txt) {
         let dict = {};
         vocabBox.value.split(/[,，\n]+/).forEach(v => {
@@ -289,8 +371,10 @@
         Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
         return txt;
     }
+
     function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
     function closeVocabModal() { localStorage.setItem('sng_vocab', vocabBox.value); document.getElementById('vocabModal').style.display='none'; }
+    
     renderLogs();
 </script>
 </body>
