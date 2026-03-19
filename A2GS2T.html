@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (拆彈連動版)</title>
+    <title>SNG 勤務終端 (終極連線版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -142,9 +142,9 @@
 
 <script>
     // ==========================================
-    // 🚀 雲端警報 Webhook 網址
+    // 🚀 雲端警報 Webhook 網址 (請換成你新的 GAS 網址)
     // ==========================================
-    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbzehuU4OL3oNPKnqU_kSF5vwUXlJ9TrVaXYlidpK952w6NtUABIux1pu1ngNoZIRhXM-w/exec';
+    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwUpHpkqxz4KAYV8320uNQ4Eu6D880q9hsFOz3HXKZqIuGhT76xe1B48CiFVc-FdSki/exec';
     // ==========================================
 
     let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
@@ -157,14 +157,17 @@
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
 
-    // 🌟 生成唯一任務 ID 的工具
+    // 🌟 專屬任務 ID 產生器
     function generateTaskId() {
         return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     }
 
-    // 🌟 更新版：發送任務給 Google (包含 set 與 cancel 兩種動作)
+    // 🌟 強化版發送功能：強制繞過 iOS Safari 的 CORS 阻擋
     function sendToGAS(action, taskId, text, delayMs) {
-        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的_GAS_網址')) return;
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) {
+            console.error("尚未設定 Webhook 網址！");
+            return;
+        }
         
         const payload = { action: action, taskId: taskId };
         if (action === 'set') {
@@ -172,12 +175,19 @@
             payload.delayMs = delayMs;
         }
 
+        // 使用 mode: no-cors 並且強制設定 headers，保證請求 100% 射向 Google
         fetch(GAS_WEBHOOK_URL, {
             method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8'
+            },
             body: JSON.stringify(payload)
-        })
-        .then(res => console.log(`TG 任務 [${action}] 已傳送:`, taskId))
-        .catch(e => console.log('TG 傳送失敗:', e));
+        }).then(() => {
+            console.log(`[${action}] 指令已送出給 Google 大腦！`);
+        }).catch(e => {
+            console.error('發送失敗:', e);
+        });
     }
 
     const fileInput = document.getElementById('fileInput');
@@ -264,7 +274,6 @@
         document.getElementById('tagModal').style.display = 'block';
     }
 
-    // 🌟 點擊確定：設定雲端鬧鐘
     function applyTags() {
         logs[currentIdx].tags = [selLive, selTask, selAdvance, selTime].filter(t => t);
         logs[currentIdx].timerEnd = tempEnd;
@@ -285,7 +294,6 @@
 
     function openTimerEdit(i) { currentIdx = i; document.getElementById('timerEditModal').style.display = 'block'; }
     
-    // 🌟 手動修改：重新設定雲端鬧鐘
     function updateTimerValue() {
         const h = parseInt(document.getElementById('newTimerHour').value) || 0;
         const m = parseInt(document.getElementById('newTimerMin').value) || 0;
@@ -306,10 +314,9 @@
         closeTimerModal();
     }
     
-    // 🌟 取消倒數：發送「拆彈」指令
     function stopTimer() { 
         if (logs[currentIdx].timerEnd) {
-            sendToGAS('cancel', logs[currentIdx].taskId, null, 0); // 通知雲端拆彈
+            sendToGAS('cancel', logs[currentIdx].taskId, null, 0); 
         }
         logs[currentIdx].timerEnd = null; 
         logs[currentIdx].displayTimer = null; 
@@ -319,7 +326,6 @@
     
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
-    // 🌟 新增任務時，賦予唯一 ID
     function addManualLog() {
         logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advanceSec: 0, checked: false, isEditing: true });
         saveLogs();
@@ -330,12 +336,10 @@
         }, 100);
     }
 
-    // 🌟 刪除任務時，同步發送「拆彈」指令
     function deleteSelectedLogs() {
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除的紀錄！'); return; }
         if (confirm('確定要刪除勾選的紀錄嗎？')) { 
-            // 找出所有要被刪除且正在倒數的任務，去雲端拆彈
             logs.filter(l => l.checked && l.timerEnd).forEach(l => {
                 sendToGAS('cancel', l.taskId, null, 0);
             });
@@ -405,7 +409,6 @@
         rec.onend = () => {
             isRec = false; clearTimeout(timerObj); document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             if(!curTxt.trim()) return;
-            // 🌟 語音輸入的新任務也要配發專屬 ID
             logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advanceSec: 0, checked: false, isEditing: false });
             curTxt = ""; saveLogs();
         };
