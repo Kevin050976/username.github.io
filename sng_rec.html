@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG AKIRA 勤務終端 (精準修正版)</title>
+    <title>SNG AKIRA 勤務終端</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -12,10 +12,10 @@
         .modal-content { background: white; margin: 15% auto; padding: 20px; width: 85%; max-width: 450px; border-radius: 15px; text-align: center; }
         
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-primary { background: #007bff; color: white; padding: 10px 12px; }
+        .btn-primary { background: #007bff; color: white; padding: 8px 10px; }
         .btn-success { background: #28a745; color: white; padding: 12px; }
         .btn-danger { background: #dc3545; color: white; padding: 12px; }
-        .btn-secondary { background: #6c757d; color: white; padding: 10px 12px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
 
         .tag-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px; justify-content: center; border-bottom: 1px solid #eee; padding-bottom: 15px; }
         .tag-btn { padding: 12px; font-size: 1.1em; flex: 1 1 40%; border: 3px solid transparent; }
@@ -43,7 +43,9 @@
         .badge-time { background: #fd7e14; }
 
         .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
-        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 10px; height: 1.2em; font-size: 1.1em; }
+        
+        /* 縮小 margin 讓字往上移 */
+        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 8px; height: 1.2em; font-size: 1.1em; }
         
         .timer-input-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0; font-size: 1.2em; }
         .timer-input-box input { width: 65px; padding: 10px; text-align: center; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; }
@@ -54,25 +56,26 @@
 <body>
 
 <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <select id="recordTimerSelect" style="padding: 5px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
                 <option value="0">手動</option>
                 <option value="3000">3秒</option>
+                <option value="4000">4秒</option>
                 <option value="5000" selected>5秒</option>
-                <option value="8000">8秒</option>
+                <option value="6000">6秒</option>
             </select>
-            <h3 style="margin:0; font-size: 1.2em;">🎙️ SNG AKIRA</h3>
+            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️ SNG</h3>
         </div>
-        <div>
-            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em; margin-right:5px;">➕ 增加</button>
+        <div style="display: flex; gap: 5px; white-space: nowrap;">
+            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
             <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
         </div>
     </div>
     
     <div id="livePreview"></div>
 
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">
         <span style="font-weight:bold;">📝 紀錄列表</span>
         <div>
             <button onclick="selectAll()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.8em;">全選</button>
@@ -239,7 +242,6 @@
         }, 50);
     }
 
-    // 🌟 刪除勾選的紀錄
     function deleteSelectedLogs() {
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) {
@@ -267,7 +269,6 @@
                     <button class="btn-success" style="padding:10px 15px;" onclick="saveEdit(${i})">💾 儲存</button>
                 </div>`;
             } else {
-                // 🌟 移除獨立刪除按鈕，版面少一排
                 item.innerHTML = `
                     <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
                     <div class="log-content">
@@ -308,7 +309,7 @@
         a.click(); 
     }
 
-    // 🌟 即時語音辨識邏輯修復
+    // 語音辨識
     let rec, isRec = false, curTxt = "", timerObj = null;
     if ('webkitSpeechRecognition' in window) {
         rec = new webkitSpeechRecognition();
@@ -316,7 +317,6 @@
         rec.onresult = (e) => {
             let finalTranscript = '';
             let interimTranscript = '';
-            // 完整抓取每個字，包含臨時跟確定的
             for (let i = 0; i < e.results.length; ++i) {
                 if (e.results[i].isFinal) {
                     finalTranscript += e.results[i][0].transcript;
