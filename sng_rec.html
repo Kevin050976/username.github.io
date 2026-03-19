@@ -2,573 +2,285 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>SNG AKIRA 純血極速版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNG AKIRA 專業勤務版</title>
     <style>
-        :root {
-            --primary: #007bff;
-            --success: #28a745;
-            --danger: #dc3545;
-            --dark: #343a40;
-            --light: #f4f4f9;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 180px; }
+        
+        /* 彈出視窗樣式 */
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); overflow-y: auto; }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 500px; border-radius: 15px; }
+        
+        button { border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #007bff; color: white; padding: 10px 15px; }
+        .btn-danger { background: #dc3545; color: white; padding: 10px 15px; }
+        .btn-success { background: #28a745; color: white; padding: 10px 15px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 10px 15px; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: var(--light);
-            display: flex;
-            justify-content: center;
-            /* 🌟 使用 dvh 解決 Safari 高度問題 */
-            height: 100vh;
-            height: 100dvh;
-            overflow: hidden;
-        }
+        /* 標籤按鈕顏色 */
+        .tag-group-task { background: #17a2b8; color: white; margin: 5px; padding: 12px; font-size: 1.1em; flex: 1 1 40%; }
+        .tag-group-time { background: #fd7e14; color: white; margin: 5px; padding: 12px; font-size: 1.1em; flex: 1 1 30%; }
+        .tag-btn.selected { outline: 4px solid #333; transform: scale(0.95); opacity: 0.8; }
+        .tag-container { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 20px; }
 
-        .app-container {
-            width: 100%;
-            max-width: 600px;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-            height: 100%;
-        }
+        /* 固定底部控制區 */
+        .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; background: #212529; z-index: 100; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #toggleBtn { width: 100%; max-width: 500px; height: 75px; font-size: 1.6em; background: #28a745; color: white; border-radius: 12px; }
+        #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        .action-bar { display: flex; width: 100%; max-width: 500px; gap: 8px; }
+        .action-bar button { flex: 1; height: 50px; font-size: 0.95em; color: white; }
 
-        /* 頂部標題列 */
-        .header {
-            padding: 15px 20px;
-            /* 🌟 處理頂部安全區域（劉海） */
-            padding-top: calc(15px + env(safe-area-inset-top));
-            background: white;
-            border-bottom: 1px solid #eee;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-shrink: 0;
-        }
+        /* 紀錄清單 */
+        .log-item { background: #fff; border: 1px solid #eee; padding: 12px; margin-bottom: 12px; border-radius: 10px; display: flex; align-items: flex-start; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .log-checkbox { margin-top: 5px; margin-right: 12px; transform: scale(1.6); }
+        .log-content { flex-grow: 1; }
+        .log-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .log-time { color: #888; font-size: 0.85em; }
+        .log-timer { color: #dc3545; font-size: 0.85em; font-weight: bold; }
+        .log-text { font-size: 1.25em; font-weight: bold; color: #333; line-height: 1.4; }
+        
+        /* 標籤顯示 */
+        .badge { display: inline-block; padding: 2px 6px; font-size: 0.7em; border-radius: 4px; margin-left: 4px; vertical-align: middle; color: white; }
+        .badge-task { background: #17a2b8; }
+        .badge-time { background: #fd7e14; }
 
-        .header h1 {
-            margin: 0;
-            font-size: 1.2em;
-            color: var(--dark);
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        #recordTimerSelect {
-            padding: 4px 6px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            background: #f8f9fa;
-            font-size: 0.9em;
-            font-weight: bold;
-            color: #555;
-            outline: none;
-        }
-
-        /* 紀錄顯示區 */
-        .log-area {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 15px;
-            /* 🌟 預留足夠空間給底部面板 + 安全區域 */
-            padding-bottom: calc(180px + env(safe-area-inset-bottom));
-            background: #fafafa;
-            -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動更順暢 */
-        }
-
-        /* 預覽區優化 */
-        .live-preview {
-            color: var(--primary);
-            font-size: 1.1em;
-            text-align: center;
-            padding: 0px;
-            font-weight: bold;
-            min-height: 0;
-            border-bottom: none;
-            margin-bottom: 0;
-            transition: all 0.2s;
-            overflow: hidden;
-        }
-
-        .live-preview.active {
-            padding: 10px;
-            min-height: 1.4em;
-            border-bottom: 1px dashed #ccc;
-            margin-bottom: 15px;
-        }
-
-        .log-item {
-            background: white;
-            border: 1px solid #ddd;
-            padding: 15px;
-            margin-bottom: 12px;
-            border-radius: 10px;
-            display: flex;
-            align-items: flex-start;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-        }
-
-        .log-item.selected {
-            border-left: 6px solid var(--primary);
-            background: #f0f7ff;
-        }
-
-        .log-checkbox {
-            margin-top: 8px;
-            margin-right: 15px;
-            transform: scale(1.8);
-        }
-
-        .log-content {
-            flex-grow: 1;
-            cursor: pointer;
-        }
-
-        .log-time {
-            color: #888;
-            font-size: 0.85em;
-            margin-bottom: 6px;
-        }
-
-        .log-text {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #212529;
-            line-height: 1.4;
-            word-break: break-all;
-        }
-
-        .log-actions {
-            display: flex;
-            gap: 10px;
-            margin-left: 10px;
-        }
-
-        .icon-btn {
-            padding: 8px 12px;
-            font-size: 1.1em;
-            background: #f8f9fa;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        /* 🌟 底部固定控制面板修正：確保 iPhone Safari 按得到 */
-        .bottom-panel {
-            position: fixed;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            max-width: 600px;
-            background: var(--dark);
-            padding: 15px;
-            /* 🌟 重要：加入底部署全區域高度補償 */
-            padding-bottom: calc(15px + env(safe-area-inset-bottom));
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            box-shadow: 0 -4px 15px rgba(0,0,0,0.3);
-            z-index: 1000;
-            box-sizing: border-box;
-            /* 防止觸控事件被穿透 */
-            touch-action: none;
-        }
-
-        #toggleBtn, .action-bar button {
-            /* 讓按鈕可以接收觸控事件 */
-            touch-action: manipulation;
-        }
-
-        #toggleBtn {
-            width: 100%;
-            height: 70px;
-            font-size: 1.6em;
-            font-weight: bold;
-            color: white;
-            background: var(--success);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        #toggleBtn.active {
-            background: var(--danger);
-            animation: pulse 1.5s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.8; }
-            100% { opacity: 1; }
-        }
-
-        .action-bar {
-            display: flex;
-            gap: 10px;
-        }
-
-        .action-bar button {
-            flex: 1;
-            height: 50px;
-            border: none;
-            border-radius: 8px;
-            color: white;
-            font-weight: bold;
-            font-size: 1em;
-            cursor: pointer;
-        }
-
-        /* 彈出視窗 */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.8);
-            z-index: 2000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            background: white;
-            width: 90%;
-            max-width: 500px;
-            border-radius: 15px;
-            padding: 20px;
-            /* 補償彈窗底部安全區域 */
-            padding-bottom: calc(20px + env(safe-area-inset-bottom));
-            display: flex;
-            flex-direction: column;
-            max-height: 85vh;
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        #vocabInput {
-            width: 100%;
-            flex-grow: 1;
-            min-height: 200px;
-            padding: 12px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 8px;
-            font-size: 1.1em; /* iOS 避免自動放大 */
-            resize: none;
-            font-family: monospace;
-        }
-
-        .btn-edit-save {
-            width: 100%;
-            font-size: 1.2em;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-
-        #toast {
-            position: fixed;
-            top: calc(20px + env(safe-area-inset-top));
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 0.9em;
-            z-index: 3000;
-            display: none;
-        }
+        /* 按鈕縮小化 */
+        .log-actions { display: flex; gap: 6px; margin-left: 10px; }
+        .icon-btn { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 1em; background: #f8f9fa; border: 1px solid #ddd; color: #444; border-radius: 8px; }
+        
+        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 10px; height: 1.2em; }
+        textarea#vocab { width: 100%; height: 120px; border-radius: 8px; padding: 10px; }
     </style>
 </head>
 <body>
 
-<div id="toast">已複製到剪貼簿</div>
-
-<div class="app-container">
-    <header class="header">
-        <div class="header-left">
-            <select id="recordTimerSelect">
-                <option value="0">手動</option>
-                <option value="3000">3秒</option>
-                <option value="4000" selected>4秒</option>
-                <option value="5000">5秒</option>
-                <option value="6000">6秒</option>
-            </select>
-            <h1>🎙️ SNG AKIRA</h1>
-        </div>
-        <button class="icon-btn" onclick="openVocabModal()">⚙️ 設定</button>
-    </header>
-
-    <div class="log-area" id="logArea">
-        <div class="live-preview" id="livePreview"></div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-weight: bold; color: #666;">📝 轉錄紀錄</span>
-            <div>
-                <button class="icon-btn" onclick="selectAll()" style="font-size: 0.85em;">全選</button>
-                <button class="icon-btn" onclick="clearLogs()" style="font-size: 0.85em; color: var(--danger);">清空</button>
-            </div>
-        </div>
-        <div id="logsContainer"></div>
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h3 style="margin:0; color:#333;">🎙️ SNG AKIRA 終端</h3>
+        <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.85em;">⚙️ 詞彙</button>
     </div>
 
-    <div class="bottom-panel">
-        <button id="toggleBtn">🎤 點擊開始錄音</button>
-        <div class="action-bar">
-            <button onclick="copyText()" style="background: #17a2b8;">📋 複製</button>
-            <button onclick="shareText()" style="background: var(--success);">📲 分享</button>
-            <button onclick="exportText()" style="background: #ffc107; color: black;">💾 匯出</button>
+    <div id="livePreview"></div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">
+        <span style="font-weight:bold;">📝 紀錄列表</span>
+        <div>
+            <button onclick="selectAll()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.8em;">全選</button>
+            <button onclick="clearAllLogs()" class="btn-danger" style="padding: 4px 8px; font-size: 0.8em;">清空</button>
+        </div>
+    </div>
+
+    <div id="logArea"></div>
+</div>
+
+<div class="bottom-controls">
+    <button id="toggleBtn">🎤 點擊開始錄音</button>
+    <div class="action-bar">
+        <button onclick="copySelected()" style="background:#17a2b8;">📋 複製</button>
+        <button onclick="shareSelected()" style="background:#28a745;">📲 分享</button>
+        <button onclick="exportSelected()" style="background:#6c757d;">💾 匯出</button>
+    </div>
+</div>
+
+<div id="tagModal" class="modal">
+    <div class="modal-content">
+        <h4>🏷️ 加入勤務標籤</h4>
+        <div class="tag-container" id="taskTags">
+            <button class="tag-btn tag-group-task" onclick="toggleTagBtn(this, '直播')">直播</button>
+            <button class="tag-btn tag-group-task" onclick="toggleTagBtn(this, '側錄')">側錄</button>
+            <button class="tag-btn tag-group-task" onclick="toggleTagBtn(this, '準連')">準連</button>
+            <button class="tag-btn tag-group-task" onclick="toggleTagBtn(this, '傳帶')">傳帶</button>
+        </div>
+        <div class="tag-container" id="timeTags">
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '4小時', 14400)">4小時</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '3小時', 10800)">3小時</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '2小時', 7200)">2小時</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '1小時', 3600)">1小時</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '30分鐘', 1800)">30分</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '20分鐘', 1200)">20分</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '10分鐘', 600)">10分</button>
+            <button class="tag-btn tag-group-time" onclick="toggleTagBtn(this, '5分鐘', 300)">5分</button>
+        </div>
+        <div style="text-align: right; margin-top: 20px;">
+            <button class="btn-success" onclick="applyTags()">✅ 確定</button>
         </div>
     </div>
 </div>
 
-<!-- 詞彙設定視窗 -->
 <div id="vocabModal" class="modal">
     <div class="modal-content">
-        <div class="modal-header">
-            <h2 style="margin:0;">📚 詞彙攔截設定</h2>
-            <button class="icon-btn" onclick="closeVocabModal()">✕</button>
-        </div>
-        <div class="modal-body">
-            <p style="font-size: 0.85em; color: #666; margin:0;">
-                格式：錯誤1/錯誤2=正確詞彙 (換行分隔)
-            </p>
-            <textarea id="vocabInput"></textarea>
-            <div style="display: flex; gap: 10px; margin-top:10px;">
-                <button class="icon-btn" style="flex:1" onclick="importVocab()">📥 匯入</button>
-                <button class="icon-btn" style="flex:1" onclick="exportVocab()">📤 匯出</button>
-                <input type="file" id="fileInput" style="display:none" accept=".txt">
-            </div>
-        </div>
-        <div class="modal-footer" style="margin-top:20px;">
-            <button class="icon-btn success" style="width:100%; background: var(--success); color:white; padding: 15px;" onclick="closeVocabModal()">✅ 儲存並關閉</button>
+        <h4>📚 詞彙庫設定</h4>
+        <textarea id="vocab" placeholder="格式：錯誤/錯=正確"></textarea>
+        <div style="display:flex; justify-content:space-between; margin-top:15px;">
+            <button class="btn-secondary" onclick="exportVocab()">📤 匯出</button>
+            <button class="btn-success" onclick="closeVocabModal()">💾 儲存</button>
         </div>
     </div>
 </div>
 
 <script>
+    // --- 核心變數 ---
     let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
-    let vocabData = localStorage.getItem('sng_vocab') || "喇叭紅/喇叭洪/喇叭府/喇叭=喇叭宏\n國士論壇\n黃國昌\n韓國瑜\nSNG連線";
-    
-    const logsContainer = document.getElementById('logsContainer');
-    const livePreview = document.getElementById('livePreview');
-    const toggleBtn = document.getElementById('toggleBtn');
-    const vocabInput = document.getElementById('vocabInput');
-    const vocabModal = document.getElementById('vocabModal');
-    const recordTimerSelect = document.getElementById('recordTimerSelect');
+    const logArea = document.getElementById('logArea');
+    const vocabBox = document.getElementById('vocab');
+    let currentTagIndex = null;
+    let tempSelectedTags = [];
+    let tempEndTime = null;
 
-    vocabInput.value = vocabData;
+    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
 
-    function showToast(msg) {
-        const t = document.getElementById('toast');
-        t.innerText = msg;
-        t.style.display = 'block';
-        setTimeout(() => t.style.display = 'none', 2000);
+    // --- 定時器更新 (每秒) ---
+    setInterval(() => {
+        const now = Date.now();
+        logs.forEach((log, i) => {
+            if (log.timerEnd && log.timerEnd > now) {
+                const diff = Math.floor((log.timerEnd - now) / 1000);
+                const h = Math.floor(diff / 3600);
+                const m = Math.floor((diff % 3600) / 60);
+                const s = diff % 60;
+                log.displayTimer = `${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+            } else if (log.timerEnd) {
+                log.displayTimer = "時間到";
+            }
+        });
+        renderLogs();
+    }, 1000);
+
+    // --- 標籤邏輯 ---
+    function openTagModal(index) {
+        currentTagIndex = index;
+        tempSelectedTags = [...(logs[index].tags || [])];
+        tempEndTime = logs[index].timerEnd || null;
+        
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            btn.classList.toggle('selected', tempSelectedTags.includes(btn.innerText.replace('分', '分鐘')));
+        });
+        document.getElementById('tagModal').style.display = 'block';
     }
 
-    function openVocabModal() { vocabModal.classList.add('active'); }
-    function closeVocabModal() { 
-        vocabData = vocabInput.value;
-        localStorage.setItem('sng_vocab', vocabData);
-        vocabModal.classList.remove('active'); 
+    function toggleTagBtn(btn, tagName, seconds = null) {
+        const isSelected = btn.classList.toggle('selected');
+        if (isSelected) {
+            tempSelectedTags.push(tagName);
+            if (seconds && tagName !== '準連') {
+                tempEndTime = Date.now() + (seconds * 1000);
+            }
+        } else {
+            tempSelectedTags = tempSelectedTags.filter(t => t !== tagName);
+            if (seconds) tempEndTime = null;
+        }
     }
 
-    function exportVocab() {
-        const blob = new Blob([vocabInput.value], {type: "text/plain"});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `SNG_詞彙庫.txt`;
-        a.click();
+    function applyTags() {
+        logs[currentTagIndex].tags = tempSelectedTags;
+        logs[currentTagIndex].timerEnd = tempEndTime;
+        document.getElementById('tagModal').style.display = 'none';
+        saveLogs();
     }
 
-    function importVocab() {
-        const fInput = document.getElementById('fileInput');
-        fInput.onchange = e => {
-            const reader = new FileReader();
-            reader.onload = event => { vocabInput.value = event.target.result; showToast("匯入成功"); };
-            reader.readAsText(e.target.files[0]);
-        };
-        fInput.click();
-    }
-
+    // --- 基礎 UI ---
     function renderLogs() {
-        logsContainer.innerHTML = '';
-        [...logs].reverse().forEach((log, reversedIdx) => {
-            const idx = logs.length - 1 - reversedIdx;
+        logArea.innerHTML = '';
+        [...logs].reverse().forEach((log, revIdx) => {
+            const i = logs.length - 1 - revIdx;
             const item = document.createElement('div');
             item.className = `log-item ${log.checked ? 'selected' : ''}`;
             
             if (log.isEditing) {
-                item.innerHTML = `
-                    <div style="width:100%;">
-                        <input type="text" id="edit-input-${idx}" class="btn-edit-save" value="${log.text}">
-                        <div style="display:flex; gap:10px;">
-                            <button class="icon-btn" style="flex:1; background: var(--success); color:white;" onclick="saveEdit(${idx})">儲存</button>
-                            <button class="icon-btn" style="flex:1;" onclick="cancelEdit(${idx})">取消</button>
-                        </div>
-                    </div>`;
+                item.innerHTML = `<div style="width:100%"><input type="text" id="edit-${i}" class="log-text" style="width:90%; padding:8px;" value="${log.text}"><br><button class="btn-success" onclick="saveEdit(${i})">儲存</button></div>`;
             } else {
+                const tagHtml = (log.tags || []).map(t => `<span class="badge ${['直播','側錄','準連','傳帶'].includes(t) ? 'badge-task' : 'badge-time'}">${t}</span>`).join('');
+                const timerHtml = log.displayTimer ? `<span class="log-timer">⏳ ${log.displayTimer}</span>` : '';
+                
                 item.innerHTML = `
-                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${idx})" ${log.checked ? 'checked' : ''}>
-                    <div class="log-content" onclick="toggleCheck(${idx})">
-                        <div class="log-time">${log.time}</div>
-                        <div class="log-text">${log.text}</div>
+                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
+                    <div class="log-content">
+                        <div class="log-header">
+                            <span class="log-time">${log.time}</span>
+                            ${timerHtml}
+                        </div>
+                        <div class="log-text" onclick="toggleCheck(${i})">${log.text}${tagHtml}</div>
                     </div>
                     <div class="log-actions">
-                        <button class="icon-btn" onclick="editLog(${idx})">✏️</button>
-                        <button class="icon-btn" style="color:var(--danger);" onclick="deleteLog(${idx})">🗑️</button>
+                        <button class="icon-btn" onclick="openTagModal(${i})">🏷️</button>
+                        <button class="icon-btn" onclick="editLog(${i})">✏️</button>
+                        <button class="icon-btn" onclick="deleteLog(${i})">🗑️</button>
                     </div>`;
             }
-            logsContainer.appendChild(item);
+            logArea.appendChild(item);
         });
-        localStorage.setItem('sng_logs', JSON.stringify(logs));
     }
 
-    function toggleCheck(i) { logs[i].checked = !logs[i].checked; renderLogs(); }
-    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); renderLogs(); }
-    function deleteLog(i) { logs.splice(i, 1); renderLogs(); }
-    function clearLogs() { if(confirm("清空紀錄？")) { logs = []; renderLogs(); } }
+    // --- 功能函式 ---
+    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+    function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); saveLogs(); }
+    function deleteLog(i) { if(confirm('刪除？')) { logs.splice(i,1); saveLogs(); } }
+    function clearAllLogs() { if(confirm('清空紀錄？')) { logs=[]; saveLogs(); } }
     function editLog(i) { logs[i].isEditing = true; renderLogs(); }
-    function cancelEdit(i) { logs[i].isEditing = false; renderLogs(); }
-    function saveEdit(i) { logs[i].text = document.getElementById(`edit-input-${i}`).value; logs[i].isEditing = false; renderLogs(); }
-
+    function saveEdit(i) { logs[i].text = document.getElementById(`edit-${i}`).value; logs[i].isEditing = false; saveLogs(); }
+    
     function getSelectedText() {
         const sel = logs.filter(l => l.checked);
-        if (sel.length === 0) { showToast("請勾選紀錄"); return ""; }
-        return sel.map(l => l.text).join('\n');
+        return sel.length ? sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n') : null;
     }
+    function copySelected() { const t = getSelectedText(); if(t) navigator.clipboard.writeText(t).then(()=>alert("已複製")); }
+    function shareSelected() { const t = getSelectedText(); if(t && navigator.share) navigator.share({text: t}); }
+    function exportSelected() { const t = getSelectedText(); if(!t) return; const blob = new Blob([t], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
 
-    function copyText() {
-        const t = getSelectedText();
-        if (!t) return;
-        const textArea = document.createElement("textarea");
-        textArea.value = t;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showToast("✅ 已複製");
-    }
+    function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
+    function closeVocabModal() { localStorage.setItem('sng_vocab', vocabBox.value); document.getElementById('vocabModal').style.display='none'; }
+    function exportVocab() { const blob = new Blob([vocabBox.value], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download="詞庫.txt"; a.click(); }
 
-    function shareText() {
-        const t = getSelectedText();
-        if (t && navigator.share) navigator.share({ text: t });
-    }
-
-    function exportText() {
-        const t = getSelectedText();
-        if (!t) return;
-        const blob = new Blob([t], {type: "text/plain"});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `SNG_紀錄.txt`;
-        a.click();
-    }
-
-    function applyDictionary(text) {
-        let dict = {};
-        vocabData.split('\n').forEach(line => {
-            const row = line.trim();
-            if (!row) return;
-            if (row.includes('=')) {
-                const [keys, value] = row.split('=');
-                keys.split('/').forEach(k => { if (k.trim()) dict[k.trim()] = value.trim(); });
-            } else { dict[row] = row; }
-        });
-        const sortedKeys = Object.keys(dict).sort((a, b) => b.length - a.length);
-        let processed = text;
-        sortedKeys.forEach(key => { processed = processed.split(key).join(dict[key]); });
-        return processed;
-    }
-
-    let recognition, isRecording = false, currentFinal = "";
-    let autoStopTimer = null;
-
+    // --- 錄音引擎 ---
+    let recognition, isRecording = false, currentText = "";
     if ('webkitSpeechRecognition' in window) {
         recognition = new webkitSpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'zh-TW';
-
-        recognition.onresult = event => {
-            let interim = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-                if (event.results[i].isFinal) currentFinal += event.results[i][0].transcript;
-                else interim += event.results[i][0].transcript;
-            }
-            const displayText = currentFinal + interim;
-            if(displayText) {
-                livePreview.innerText = "🗣️ " + displayText;
-                livePreview.classList.add('active');
-            }
+        recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'zh-TW';
+        recognition.onresult = (e) => {
+            let final = '';
+            for (let i = e.resultIndex; i < e.results.length; ++i) if(e.results[i].isFinal) final += e.results[i][0].transcript;
+            if(final) currentText = final;
+            document.getElementById('livePreview').innerText = "🗣️ " + (final || "聽寫中...");
         };
-
         recognition.onend = () => {
             isRecording = false;
-            if (autoStopTimer) clearTimeout(autoStopTimer);
-            toggleBtn.classList.remove('active');
-            toggleBtn.innerText = '🎤 點擊開始錄音';
-            
-            const raw = currentFinal.trim();
-            currentFinal = "";
-            if (raw) {
-                logs.push({
-                    time: new Date().toLocaleTimeString('zh-TW', {hour12: false}),
-                    text: applyDictionary(raw),
-                    checked: true,
-                    isEditing: false
-                });
-                renderLogs();
-            }
-            livePreview.innerText = "";
-            livePreview.classList.remove('active');
+            document.getElementById('toggleBtn').classList.remove('active');
+            document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
+            if(!currentText.trim()) return;
+            logs.push({ 
+                time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), 
+                text: applyDict(currentText.trim()), 
+                tags: [], 
+                timerEnd: null,
+                checked: true, 
+                isEditing: false 
+            });
+            currentText = ""; saveLogs();
         };
     }
 
-    toggleBtn.onclick = () => {
-        if (!isRecording) {
-            currentFinal = "";
-            try {
-                recognition.start();
-                isRecording = true;
-                toggleBtn.classList.add('active');
-                
-                const stopDelay = parseInt(recordTimerSelect.value);
-                if (stopDelay > 0) {
-                    toggleBtn.innerText = `🔴 錄音中 (${stopDelay/1000}秒)`;
-                    autoStopTimer = setTimeout(() => {
-                        recognition.stop();
-                    }, stopDelay);
-                } else {
-                    toggleBtn.innerText = '🔴 錄音中';
-                }
-            } catch(e) {
-                showToast("錄音啟動失敗");
-            }
-        } else {
-            recognition.stop();
-        }
+    document.getElementById('toggleBtn').onclick = () => {
+        if(!isRecording) {
+            currentText = ""; recognition.start(); isRecording = true;
+            document.getElementById('toggleBtn').classList.add('active');
+            document.getElementById('toggleBtn').innerText = `🔴 錄音中...`;
+        } else { recognition.stop(); }
     };
+
+    function applyDict(txt) {
+        let dict = {};
+        vocabBox.value.split(/[,，\n]+/).forEach(v => {
+            if(v.includes('=')) {
+                let [keys, val] = v.split('=');
+                keys.split('/').forEach(k => { if(k.trim()) dict[k.trim()] = val.trim(); });
+            } else if(v.trim()) dict[v.trim()] = v.trim();
+        });
+        Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
+        return txt;
+    }
 
     renderLogs();
 </script>
