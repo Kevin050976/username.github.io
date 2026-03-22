@@ -3,17 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (實戰優化版)</title>
+    <title>SNG 勤務終端 (實戰凍結版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
         .modal-content { background: white; margin: 8% auto; padding: 15px; width: 90%; max-width: 450px; border-radius: 15px; text-align: center; max-height: 80vh; overflow-y: auto; }
+        
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-primary { background: #007bff; color: white; padding: 8px 10px; }
-        .btn-success { background: #28a745; color: white; padding: 12px; }
-        .btn-danger { background: #dc3545; color: white; padding: 12px; }
-        .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
+        
+        /* 🌟 修正點 1 & 2：頂部按鈕高度統一專用 CSS */
+        .top-btn { height: 38px; padding: 0 12px; font-size: 0.95em; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+        
         .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
         .tag-btn { padding: 12px 5px; font-size: 1.05em; border: 3px solid transparent; border-radius: 8px; font-weight: bold; }
         .tag-live { background: #28a745; color: white; } 
@@ -48,20 +49,21 @@
 <body>
 
 <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 5px;">
         <div style="display: flex; align-items: center; gap: 5px;">
-            <select id="recordTimerSelect" onchange="saveRecordTimer()" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
+            <span style="font-size: 1.4em;">🎙️</span>
+            <select id="recordTimerSelect" onchange="saveRecordTimer()" style="height: 38px; padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
                 <option value="0">手動</option>
                 <option value="3000">3秒</option>
                 <option value="4000">4秒</option>
                 <option value="5000" selected>5秒</option>
                 <option value="6000">6秒</option>
             </select>
-            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap; display: flex; align-items: center;">🎙️ <button onclick="openSheet()" style="margin-left:5px; padding:4px 8px; font-size:0.7em;" class="btn-primary">📊 試算表</button></h3>
         </div>
         <div style="display: flex; gap: 5px; white-space: nowrap;">
-            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
-            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
+            <button class="top-btn" onclick="openSheet()" style="background:#17a2b8;">📊 試算表</button>
+            <button class="top-btn" onclick="addManualLog()" style="background:#007bff;">➕ 增加</button>
+            <button class="top-btn" onclick="openVocabModal()" style="background:#6c757d;">⚙️ 詞彙</button>
         </div>
     </div>
     <div id="livePreview"></div>
@@ -148,9 +150,12 @@
 
 <script>
     // ==========================================
+    // ⚠️ 請填入你的 GAS 網址與試算表網址
+    // ==========================================
     const GAS_WEBHOOK_URL = '請把你的_GAS_網址貼在這裡';
-    // 🌟 修正點 2：加入你的試算表網址 (用來讓按鈕開啟)
-    const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/htmlview'; 
+    
+    // 🌟 修正點 2：用來讓「📊 試算表」按鈕開啟的網址
+    const GOOGLE_SHEET_URL = '請把你的_試算表網址_貼在這裡'; 
     // ==========================================
 
     let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
@@ -164,7 +169,7 @@
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
     
-    // 🌟 修正點 3：讀取儲存的錄音秒數
+    // 🌟 修正點 3：讀取並套用儲存的錄音秒數
     const savedRecTimer = localStorage.getItem('sng_rec_timer');
     if(savedRecTimer) document.getElementById('recordTimerSelect').value = savedRecTimer;
 
@@ -172,12 +177,12 @@
         localStorage.setItem('sng_rec_timer', document.getElementById('recordTimerSelect').value);
     }
 
-    // 打開試算表功能
+    // 🌟 打開試算表功能
     function openSheet() {
         if(GOOGLE_SHEET_URL && !GOOGLE_SHEET_URL.includes('請把你的')) {
             window.open(GOOGLE_SHEET_URL, '_blank');
         } else {
-            alert('請先在代碼中填寫 GOOGLE_SHEET_URL 網址！');
+            alert('https://docs.google.com/spreadsheets/u/0/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/htmlview');
         }
     }
 
@@ -213,10 +218,20 @@
     function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
     function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
 
+    // 🌟 修正點 4：計時器與圖示凍結邏輯
     setInterval(() => {
         const now = Date.now();
         logs.forEach((log, index) => {
             if (log.timerEnd) {
+                // 如果已經被取消，則凍結時間並確保顯示 ❌
+                if (log.isCancelled) {
+                    const spanElement = document.getElementById(`timer-span-${index}`);
+                    if (spanElement && !spanElement.innerText.startsWith('❌')) {
+                        spanElement.innerText = `❌ ${log.displayTimer}`;
+                    }
+                    return; // 凍結，不再往下計算
+                }
+
                 const diff = Math.floor((log.timerEnd - now) / 1000);
                 let newTimerStr = "時間到";
                 if (diff > 0) {
@@ -226,14 +241,14 @@
                 if (log.displayTimer !== newTimerStr) {
                     log.displayTimer = newTimerStr;
                     const spanElement = document.getElementById(`timer-span-${index}`);
-                    // 🌟 修正點 4：把 ⏳ 改成 ❌
-                    if (spanElement) spanElement.innerText = `❌ ${newTimerStr}`;
+                    // 正常倒數中顯示 ⏳
+                    if (spanElement) spanElement.innerText = `⏳ ${newTimerStr}`;
                 }
             }
         });
     }, 1000);
 
-    // 🌟 修正點 1：處理日期與時間的連動邏輯
+    // 🌟 修正點 1：日期沒輸入就「強制設定為今天」
     function toggleExactTime() {
         const timeInput = document.getElementById('exactTimeInput').value;
         const dateInput = document.getElementById('exactDateInput').value;
@@ -241,9 +256,10 @@
         if (timeInput) {
             document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
             const [h, m] = timeInput.split(':');
+            
+            // 建立目標時間，預設就是今天
             const target = new Date();
 
-            // 如果有選日期，就套用選擇的日期
             if (dateInput) {
                 const [yyyy, mm, dd] = dateInput.split('-');
                 target.setFullYear(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
@@ -251,14 +267,9 @@
 
             target.setHours(parseInt(h), parseInt(m), 0, 0);
 
-            // 如果沒選日期，且時間已經過了，自動排到明天
-            if (!dateInput && target.getTime() <= Date.now()) {
-                target.setDate(target.getDate() + 1);
-            }
-
             tempEnd = target.getTime();
             
-            // 讓標籤顯示正確的文字
+            // 讓標籤顯示正確的文字 (如果是今天，只顯示時間)
             const isToday = new Date().toDateString() === target.toDateString();
             const month = target.getMonth() + 1;
             const day = target.getDate();
@@ -317,7 +328,7 @@
         
         tempEnd = logs[i].timerEnd;
 
-        // 🌟 修正點 1：還原手動輸入的日期跟時間
+        // 還原手動輸入的日期跟時間
         if (tempEnd && selTime && selTime.includes(':')) {
             const d = new Date(tempEnd);
             const yyyy = d.getFullYear();
@@ -344,7 +355,7 @@
     }
 
     function applyTags() {
-        const wasTicking = !!logs[currentIdx].timerEnd;
+        const wasTicking = !!logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled;
         selAdvances.sort((a,b) => b.sec - a.sec);
         const advTexts = selAdvances.map(a => a.text);
         logs[currentIdx].tags = [selLive, selTask, selTime, ...advTexts].filter(t => t);
@@ -352,6 +363,11 @@
         logs[currentIdx].timerEnd = tempEnd;
         logs[currentIdx].advances = [...selAdvances]; 
         
+        // 只要按下確定並設定了新時間，就解除「已取消」狀態
+        if (tempEnd) {
+            logs[currentIdx].isCancelled = false;
+        }
+
         document.getElementById('tagModal').style.display = 'none';
         saveLogs();
 
@@ -372,7 +388,10 @@
                 sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
             }
         } else if (wasTicking && !tempEnd) {
+            // 如果原本在倒數，但你把時間拔掉了
             sendToGAS('cancel_timer', logs[currentIdx].taskId);
+            logs[currentIdx].isCancelled = true;
+            saveLogs();
         }
     }
 
@@ -384,6 +403,7 @@
         if (h || m) { 
             const totalMs = (h * 3600 + m * 60) * 1000;
             logs[currentIdx].timerEnd = Date.now() + totalMs; 
+            logs[currentIdx].isCancelled = false; // 解除凍結
             saveLogs(); 
 
             let baseDelay = totalMs;
@@ -403,10 +423,13 @@
         closeTimerModal();
     }
     
+    // 🌟 修正點 4：不顯示 (拆彈並凍結時間)
     function stopTimer() { 
-        if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
-        logs[currentIdx].timerEnd = null; 
-        logs[currentIdx].displayTimer = null; 
+        if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) {
+            sendToGAS('cancel_timer', logs[currentIdx].taskId); 
+        }
+        // 這裡不再把 timerEnd 設為 null，而是把它標記為「已取消」來凍結畫面
+        logs[currentIdx].isCancelled = true; 
         saveLogs(); 
         closeTimerModal(); 
     }
@@ -414,7 +437,7 @@
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
     function addManualLog() {
-        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true });
+        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, isCancelled: false });
         saveLogs();
         setTimeout(() => {
             const newIndex = logs.length - 1;
@@ -427,7 +450,7 @@
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除紀錄！'); return; }
         if (confirm('確定要刪除勾選紀錄嗎？')) { 
-            logs.filter(l => l.checked && l.timerEnd).forEach(l => {
+            logs.filter(l => l.checked && l.timerEnd && !l.isCancelled).forEach(l => {
                 sendToGAS('delete_task', l.taskId);
             });
             logs = logs.filter(l => !l.checked); 
@@ -450,8 +473,9 @@
                 return `<span class="badge ${cls}">${t}</span>`;
             }).join('');
             
-            // 🌟 修正點 4：把 ⏳ 改成 ❌
-            const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">❌ ${log.displayTimer}</span>` : '';
+            // 🌟 判斷狀態：給予不同的圖示
+            const icon = log.isCancelled ? '❌' : '⏳';
+            const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${icon} ${log.displayTimer}</span>` : '';
             
             if (log.isEditing) {
                 item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
@@ -497,7 +521,7 @@
         rec.onend = () => {
             isRec = false; clearTimeout(timerObj); document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             if(!curTxt.trim()) return;
-            logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advances: [], checked: false, isEditing: false });
+            logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advances: [], checked: false, isEditing: false, isCancelled: false });
             curTxt = ""; saveLogs();
         };
     }
