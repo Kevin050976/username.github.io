@@ -11,8 +11,6 @@
         .modal-content { background: white; margin: 8% auto; padding: 15px; width: 90%; max-width: 450px; border-radius: 15px; text-align: center; max-height: 80vh; overflow-y: auto; }
         
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        
-        /* 🌟 修正點 1 & 2：頂部按鈕高度統一專用 CSS */
         .top-btn { height: 38px; padding: 0 12px; font-size: 0.95em; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
         
         .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
@@ -150,11 +148,9 @@
 
 <script>
     // ==========================================
-    // ⚠️ 請填入你的 GAS 網址與試算表網址
+    // ⚠️ 請填入你的 GAS 網址與試算表網址 (注意保留單引號 '')
     // ==========================================
     const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exe';
-    
-    // 🌟 修正點 2：用來讓「📊 試算表」按鈕開啟的網址
     const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/htmlview'; 
     // ==========================================
 
@@ -169,7 +165,6 @@
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
     
-    // 🌟 修正點 3：讀取並套用儲存的錄音秒數
     const savedRecTimer = localStorage.getItem('sng_rec_timer');
     if(savedRecTimer) document.getElementById('recordTimerSelect').value = savedRecTimer;
 
@@ -177,12 +172,11 @@
         localStorage.setItem('sng_rec_timer', document.getElementById('recordTimerSelect').value);
     }
 
-    // 🌟 打開試算表功能
     function openSheet() {
         if(GOOGLE_SHEET_URL && !GOOGLE_SHEET_URL.includes('請把你的')) {
             window.open(GOOGLE_SHEET_URL, '_blank');
         } else {
-            alert('請先在代碼第 217 行填寫 GOOGLE_SHEET_URL 網址！');
+            alert('請先在代碼中填寫 GOOGLE_SHEET_URL 網址！');
         }
     }
 
@@ -218,18 +212,16 @@
     function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
     function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
 
-    // 🌟 修正點 4：計時器與圖示凍結邏輯
     setInterval(() => {
         const now = Date.now();
         logs.forEach((log, index) => {
             if (log.timerEnd) {
-                // 如果已經被取消，則凍結時間並確保顯示 ❌
                 if (log.isCancelled) {
                     const spanElement = document.getElementById(`timer-span-${index}`);
                     if (spanElement && !spanElement.innerText.startsWith('❌')) {
                         spanElement.innerText = `❌ ${log.displayTimer}`;
                     }
-                    return; // 凍結，不再往下計算
+                    return; 
                 }
 
                 const diff = Math.floor((log.timerEnd - now) / 1000);
@@ -241,14 +233,12 @@
                 if (log.displayTimer !== newTimerStr) {
                     log.displayTimer = newTimerStr;
                     const spanElement = document.getElementById(`timer-span-${index}`);
-                    // 正常倒數中顯示 ⏳
                     if (spanElement) spanElement.innerText = `⏳ ${newTimerStr}`;
                 }
             }
         });
     }, 1000);
 
-    // 🌟 修正點 1：日期沒輸入就「強制設定為今天」
     function toggleExactTime() {
         const timeInput = document.getElementById('exactTimeInput').value;
         const dateInput = document.getElementById('exactDateInput').value;
@@ -256,8 +246,6 @@
         if (timeInput) {
             document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
             const [h, m] = timeInput.split(':');
-            
-            // 建立目標時間，預設就是今天
             const target = new Date();
 
             if (dateInput) {
@@ -267,9 +255,12 @@
 
             target.setHours(parseInt(h), parseInt(m), 0, 0);
 
+            if (!dateInput && target.getTime() <= Date.now()) {
+                target.setDate(target.getDate() + 1);
+            }
+
             tempEnd = target.getTime();
             
-            // 讓標籤顯示正確的文字 (如果是今天，只顯示時間)
             const isToday = new Date().toDateString() === target.toDateString();
             const month = target.getMonth() + 1;
             const day = target.getDate();
@@ -302,7 +293,6 @@
     function toggleTime(btn, sec) {
         const isSel = btn.classList.contains('selected');
         document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
-        // 點擊快捷時間時，清空手動輸入的日期跟時間
         document.getElementById('exactTimeInput').value = '';
         document.getElementById('exactDateInput').value = '';
         if (!isSel) {
@@ -328,7 +318,6 @@
         
         tempEnd = logs[i].timerEnd;
 
-        // 還原手動輸入的日期跟時間
         if (tempEnd && selTime && selTime.includes(':')) {
             const d = new Date(tempEnd);
             const yyyy = d.getFullYear();
@@ -363,7 +352,6 @@
         logs[currentIdx].timerEnd = tempEnd;
         logs[currentIdx].advances = [...selAdvances]; 
         
-        // 只要按下確定並設定了新時間，就解除「已取消」狀態
         if (tempEnd) {
             logs[currentIdx].isCancelled = false;
         }
@@ -388,7 +376,6 @@
                 sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
             }
         } else if (wasTicking && !tempEnd) {
-            // 如果原本在倒數，但你把時間拔掉了
             sendToGAS('cancel_timer', logs[currentIdx].taskId);
             logs[currentIdx].isCancelled = true;
             saveLogs();
@@ -403,7 +390,7 @@
         if (h || m) { 
             const totalMs = (h * 3600 + m * 60) * 1000;
             logs[currentIdx].timerEnd = Date.now() + totalMs; 
-            logs[currentIdx].isCancelled = false; // 解除凍結
+            logs[currentIdx].isCancelled = false; 
             saveLogs(); 
 
             let baseDelay = totalMs;
@@ -423,12 +410,10 @@
         closeTimerModal();
     }
     
-    // 🌟 修正點 4：不顯示 (拆彈並凍結時間)
     function stopTimer() { 
         if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) {
             sendToGAS('cancel_timer', logs[currentIdx].taskId); 
         }
-        // 這裡不再把 timerEnd 設為 null，而是把它標記為「已取消」來凍結畫面
         logs[currentIdx].isCancelled = true; 
         saveLogs(); 
         closeTimerModal(); 
@@ -436,6 +421,7 @@
     
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
+    // 🌟 原汁原味：手動增加邏輯完全未改
     function addManualLog() {
         logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, isCancelled: false });
         saveLogs();
@@ -473,7 +459,6 @@
                 return `<span class="badge ${cls}">${t}</span>`;
             }).join('');
             
-            // 🌟 判斷狀態：給予不同的圖示
             const icon = log.isCancelled ? '❌' : '⏳';
             const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${icon} ${log.displayTimer}</span>` : '';
             
@@ -508,13 +493,19 @@
     function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
     function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
 
+    // 🌟 原汁原味：支援 Android 與 Safari 原生語音辨識，並加入裝甲防呆
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let rec, isRec = false, curTxt = "", timerObj = null;
-    if ('webkitSpeechRecognition' in window) {
-        rec = new webkitSpeechRecognition();
+    
+    if (SpeechRecognition) {
+        rec = new SpeechRecognition();
         rec.continuous = true; rec.interimResults = true; rec.lang = 'zh-TW';
         rec.onresult = (e) => {
             let finalTranscript = ''; let interimTranscript = '';
-            for (let i = 0; i < e.results.length; ++i) { if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } else { interimTranscript += e.results[i][0].transcript; } }
+            for (let i = 0; i < e.results.length; ++i) { 
+                if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } 
+                else { interimTranscript += e.results[i][0].transcript; } 
+            }
             curTxt = finalTranscript;
             document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
         };
@@ -527,11 +518,19 @@
     }
 
     document.getElementById('toggleBtn').onclick = () => {
+        if (!rec) {
+            alert("❌ 麥克風啟動失敗！\n\n原因：蘋果 iOS 系統嚴格禁止「桌面捷徑 (PWA)」使用語音辨識。\n\n💡 解法：請刪除 iPhone 桌面上的捷徑，直接在 Safari 瀏覽器中打開網頁即可恢復！");
+            return;
+        }
         if(!isRec) { 
-            curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); 
-            const sec = parseInt(document.getElementById('recordTimerSelect').value);
-            if (sec > 0) { document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; timerObj = setTimeout(() => rec.stop(), sec); } 
-            else { document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; }
+            try {
+                curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); 
+                const sec = parseInt(document.getElementById('recordTimerSelect').value);
+                if (sec > 0) { document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; timerObj = setTimeout(() => rec.stop(), sec); } 
+                else { document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; }
+            } catch(e) {
+                alert("錄音啟動異常，請重整網頁。");
+            }
         } else { clearTimeout(timerObj); rec.stop(); }
     };
 
