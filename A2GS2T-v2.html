@@ -3,14 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (精準計時修復版)</title>
+    <title>SNG 勤務終端 (連環炸彈版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
         .modal-content { background: white; margin: 8% auto; padding: 15px; width: 90%; max-width: 450px; border-radius: 15px; text-align: center; max-height: 80vh; overflow-y: auto; }
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .top-btn { height: 38px; padding: 0 12px; font-size: 0.95em; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+        
+        /* 🌟 Bug 2 修正：縮小按鈕與字體，統一高度，保證 iPhone 不換行 */
+        .top-btn { height: 34px; padding: 0 6px; font-size: 0.85em; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
+        
         .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
         .tag-btn { padding: 12px 5px; font-size: 1.05em; border: 3px solid transparent; border-radius: 8px; font-weight: bold; }
         .tag-live { background: #28a745; color: white; } 
@@ -45,10 +48,10 @@
 <body>
 
 <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 5px;">
-        <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-size: 1.3em;">🎙️</span>
-            <select id="recordTimerSelect" onchange="saveRecordTimer()" style="height: 36px; padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em; box-sizing: border-box;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 3px;">
+        <div style="display: flex; align-items: center; gap: 3px;">
+            <span style="font-size: 1.2em;">🎙️</span>
+            <select id="recordTimerSelect" onchange="saveRecordTimer()" style="height: 34px; padding: 2px 4px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.85em; box-sizing: border-box;">
                 <option value="0">手動</option>
                 <option value="3000">3秒</option>
                 <option value="4000">4秒</option>
@@ -56,7 +59,7 @@
                 <option value="6000">6秒</option>
             </select>
         </div>
-        <div style="display: flex; gap: 5px; white-space: nowrap;">
+        <div style="display: flex; gap: 4px; white-space: nowrap;">
             <button class="top-btn" onclick="openSheet()" style="background:#17a2b8;">📊 試算表</button>
             <button class="top-btn" onclick="addManualLog()" style="background:#007bff;">➕ 增加</button>
             <button class="top-btn" onclick="openVocabModal()" style="background:#6c757d;">⚙️ 詞彙</button>
@@ -145,6 +148,8 @@
 
 <script>
     // ==========================================
+    // ⚠️ 請填入你的 GAS 網址與試算表網址 (注意保留單引號 '')
+    // ==========================================
     const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exec';
     const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/edit?gid=0#gid=0'; 
     // ==========================================
@@ -165,7 +170,6 @@
     let selLive = null, selTask = null, selTime = null;
     let selAdvances = []; 
     let tempEnd = null;
-    // 🌟 Bug 1 修復：加入 tempSec 記錄相對秒數，以便從 startTime 起算
     let tempSec = null; 
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
@@ -209,10 +213,12 @@
     function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
     function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
 
+    // 🌟 定時器負責更新畫面的 ⏳ 和數字
     setInterval(() => {
         const now = Date.now();
         logs.forEach((log, index) => {
             if (log.timerEnd) {
+                const icon = log.isCancelled ? '❌' : '⏳';
                 if (log.isCancelled) {
                     const spanElement = document.getElementById(`timer-span-${index}`);
                     if (spanElement && !spanElement.innerText.startsWith('❌')) {
@@ -230,7 +236,7 @@
                 if (log.displayTimer !== newTimerStr) {
                     log.displayTimer = newTimerStr;
                     const spanElement = document.getElementById(`timer-span-${index}`);
-                    if (spanElement) spanElement.innerText = `⏳ ${newTimerStr}`;
+                    if (spanElement) spanElement.innerText = `${icon} ${newTimerStr}`;
                 }
             }
         });
@@ -257,7 +263,7 @@
             }
 
             tempEnd = target.getTime();
-            tempSec = null; // 🌟 取消相對秒數記憶
+            tempSec = null; 
             
             const isToday = new Date().toDateString() === target.toDateString();
             const month = target.getMonth() + 1;
@@ -296,7 +302,7 @@
         if (!isSel) {
             btn.classList.add('selected');
             selTime = btn.innerText; 
-            tempSec = sec; // 🌟 記錄下選擇的秒數
+            tempSec = sec; 
             tempEnd = null; 
         } else { selTime = null; tempEnd = null; tempSec = null; }
     }
@@ -316,7 +322,7 @@
         });
         
         tempEnd = logs[i].timerEnd;
-        tempSec = null; // 重新開啟時，清除暫存的相對秒數
+        tempSec = null; 
 
         if (tempEnd && selTime && selTime.includes(':')) {
             const d = new Date(tempEnd);
@@ -349,14 +355,13 @@
         const advTexts = selAdvances.map(a => a.text);
         logs[currentIdx].tags = [selLive, selTask, selTime, ...advTexts].filter(t => t);
         
-        // 🌟 Bug 1 修復：從 startTime 起算
         if (tempSec !== null) {
             if (!logs[currentIdx].startTime) {
-                logs[currentIdx].startTime = Date.now(); // 第一次設定，烙印起始時間
+                logs[currentIdx].startTime = Date.now(); 
             }
             tempEnd = logs[currentIdx].startTime + (tempSec * 1000);
         } else if (tempEnd !== null) {
-            logs[currentIdx].startTime = Date.now(); // 如果是手動設定指定時間，刷新起始基準
+            logs[currentIdx].startTime = Date.now(); 
         }
 
         logs[currentIdx].timerEnd = tempEnd;
@@ -364,8 +369,7 @@
         
         if (tempEnd) {
             logs[currentIdx].isCancelled = false;
-            
-            // 🌟 Bug 2 修復：瞬間算出 ⏳，不用等 1 秒
+            // 🌟 Bug 3 修正：瞬間算出剩餘時間，保證 ⏳ 一設定就畫出來，不用等重整
             const diff = Math.floor((tempEnd - Date.now()) / 1000);
             if (diff > 0) {
                 const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
@@ -376,11 +380,10 @@
         }
 
         document.getElementById('tagModal').style.display = 'none';
-        saveLogs(); // 這裡會觸發 renderLogs()，瞬間畫出 ⏳
+        saveLogs(); // 呼叫 renderLogs 瞬間重繪畫面
 
         if (tempEnd) {
             let baseDelay = tempEnd - Date.now(); 
-            // 就算已經超過時間，還是要發出去給 GAS 觸發即時警報
             let triggersData = [];
             if (baseDelay > 0) {
                 selAdvances.forEach(adv => {
@@ -398,7 +401,7 @@
         } else if (wasTicking && !tempEnd) {
             sendToGAS('cancel_timer', logs[currentIdx].taskId);
             logs[currentIdx].isCancelled = true;
-            logs[currentIdx].startTime = null; // 取消時清除記憶
+            logs[currentIdx].startTime = null; 
             saveLogs();
         }
     }
@@ -412,9 +415,8 @@
             const totalMs = (h * 3600 + m * 60) * 1000;
             logs[currentIdx].timerEnd = Date.now() + totalMs; 
             logs[currentIdx].isCancelled = false; 
-            logs[currentIdx].startTime = Date.now(); // 鉛筆手動修改，視為全新起點
+            logs[currentIdx].startTime = Date.now(); 
             
-            // 🌟 Bug 2 修復：手動修改後瞬間顯示 ⏳
             const diff = Math.floor(totalMs / 1000);
             const hd = Math.floor(diff / 3600), md = Math.floor((diff % 3600) / 60), sd = diff % 60;
             logs[currentIdx].displayTimer = `${hd > 0 ? hd + ':' : ''}${md < 10 ? '0' + md : md}:${sd < 10 ? '0' + sd : sd}`;
@@ -441,7 +443,7 @@
     function stopTimer() { 
         if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
         logs[currentIdx].isCancelled = true; 
-        logs[currentIdx].startTime = null; // 取消時清除記憶
+        logs[currentIdx].startTime = null; 
         saveLogs(); 
         closeTimerModal(); 
     }
@@ -458,12 +460,16 @@
         }, 100);
     }
 
+    // 🌟 Bug 1 修正：刪除時，判斷如果已經引爆 (時間小於現在)，就不要送出刪除指令覆蓋試算表
     function deleteSelectedLogs() {
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除紀錄！'); return; }
         if (confirm('確定要刪除勾選紀錄嗎？')) { 
             logs.filter(l => l.checked && l.timerEnd && !l.isCancelled).forEach(l => {
-                sendToGAS('delete_task', l.taskId);
+                // 如果倒數時間還沒到(還在倒數中)，才通知 GAS 刪除。如果已經引爆過了，就默默在手機刪除就好
+                if (l.timerEnd > Date.now()) {
+                    sendToGAS('delete_task', l.taskId);
+                }
             });
             logs = logs.filter(l => !l.checked); 
             saveLogs(); 
@@ -486,7 +492,8 @@
             }).join('');
             
             const icon = log.isCancelled ? '❌' : '⏳';
-            const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${icon} ${log.displayTimer}</span>` : '';
+            // 🌟 Bug 3 修正：只要有設定時間，強制畫出 ⏳ 和文字，不讓它躲起來
+            const timer = (log.timerEnd || log.displayTimer) ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${icon} ${log.displayTimer || '計算中...'}</span>` : '';
             
             if (log.isEditing) {
                 item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
