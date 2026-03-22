@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (實戰凍結版)</title>
+    <title>SNG 勤務終端 (連環炸彈版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
         .modal-content { background: white; margin: 8% auto; padding: 15px; width: 90%; max-width: 450px; border-radius: 15px; text-align: center; max-height: 80vh; overflow-y: auto; }
-        
         button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .top-btn { height: 38px; padding: 0 12px; font-size: 0.95em; border-radius: 8px; color: white; display: flex; align-items: center; justify-content: center; box-sizing: border-box; }
-        
+        .btn-primary { background: #007bff; color: white; padding: 8px 10px; }
+        .btn-success { background: #28a745; color: white; padding: 12px; }
+        .btn-danger { background: #dc3545; color: white; padding: 12px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
         .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
         .tag-btn { padding: 12px 5px; font-size: 1.05em; border: 3px solid transparent; border-radius: 8px; font-weight: bold; }
         .tag-live { background: #28a745; color: white; } 
@@ -47,21 +48,21 @@
 <body>
 
 <div class="container">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 5px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
         <div style="display: flex; align-items: center; gap: 5px;">
-            <span style="font-size: 1.4em;">🎙️</span>
-            <select id="recordTimerSelect" onchange="saveRecordTimer()" style="height: 38px; padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
+            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em; height: 36px; box-sizing: border-box;">
                 <option value="0">手動</option>
                 <option value="3000">3秒</option>
                 <option value="4000">4秒</option>
                 <option value="5000" selected>5秒</option>
                 <option value="6000">6秒</option>
             </select>
+            <span style="font-size: 1.3em;">🎙️</span>
+            <button onclick="openSheet()" style="background:#17a2b8; color:white; border:none; border-radius:8px; font-weight:bold; height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">📊 試算表</button>
         </div>
         <div style="display: flex; gap: 5px; white-space: nowrap;">
-            <button class="top-btn" onclick="openSheet()" style="background:#17a2b8;">📊 試算表</button>
-            <button class="top-btn" onclick="addManualLog()" style="background:#007bff;">➕ 增加</button>
-            <button class="top-btn" onclick="openVocabModal()" style="background:#6c757d;">⚙️ 詞彙</button>
+            <button class="btn-primary" onclick="addManualLog()" style="height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">➕ 增加</button>
+            <button class="btn-secondary" onclick="openVocabModal()" style="height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">⚙️ 詞彙</button>
         </div>
     </div>
     <div id="livePreview"></div>
@@ -103,10 +104,9 @@
     <div class="modal-content">
         <h4 style="margin-top:0;">🏷️ 標籤設定</h4>
         <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#dc3545; font-weight:bold;">【⏰ 指定時間鬧鐘】</p>
-        
         <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-            <input type="date" id="exactDateInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.1em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
-            <input type="time" id="exactTimeInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.1em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
+            <input type="date" id="exactDateInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
+            <input type="time" id="exactTimeInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
         </div>
 
         <div class="tag-grid">
@@ -148,29 +148,11 @@
 
 <script>
     // ==========================================
-    // ⚠️ 請填入你的 GAS 網址與試算表網址 (注意保留單引號 '')
-    // ==========================================
-    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exe';
+    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exec';
+    
+    // 💡 請把你的試算表網址貼在這裡，按下 📊 按鈕就會幫你打開
     const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/htmlview'; 
     // ==========================================
-
-    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
-    const logArea = document.getElementById('logArea');
-    const vocabBox = document.getElementById('vocab');
-    
-    let currentIdx = null;
-    let selLive = null, selTask = null, selTime = null;
-    let selAdvances = []; 
-    let tempEnd = null;
-
-    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
-    
-    const savedRecTimer = localStorage.getItem('sng_rec_timer');
-    if(savedRecTimer) document.getElementById('recordTimerSelect').value = savedRecTimer;
-
-    function saveRecordTimer() {
-        localStorage.setItem('sng_rec_timer', document.getElementById('recordTimerSelect').value);
-    }
 
     function openSheet() {
         if(GOOGLE_SHEET_URL && !GOOGLE_SHEET_URL.includes('請把你的')) {
@@ -180,8 +162,19 @@
         }
     }
 
+    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    const logArea = document.getElementById('logArea');
+    const vocabBox = document.getElementById('vocab');
+    
+    let currentIdx = null;
+    let selLive = null, selTask = null, selTime = null;
+    let selAdvances = []; // 🌟 改為陣列，支援複選
+    let tempEnd = null;
+
+    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
     function generateTaskId() { return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
+    // 🌟 核心：發送不同 action 給 Google
     function sendToGAS(action, taskId, pureText, fullTitle, triggersData) {
         if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) return;
         
@@ -189,7 +182,7 @@
         if (action === 'set') {
             payload.text = pureText; 
             payload.title = fullTitle; 
-            payload.triggersData = triggersData; 
+            payload.triggersData = triggersData; // 連環炸彈陣列
         }
 
         fetch(GAS_WEBHOOK_URL, {
@@ -279,6 +272,7 @@
         else { if(group === 'live') selLive = null; else selTask = null; }
     }
 
+    // 🌟 支援多重提前標籤選取
     function toggleAdvanceMulti(btn, sec, text) {
         const isSel = btn.classList.contains('selected');
         if (!isSel) {
@@ -309,6 +303,7 @@
         selTask = logTags.find(t => ['側錄','準連','傳帶'].includes(t)) || null;
         selTime = logTags.find(t => !t.startsWith('-') && (t.includes('時') || t.includes('分') || t.includes(':'))) || null;
         
+        // 抓回已選取的提前標籤
         selAdvances = [];
         logTags.filter(t => t.startsWith('-')).forEach(t => {
             let s = 0;
@@ -345,6 +340,8 @@
 
     function applyTags() {
         const wasTicking = !!logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled;
+
+        // 整理陣列：時間排在提前警告前面
         selAdvances.sort((a,b) => b.sec - a.sec);
         const advTexts = selAdvances.map(a => a.text);
         logs[currentIdx].tags = [selLive, selTask, selTime, ...advTexts].filter(t => t);
@@ -363,10 +360,12 @@
             let baseDelay = tempEnd - Date.now(); 
             if (baseDelay > 0) {
                 let triggersData = [];
+                // 計算所有提前炸彈的時間
                 selAdvances.forEach(adv => {
                     let advDelay = baseDelay - (adv.sec * 1000);
                     if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
                 });
+                // 加入最終核爆點
                 triggersData.push({ delayMs: baseDelay, label: "" });
 
                 const taskName = logs[currentIdx].tags.join(' ');
@@ -390,7 +389,7 @@
         if (h || m) { 
             const totalMs = (h * 3600 + m * 60) * 1000;
             logs[currentIdx].timerEnd = Date.now() + totalMs; 
-            logs[currentIdx].isCancelled = false; 
+            logs[currentIdx].isCancelled = false;
             saveLogs(); 
 
             let baseDelay = totalMs;
@@ -411,9 +410,7 @@
     }
     
     function stopTimer() { 
-        if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) {
-            sendToGAS('cancel_timer', logs[currentIdx].taskId); 
-        }
+        if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
         logs[currentIdx].isCancelled = true; 
         saveLogs(); 
         closeTimerModal(); 
@@ -421,7 +418,6 @@
     
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
-    // 🌟 原汁原味：手動增加邏輯完全未改
     function addManualLog() {
         logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, isCancelled: false });
         saveLogs();
@@ -493,19 +489,13 @@
     function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
     function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
 
-    // 🌟 原汁原味：支援 Android 與 Safari 原生語音辨識，並加入裝甲防呆
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let rec, isRec = false, curTxt = "", timerObj = null;
-    
-    if (SpeechRecognition) {
-        rec = new SpeechRecognition();
+    if ('webkitSpeechRecognition' in window) {
+        rec = new webkitSpeechRecognition();
         rec.continuous = true; rec.interimResults = true; rec.lang = 'zh-TW';
         rec.onresult = (e) => {
             let finalTranscript = ''; let interimTranscript = '';
-            for (let i = 0; i < e.results.length; ++i) { 
-                if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } 
-                else { interimTranscript += e.results[i][0].transcript; } 
-            }
+            for (let i = 0; i < e.results.length; ++i) { if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } else { interimTranscript += e.results[i][0].transcript; } }
             curTxt = finalTranscript;
             document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
         };
@@ -518,19 +508,11 @@
     }
 
     document.getElementById('toggleBtn').onclick = () => {
-        if (!rec) {
-            alert("❌ 麥克風啟動失敗！\n\n原因：蘋果 iOS 系統嚴格禁止「桌面捷徑 (PWA)」使用語音辨識。\n\n💡 解法：請刪除 iPhone 桌面上的捷徑，直接在 Safari 瀏覽器中打開網頁即可恢復！");
-            return;
-        }
         if(!isRec) { 
-            try {
-                curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); 
-                const sec = parseInt(document.getElementById('recordTimerSelect').value);
-                if (sec > 0) { document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; timerObj = setTimeout(() => rec.stop(), sec); } 
-                else { document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; }
-            } catch(e) {
-                alert("錄音啟動異常，請重整網頁。");
-            }
+            curTxt = ""; rec.start(); isRec = true; document.getElementById('toggleBtn').classList.add('active'); 
+            const sec = parseInt(document.getElementById('recordTimerSelect').value);
+            if (sec > 0) { document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; timerObj = setTimeout(() => rec.stop(), sec); } 
+            else { document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; }
         } else { clearTimeout(timerObj); rec.stop(); }
     };
 
