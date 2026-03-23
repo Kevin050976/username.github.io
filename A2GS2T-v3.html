@@ -14,13 +14,19 @@
         .btn-success { background: #28a745; color: white; padding: 12px; }
         .btn-danger { background: #dc3545; color: white; padding: 12px; }
         .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
-        .tag-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 15px; }
-        .tag-btn { padding: 12px 5px; font-size: 1.05em; border: 3px solid transparent; border-radius: 8px; font-weight: bold; }
+        
+        /* --- UI 優化：縮小標籤，確保確認鍵可視 --- */
+        .tag-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px; }
+        .tag-btn { padding: 8px 2px; font-size: 0.95em; border: 2px solid transparent; border-radius: 6px; font-weight: bold; word-break: keep-all; }
+        .confirm-btn { padding: 16px; font-size: 1.3em; width: 100%; box-sizing: border-box; margin-top: 10px; }
+        
         .tag-live { background: #28a745; color: white; } 
         .tag-task { background: #17a2b8; color: white; } 
         .tag-advance { background: #6f42c1; color: white; } 
         .tag-time { background: #fd7e14; color: white; } 
         .tag-btn.selected { border-color: #212529; box-shadow: inset 0 0 8px rgba(0,0,0,0.5); transform: scale(0.94); }
+        .tag-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; border-color: transparent; }
+        
         .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; background: #212529; z-index: 100; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
         #toggleBtn { width: 100%; max-width: 500px; height: 75px; font-size: 1.6em; background: #28a745; color: white; border-radius: 12px; }
         #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
@@ -39,8 +45,6 @@
         .badge-time { background: #fd7e14; }
         .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
         #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 8px; height: 1.2em; font-size: 1.1em; }
-        .timer-input-box { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0; font-size: 1.2em; }
-        .timer-input-box input { width: 65px; padding: 10px; text-align: center; border-radius: 8px; border: 1px solid #ccc; font-size: 1em; }
         .action-bar-btn { flex: 1; height: 55px; color: white; border-radius: 8px; font-size: 1.1em; font-weight: bold; }
         textarea { box-sizing: border-box; }
     </style>
@@ -50,19 +54,18 @@
 <div class="container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
         <div style="display: flex; align-items: center; gap: 5px;">
-            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em; height: 36px; box-sizing: border-box;">
+            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
                 <option value="0">手動</option>
                 <option value="3000">3秒</option>
                 <option value="4000">4秒</option>
                 <option value="5000" selected>5秒</option>
                 <option value="6000">6秒</option>
             </select>
-            <span style="font-size: 1.3em;">🎙️</span>
-            <button onclick="openSheet()" style="background:#17a2b8; color:white; border:none; border-radius:8px; font-weight:bold; height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">📊 試算表</button>
+            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️ SNG</h3>
         </div>
         <div style="display: flex; gap: 5px; white-space: nowrap;">
-            <button class="btn-primary" onclick="addManualLog()" style="height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">➕ 增加</button>
-            <button class="btn-secondary" onclick="openVocabModal()" style="height:36px; padding:0 10px; font-size:0.9em; box-sizing: border-box;">⚙️ 詞彙</button>
+            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
+            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
         </div>
     </div>
     <div id="livePreview"></div>
@@ -88,14 +91,12 @@
 <div id="timerEditModal" class="modal">
     <div class="modal-content">
         <h4>⏱️ 修改倒數時間</h4>
-        <div class="timer-input-box">
-            <input type="number" id="newTimerHour" placeholder="0"> 時
-            <input type="number" id="newTimerMin" placeholder="0"> 分
-        </div>
+        <p style="font-size: 0.85em; color: #666; margin-bottom: 5px;">重新設定指定時間 (如: 14:10)</p>
+        <input type="time" id="editExactTimeInput" style="padding: 10px; font-size: 1.4em; border-radius: 8px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 15px; text-align: center;">
         <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="btn-success" onclick="updateTimerValue()">✅ 確定修改</button>
-            <button class="btn-danger" onclick="stopTimer()">⏹️ 不顯示 (取消警報)</button>
-            <button class="btn-secondary" onclick="closeTimerModal()">取消</button>
+            <button class="btn-success confirm-btn" style="margin-top:0;" onclick="updateTimerValue()">✅ 確定修改</button>
+            <button class="btn-danger confirm-btn" style="margin-top:0; padding:12px;" onclick="stopTimer()">⏹️ 不顯示 (取消警報)</button>
+            <button class="btn-secondary" style="padding:12px;" onclick="closeTimerModal()">取消</button>
         </div>
     </div>
 </div>
@@ -103,32 +104,32 @@
 <div id="tagModal" class="modal">
     <div class="modal-content">
         <h4 style="margin-top:0;">🏷️ 標籤設定</h4>
-        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#dc3545; font-weight:bold;">【⏰ 指定時間鬧鐘】</p>
-        <div style="display: flex; gap: 5px; margin-bottom: 15px;">
-            <input type="date" id="exactDateInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
-            <input type="time" id="exactTimeInput" onchange="toggleExactTime()" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; flex: 1; text-align: center; box-sizing: border-box;">
-        </div>
+        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#dc3545; font-weight:bold;">【第一組：手動設定時間】</p>
+        <input type="time" id="exactTimeInput" onchange="toggleExactTime(this)" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 15px; text-align: center;">
 
         <div class="tag-grid">
-            <button class="tag-btn tag-live" onclick="toggleSingle(this, 'live')">直播</button>
-            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">側錄</button>
-            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">準連</button>
-            <button class="tag-btn tag-task" onclick="toggleSingle(this, 'task')">傳帶</button>
-            <button class="tag-btn tag-advance" onclick="toggleAdvanceMulti(this, 60, '-1分')">-1分</button>
-            <button class="tag-btn tag-advance" onclick="toggleAdvanceMulti(this, 120, '-2分')">-2分</button>
-            <button class="tag-btn tag-advance" onclick="toggleAdvanceMulti(this, 180, '-3分')">-3分</button>
-            <button class="tag-btn tag-advance" onclick="toggleAdvanceMulti(this, 300, '-5分')">-5分</button>
-            <button class="tag-btn tag-advance" onclick="toggleAdvanceMulti(this, 600, '-10分')">-10分</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 14400)">4時</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 10800)">3時</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 7200)">2時</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 3600)">1時</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 1800)">30分</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 1200)">20分</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 600)">10分</button>
-            <button class="tag-btn tag-time" onclick="toggleTime(this, 300)">5分</button>
+            <button class="tag-btn tag-live" onclick="toggleGroup2(this)">直播</button>
+            
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">側錄</button>
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">準連</button>
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">傳帶</button>
+
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 60, '-1分')">-1分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 120, '-2分')">-2分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 180, '-3分')">-3分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 240, '-4分')">-4分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 300, '-5分')">-5分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 600, '-10分')">-10分</button>
+            <div style="grid-column: span 2;"></div> <button class="tag-btn tag-time" onclick="toggleGroup5(this, 14400)">4時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 10800)">3時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 7200)">2時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 3600)">1時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1800)">30分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1200)">20分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 600)">10分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 300)">5分</button>
         </div>
-        <button class="btn-success" onclick="applyTags()" style="width:100%; margin-top:10px;">✅ 確定</button>
+        <button class="btn-success confirm-btn" onclick="applyTags()">✅ 確定</button>
     </div>
 </div>
 
@@ -149,32 +150,24 @@
 <script>
     // ==========================================
     const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exec';
-    
-    // 💡 請把你的試算表網址貼在這裡，按下 📊 按鈕就會幫你打開
-    const GOOGLE_SHEET_URL = 'https://docs.google.com/spreadsheets/u/0/d/16s7Yx7KVrYlW3qUduxyjj7NtwJAonDDUdRhUj3zFw88/htmlview'; 
     // ==========================================
-
-    function openSheet() {
-        if(GOOGLE_SHEET_URL && !GOOGLE_SHEET_URL.includes('請把你的')) {
-            window.open(GOOGLE_SHEET_URL, '_blank');
-        } else {
-            alert('請先在代碼中填寫 GOOGLE_SHEET_URL 網址！');
-        }
-    }
 
     let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
     const logArea = document.getElementById('logArea');
     const vocabBox = document.getElementById('vocab');
     
     let currentIdx = null;
-    let selLive = null, selTask = null, selTime = null;
-    let selAdvances = []; // 🌟 改為陣列，支援複選
+    
+    // 🌟 五組獨立狀態變數
+    let selGroup2 = null; // 單選
+    let selGroup3 = [];   // 多選
+    let selGroup4 = [];   // 多選 (滿足規則4)
+    let selGroup5 = null; // 單選
     let tempEnd = null;
 
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
     function generateTaskId() { return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
-    // 🌟 核心：發送不同 action 給 Google
     function sendToGAS(action, taskId, pureText, fullTitle, triggersData) {
         if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) return;
         
@@ -182,7 +175,7 @@
         if (action === 'set') {
             payload.text = pureText; 
             payload.title = fullTitle; 
-            payload.triggersData = triggersData; // 連環炸彈陣列
+            payload.triggersData = triggersData || []; 
         }
 
         fetch(GAS_WEBHOOK_URL, {
@@ -209,14 +202,6 @@
         const now = Date.now();
         logs.forEach((log, index) => {
             if (log.timerEnd) {
-                if (log.isCancelled) {
-                    const spanElement = document.getElementById(`timer-span-${index}`);
-                    if (spanElement && !spanElement.innerText.startsWith('❌')) {
-                        spanElement.innerText = `❌ ${log.displayTimer}`;
-                    }
-                    return; 
-                }
-
                 const diff = Math.floor((log.timerEnd - now) / 1000);
                 let newTimerStr = "時間到";
                 if (diff > 0) {
@@ -232,186 +217,216 @@
         });
     }, 1000);
 
-    function toggleExactTime() {
-        const timeInput = document.getElementById('exactTimeInput').value;
-        const dateInput = document.getElementById('exactDateInput').value;
-
-        if (timeInput) {
+    // 【規則 7】第一組和第五組不能共存
+    function toggleExactTime(input) {
+        if(input.value) {
             document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
-            const [h, m] = timeInput.split(':');
+            selGroup5 = null; // 清除第五組
+            
+            const [h, m] = input.value.split(':');
             const target = new Date();
-
-            if (dateInput) {
-                const [yyyy, mm, dd] = dateInput.split('-');
-                target.setFullYear(parseInt(yyyy), parseInt(mm) - 1, parseInt(dd));
-            }
-
             target.setHours(parseInt(h), parseInt(m), 0, 0);
-
-            if (!dateInput && target.getTime() <= Date.now()) {
-                target.setDate(target.getDate() + 1);
-            }
-
+            if(target.getTime() <= Date.now()) target.setDate(target.getDate() + 1); 
             tempEnd = target.getTime();
-            
-            const isToday = new Date().toDateString() === target.toDateString();
-            const month = target.getMonth() + 1;
-            const day = target.getDate();
-            selTime = isToday ? timeInput : `${month}/${day} ${timeInput}`;
-            
         } else {
-            selTime = null; tempEnd = null;
+            tempEnd = null;
         }
     }
 
-    function toggleSingle(btn, group) {
-        const isSel = btn.classList.contains('selected');
-        const targetClass = group === 'live' ? '.tag-live' : '.tag-task';
-        document.querySelectorAll(targetClass).forEach(b => b.classList.remove('selected'));
-        if (!isSel) { btn.classList.add('selected'); if(group === 'live') selLive = btn.innerText; else selTask = btn.innerText; } 
-        else { if(group === 'live') selLive = null; else selTask = null; }
-    }
-
-    // 🌟 支援多重提前標籤選取
-    function toggleAdvanceMulti(btn, sec, text) {
-        const isSel = btn.classList.contains('selected');
-        if (!isSel) {
-            btn.classList.add('selected');
-            selAdvances.push({ sec: sec, text: text });
-        } else {
+    // 第二組：直播 (單選)
+    function toggleGroup2(btn) {
+        const txt = btn.innerText;
+        if (selGroup2 === txt) {
+            selGroup2 = null;
             btn.classList.remove('selected');
-            selAdvances = selAdvances.filter(a => a.text !== text);
+        } else {
+            selGroup2 = txt;
+            document.querySelectorAll('.tag-live').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
         }
     }
 
-    function toggleTime(btn, sec) {
-        const isSel = btn.classList.contains('selected');
-        document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
-        document.getElementById('exactTimeInput').value = '';
-        document.getElementById('exactDateInput').value = '';
-        if (!isSel) {
+    // 第三組：側錄/準連/傳帶 (多選)
+    function toggleGroup3(btn) {
+        const txt = btn.innerText;
+        if (selGroup3.includes(txt)) {
+            selGroup3 = selGroup3.filter(t => t !== txt);
+            btn.classList.remove('selected');
+        } else {
+            selGroup3.push(txt);
             btn.classList.add('selected');
-            selTime = btn.innerText; 
+        }
+    }
+
+    // 第四組：-1分 ~ -10分 (多選，滿足規則4)
+    function toggleGroup4(btn, sec, text) {
+        if (selGroup4.some(a => a.text === text)) {
+            selGroup4 = selGroup4.filter(a => a.text !== text);
+            btn.classList.remove('selected');
+        } else {
+            selGroup4.push({ sec: sec, text: text });
+            btn.classList.add('selected');
+        }
+    }
+
+    // 【規則 7】第五組：倒數時間 (單選，且清除第一組)
+    function toggleGroup5(btn, sec) {
+        const txt = btn.innerText;
+        document.getElementById('exactTimeInput').value = ''; // 清除第一組
+
+        if (selGroup5 === txt) {
+            selGroup5 = null;
+            tempEnd = null;
+            btn.classList.remove('selected');
+        } else {
+            selGroup5 = txt;
             tempEnd = Date.now() + (sec * 1000);
-        } else { selTime = null; tempEnd = null; }
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+        }
     }
 
     function openTagModal(i) {
         currentIdx = i;
         const logTags = logs[i].tags || [];
-        selLive = logTags.find(t => t === '直播') || null;
-        selTask = logTags.find(t => ['側錄','準連','傳帶'].includes(t)) || null;
-        selTime = logTags.find(t => !t.startsWith('-') && (t.includes('時') || t.includes('分') || t.includes(':'))) || null;
         
-        // 抓回已選取的提前標籤
-        selAdvances = [];
+        // 解析舊標籤還原狀態
+        selGroup2 = logTags.find(t => t === '直播') || null;
+        selGroup3 = logTags.filter(t => ['側錄','準連','傳帶'].includes(t));
+        
+        selGroup4 = [];
         logTags.filter(t => t.startsWith('-')).forEach(t => {
             let s = 0;
-            if (t==='-1分') s=60; else if (t==='-2分') s=120; else if (t==='-3分') s=180; else if (t==='-5分') s=300; else if (t==='-10分') s=600;
-            if (s>0) selAdvances.push({ sec: s, text: t });
+            if (t==='-1分') s=60; else if (t==='-2分') s=120; else if (t==='-3分') s=180; else if (t==='-4分') s=240; else if (t==='-5分') s=300; else if (t==='-10分') s=600;
+            if (s>0) selGroup4.push({ sec: s, text: t });
         });
         
+        selGroup5 = logTags.find(t => !t.startsWith('-') && !t.includes(':') && (t.includes('時') || t.includes('分'))) || null;
+        const exactMatch = logTags.find(t => t.match(/^\d{2}:\d{2}$/));
+        
         tempEnd = logs[i].timerEnd;
+        document.getElementById('exactTimeInput').value = exactMatch ? exactMatch : '';
 
-        if (tempEnd && selTime && selTime.includes(':')) {
-            const d = new Date(tempEnd);
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            const hh = String(d.getHours()).padStart(2, '0');
-            const min = String(d.getMinutes()).padStart(2, '0');
-            document.getElementById('exactDateInput').value = `${yyyy}-${mm}-${dd}`;
-            document.getElementById('exactTimeInput').value = `${hh}:${min}`;
-        } else {
-            document.getElementById('exactDateInput').value = '';
-            document.getElementById('exactTimeInput').value = '';
-        }
+        // 【規則 2】檢查是否時間已到
+        const isExpired = tempEnd && tempEnd < Date.now();
 
         document.querySelectorAll('.tag-btn').forEach(btn => {
             const txt = btn.innerText;
-            if (txt.startsWith('-')) {
-                btn.classList.toggle('selected', selAdvances.some(a => a.text === txt));
+            if (txt === '直播') {
+                btn.classList.toggle('selected', txt === selGroup2);
+            } else if (['側錄','準連','傳帶'].includes(txt)) {
+                btn.classList.toggle('selected', selGroup3.includes(txt));
+                btn.disabled = isExpired; // 鎖定
+            } else if (txt.startsWith('-')) {
+                btn.classList.toggle('selected', selGroup4.some(a => a.text === txt));
+                btn.disabled = isExpired; // 鎖定
             } else {
-                btn.classList.toggle('selected', txt === selLive || txt === selTask || txt === selTime);
+                btn.classList.toggle('selected', txt === selGroup5);
             }
         });
         document.getElementById('tagModal').style.display = 'block';
     }
 
     function applyTags() {
-        const wasTicking = !!logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled;
+        const wasTicking = !!logs[currentIdx].timerEnd;
 
-        // 整理陣列：時間排在提前警告前面
-        selAdvances.sort((a,b) => b.sec - a.sec);
-        const advTexts = selAdvances.map(a => a.text);
-        logs[currentIdx].tags = [selLive, selTask, selTime, ...advTexts].filter(t => t);
+        const exactVal = document.getElementById('exactTimeInput').value;
+        const timeTag = exactVal ? exactVal : selGroup5; // 取第一組或第五組
+
+        selGroup4.sort((a,b) => b.sec - a.sec);
+        const advTexts = selGroup4.map(a => a.text);
         
+        logs[currentIdx].tags = [selGroup2, ...selGroup3, timeTag, ...advTexts].filter(t => t);
         logs[currentIdx].timerEnd = tempEnd;
-        logs[currentIdx].advances = [...selAdvances]; 
+        logs[currentIdx].advances = [...selGroup4]; 
         
-        if (tempEnd) {
-            logs[currentIdx].isCancelled = false;
-        }
-
         document.getElementById('tagModal').style.display = 'none';
         saveLogs();
+
+        const taskName = logs[currentIdx].tags.join(' ');
+        const pureText = logs[currentIdx].text;
+        const fullTitle = `[${taskName}] ${pureText}`;
 
         if (tempEnd) {
             let baseDelay = tempEnd - Date.now(); 
             if (baseDelay > 0) {
                 let triggersData = [];
-                // 計算所有提前炸彈的時間
-                selAdvances.forEach(adv => {
+                selGroup4.forEach(adv => {
                     let advDelay = baseDelay - (adv.sec * 1000);
+                    // 【規則 3】負的時間無動作（過濾掉已經發生的時間）
                     if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
                 });
-                // 加入最終核爆點
+                triggersData.push({ delayMs: baseDelay, label: "" });
+                sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
+            }
+        } else if (!tempEnd && logs[currentIdx].tags.length > 0) {
+            // 【規則 5】沒有設定時間但有標籤，不倒數不響TG，但寫入試算表
+            sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, []);
+        } else if (wasTicking && !tempEnd) {
+            sendToGAS('cancel_timer', logs[currentIdx].taskId);
+        }
+    }
+
+    function openTimerEdit(i) { 
+        currentIdx = i; 
+        const d = logs[i].timerEnd ? new Date(logs[i].timerEnd) : new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        document.getElementById('editExactTimeInput').value = `${hh}:${mm}`;
+        document.getElementById('timerEditModal').style.display = 'block'; 
+    }
+    
+    // 【規則 6】修改時間標籤替換
+    function updateTimerValue() {
+        const timeVal = document.getElementById('editExactTimeInput').value;
+        if (timeVal) {
+            const [h, m] = timeVal.split(':');
+            const target = new Date();
+            target.setHours(parseInt(h), parseInt(m), 0, 0);
+            if(target.getTime() <= Date.now()) target.setDate(target.getDate() + 1); 
+            
+            logs[currentIdx].timerEnd = target.getTime();
+            
+            // 刪除舊的時間標籤 (30分、2時 或舊手動時間)，並加入新手動時間標籤
+            logs[currentIdx].tags = logs[currentIdx].tags.filter(t => 
+                t === '直播' || 
+                ['側錄','準連','傳帶'].includes(t) || 
+                t.startsWith('-')
+            );
+            logs[currentIdx].tags.push(timeVal);
+            saveLogs();
+
+            let baseDelay = target.getTime() - Date.now();
+            if(baseDelay > 0) {
+                let triggersData = [];
+                let currentAdvances = logs[currentIdx].advances || [];
+                currentAdvances.forEach(adv => {
+                    let advDelay = baseDelay - (adv.sec * 1000);
+                    // 【規則 3】過濾負的時間
+                    if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
+                });
                 triggersData.push({ delayMs: baseDelay, label: "" });
 
                 const taskName = logs[currentIdx].tags.join(' ');
                 const pureText = logs[currentIdx].text;
                 const fullTitle = `[${taskName}] ${pureText}`;
-                
                 sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
             }
-        } else if (wasTicking && !tempEnd) {
-            sendToGAS('cancel_timer', logs[currentIdx].taskId);
-            logs[currentIdx].isCancelled = true;
-            saveLogs();
-        }
-    }
-
-    function openTimerEdit(i) { currentIdx = i; document.getElementById('timerEditModal').style.display = 'block'; }
-    
-    function updateTimerValue() {
-        const h = parseInt(document.getElementById('newTimerHour').value) || 0;
-        const m = parseInt(document.getElementById('newTimerMin').value) || 0;
-        if (h || m) { 
-            const totalMs = (h * 3600 + m * 60) * 1000;
-            logs[currentIdx].timerEnd = Date.now() + totalMs; 
-            logs[currentIdx].isCancelled = false;
-            saveLogs(); 
-
-            let baseDelay = totalMs;
-            let triggersData = [];
-            let currentAdvances = logs[currentIdx].advances || [];
-            currentAdvances.forEach(adv => {
-                let advDelay = baseDelay - (adv.sec * 1000);
-                if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
-            });
-            triggersData.push({ delayMs: baseDelay, label: "" });
-
-            const taskName = (logs[currentIdx].tags || []).join(' ');
-            const pureText = logs[currentIdx].text;
-            const fullTitle = `[${taskName}] ${pureText}`;
-            sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
         }
         closeTimerModal();
     }
     
     function stopTimer() { 
-        if (logs[currentIdx].timerEnd && !logs[currentIdx].isCancelled) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
-        logs[currentIdx].isCancelled = true; 
+        if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
+        logs[currentIdx].timerEnd = null; 
+        logs[currentIdx].displayTimer = null; 
+        
+        // 移除時間與提前標籤
+        logs[currentIdx].tags = logs[currentIdx].tags.filter(t => 
+            t === '直播' || ['側錄','準連','傳帶'].includes(t)
+        );
+        logs[currentIdx].advances = [];
+
         saveLogs(); 
         closeTimerModal(); 
     }
@@ -419,7 +434,7 @@
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
     function addManualLog() {
-        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, isCancelled: false });
+        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true });
         saveLogs();
         setTimeout(() => {
             const newIndex = logs.length - 1;
@@ -432,7 +447,7 @@
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除紀錄！'); return; }
         if (confirm('確定要刪除勾選紀錄嗎？')) { 
-            logs.filter(l => l.checked && l.timerEnd && !l.isCancelled).forEach(l => {
+            logs.filter(l => l.checked && l.timerEnd).forEach(l => {
                 sendToGAS('delete_task', l.taskId);
             });
             logs = logs.filter(l => !l.checked); 
@@ -455,8 +470,7 @@
                 return `<span class="badge ${cls}">${t}</span>`;
             }).join('');
             
-            const icon = log.isCancelled ? '❌' : '⏳';
-            const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${icon} ${log.displayTimer}</span>` : '';
+            const timer = log.displayTimer ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">⏳ ${log.displayTimer}</span>` : '';
             
             if (log.isEditing) {
                 item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
@@ -502,7 +516,7 @@
         rec.onend = () => {
             isRec = false; clearTimeout(timerObj); document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             if(!curTxt.trim()) return;
-            logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advances: [], checked: false, isEditing: false, isCancelled: false });
+            logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advances: [], checked: false, isEditing: false });
             curTxt = ""; saveLogs();
         };
     }
