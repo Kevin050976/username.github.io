@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (跨日戰情版) v5</title>
+    <title>SNG 勤務終端 (跨日戰情版) v6</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -16,7 +16,6 @@
         .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
         .btn-purple { background: #6f42c1; color: white; padding: 8px 10px; }
         
-        /* --- UI 優化：縮小標籤，確保確認鍵可視 --- */
         .tag-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px; }
         .tag-btn { padding: 8px 2px; font-size: 0.95em; border: 2px solid transparent; border-radius: 6px; font-weight: bold; word-break: keep-all; }
         .confirm-btn { padding: 16px; font-size: 1.3em; width: 100%; box-sizing: border-box; margin-top: 10px; }
@@ -49,7 +48,6 @@
         .action-bar-btn { flex: 1; height: 55px; color: white; border-radius: 8px; font-size: 1.1em; font-weight: bold; }
         textarea { box-sizing: border-box; }
         
-        /* 戰情室專用樣式 */
         .radar-item { padding: 12px; border-bottom: 1px solid #eee; text-align: left; background: #fcfcfc; border-radius: 6px; margin-bottom: 8px; }
         .radar-time { font-size: 0.85em; color: #666; display: block; margin-bottom: 4px; border-bottom: 1px dashed #ccc; padding-bottom: 4px;}
         .radar-status { font-weight: bold; float: right; font-size: 0.9em; }
@@ -67,7 +65,7 @@
                 <option value="5000" selected>5秒</option>
                 <option value="6000">6秒</option>
             </select>
-            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️ SNG v5</h3>
+            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️</h3>
         </div>
         <div style="display: flex; gap: 5px; white-space: nowrap;">
             <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
@@ -181,10 +179,27 @@
     let selGroup5 = null; 
     let tempEnd = null;
 
+    // 🌟 Bug 2 修復：加入「通訊冷卻鎖」全域變數
+    let globalSyncLock = false; 
+
+    // 檢查通訊鎖狀態，防止重複發射
+    function checkSyncLock() {
+        if (globalSyncLock) {
+            alert('📡 雲端大腦正在處理上一筆指令，為避免重複發送，請稍候 3 秒...');
+            return true;
+        }
+        return false;
+    }
+
+    // 啟動通訊鎖 (鎖定 3 秒)
+    function setSyncLock() {
+        globalSyncLock = true;
+        setTimeout(() => { globalSyncLock = false; }, 3000); 
+    }
+
     if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
     function generateTaskId() { return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
 
-    // 🌟 Bug 1 修復：從 taskId 解析出最初建立的時間點 (防呆機制)
     function getCreatedAt(log) {
         if (log.createdAt) return log.createdAt;
         if (log.taskId) {
@@ -194,7 +209,6 @@
         return Date.now();
     }
 
-    // 🌟 Bug 2 修復：強勢渲染函式 (按下按鈕瞬間計算漏斗與❌，不再等待)
     function updateDisplayTimer(log) {
         if (!log.timerEnd) {
             log.displayTimer = null;
@@ -303,7 +317,6 @@
         logs.forEach((log, index) => {
             if (log.timerEnd) {
                 const diff = Math.floor((log.timerEnd - now) / 1000);
-                // 🌟 Bug 1: 動態判斷加上 ❌ 時間到
                 let newTimerStr = "❌ 時間到";
                 if (diff > 0) {
                     const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
@@ -353,7 +366,6 @@
         } 
         else { 
             selGroup5 = txt; 
-            // 🌟 Bug 1 修復核心：以紀錄「建立當下」為計算基準點
             const baseTime = getCreatedAt(logs[currentIdx]);
             tempEnd = baseTime + (sec * 1000); 
             
@@ -397,8 +409,10 @@
     }
 
     function applyTags() {
-        const wasTicking = !!logs[currentIdx].timerEnd;
+        // 🌟 Bug 2 防連點檢測
+        if (checkSyncLock()) return;
 
+        const wasTicking = !!logs[currentIdx].timerEnd;
         let timeTag = selGroup5;
         if (tempEnd && !selGroup5) { timeTag = getReadableTagText(tempEnd); }
 
@@ -409,15 +423,16 @@
         logs[currentIdx].timerEnd = tempEnd;
         logs[currentIdx].advances = [...selGroup4]; 
         
-        // 🌟 Bug 2 修復：存檔前立即計算顯示文字，讓畫面無延遲更新
         updateDisplayTimer(logs[currentIdx]);
-        
         document.getElementById('tagModal').style.display = 'none';
         saveLogs();
 
         const taskName = logs[currentIdx].tags.join(' ');
         const pureText = logs[currentIdx].text;
         const fullTitle = `[${taskName}] ${pureText}`;
+
+        // 🌟 鎖定通訊
+        setSyncLock();
 
         if (tempEnd) {
             let baseDelay = tempEnd - Date.now(); 
@@ -445,6 +460,9 @@
     }
     
     function updateTimerValue() {
+        // 🌟 Bug 2 防連點檢測
+        if (checkSyncLock()) return;
+
         const timeVal = document.getElementById('editExactTimeInput').value;
         if (timeVal) {
             const target = new Date(timeVal).getTime();
@@ -457,9 +475,11 @@
             );
             logs[currentIdx].tags.push(newTimeTag);
             
-            // 🌟 Bug 2 修復
             updateDisplayTimer(logs[currentIdx]);
             saveLogs();
+
+            // 🌟 鎖定通訊
+            setSyncLock();
 
             let baseDelay = target - Date.now();
             if(baseDelay > 0) {
@@ -481,19 +501,25 @@
     }
     
     function stopTimer() { 
+        // 🌟 Bug 2 防連點檢測
+        if (checkSyncLock()) return;
+
         if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
         logs[currentIdx].timerEnd = null; 
         logs[currentIdx].displayTimer = null; 
         logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t));
         logs[currentIdx].advances = [];
         saveLogs(); 
+        
+        // 🌟 鎖定通訊
+        setSyncLock();
+        
         closeTimerModal(); 
     }
     
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
     function addManualLog() {
-        // 🌟 Bug 1 修復：記錄精準的建立時間 createdAt
         logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), createdAt: Date.now(), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true });
         saveLogs();
         setTimeout(() => {
@@ -504,9 +530,15 @@
     }
 
     function deleteSelectedLogs() {
+        // 🌟 Bug 2 防連點檢測
+        if (checkSyncLock()) return;
+
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除紀錄！'); return; }
         if (confirm('確定要刪除勾選紀錄嗎？')) { 
+            // 🌟 鎖定通訊
+            setSyncLock();
+
             logs.filter(l => l.checked && l.timerEnd).forEach(l => { sendToGAS('delete_task', l.taskId); });
             logs = logs.filter(l => !l.checked); 
             saveLogs(); 
@@ -528,7 +560,6 @@
                 return `<span class="badge ${cls}">${t}</span>`;
             }).join('');
             
-            // 🌟 Bug 2 修復：只要設定了 timerEnd，畫面就強制生成倒數區塊
             const timer = log.timerEnd ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${log.displayTimer || '⏳ 計算中...'}</span>` : '';
             
             if (log.isEditing) {
@@ -575,7 +606,6 @@
         rec.onend = () => {
             isRec = false; clearTimeout(timerObj); document.getElementById('toggleBtn').classList.remove('active'); document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             if(!curTxt.trim()) return;
-            // 🌟 Bug 1 修復：語音紀錄精準的建立時間 createdAt
             logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), createdAt: Date.now(), text: applyDict(curTxt.trim()), tags: [], timerEnd: null, advances: [], checked: false, isEditing: false });
             curTxt = ""; saveLogs();
         };
