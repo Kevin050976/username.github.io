@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v8.4 終極重生版)</title>
+    <title>SNG 勤務終端 (v8.5 堅若磐石版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -43,7 +43,7 @@
         .badge-task { background: #17a2b8; }
         .badge-advance { background: #6f42c1; }
         .badge-time { background: #fd7e14; }
-        .badge-play { background: #007bff; cursor: pointer; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .badge-play { background: #007bff; cursor: pointer; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); margin-right: 5px; }
         .badge-play:active { transform: scale(0.95); }
         .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
         #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 8px; height: 1.2em; font-size: 1.1em; }
@@ -163,8 +163,6 @@
     </div>
 </div>
 
-<audio id="sysPlayer" style="display:none;"></audio>
-
 <script>
     // ==========================================
     // ⚠️ 這裡的網址必須是你「更新部署」後的新 GAS Webhook 網址
@@ -194,7 +192,7 @@
         tx.objectStore("recordings").put(blob, id);
     }
 
-    // 🍎 v8.4 播放解鎖機制：使用專屬 DOM 音響，並強制清理 src 以釋放 iOS 音訊通道
+    // 🍎 v8.5 終極破冰：強制釋放 iOS 音訊通道
     function playAudioFromDB(id, event) {
         if (event) event.stopPropagation(); 
         if (!db) { alert("資料庫尚未準備好！"); return; }
@@ -204,22 +202,22 @@
         
         req.onsuccess = () => {
             if (req.result) {
-                const player = document.getElementById('sysPlayer');
+                const audio = new Audio();
                 const url = URL.createObjectURL(req.result);
-                player.src = url;
+                audio.src = url;
                 
-                player.play().catch(e => {
+                audio.play().catch(e => {
                     console.error("播放錯誤細節:", e);
-                    alert(`播放失敗 (${e.name}): \n${e.message}\n請確認手機未處於靜音模式。`);
+                    alert(`播放失敗: \n${e.message}\n請確認手機未處於靜音模式。`);
                 });
 
-                // 當播放完畢，立刻清空資源，強迫蘋果把麥克風還給我們！
-                player.onended = () => {
+                audio.onended = () => {
                     URL.revokeObjectURL(url);
-                    player.src = ""; 
+                    audio.src = ""; 
+                    audio.load(); // 🔑 核心魔法：逼迫 iOS WebKit 放開麥克風的佔用權！
                 };
             } else {
-                alert("找不到音檔，可能已過期或被清除！");
+                alert("找不到音檔，可能已被系統清空！");
             }
         };
     }
@@ -573,7 +571,7 @@
             }).join('');
             
             const timer = log.timerEnd ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${log.displayTimer || '⏳ 計算中...'}</span>` : '';
-            const playBtn = log.hasAudio ? `<button class="badge badge-play" onclick="playAudioFromDB('${log.taskId}', event)">▶️ 播放</button>` : '';
+            const playBtn = log.hasAudio ? `<button class="badge badge-play" onclick="playAudioFromDB('${log.taskId}', event)">▶️</button>` : '';
 
             if (log.isEditing) {
                 item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
@@ -606,102 +604,97 @@
     function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
     function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
 
-    let rec = null;
-    let isRec = false, curTxt = "", timerObj = null;
-    let pendingTaskId = null;
-    let mediaRecorder = null;
-    let audioChunks = [];
-    let mediaStream = null;
+    let isRec = false;
+    let timerObj = null;
+    let currentSession = null; // 🛡️ 核心防護罩：鎖定每次錄音的所有變數，防止被 GC 殺掉
 
     document.getElementById('toggleBtn').onclick = async () => {
-        if(!isRec) { 
-            isRec = true; // 鎖住按鈕防止連點
+        if (!isRec) { 
+            isRec = true; 
+            
+            // 🛡️ 建立專屬防護罩
+            let session = {
+                recorder: null,
+                stream: null,
+                rec: null,
+                chunks: [],
+                taskId: generateTaskId(),
+                curTxt: ""
+            };
+            currentSession = session;
+
             try {
-                // 1. 啟動音訊錄製
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(mediaStream);
+                // 1. 啟動音訊硬體
+                session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                session.recorder = new MediaRecorder(session.stream);
 
-                audioChunks = [];
-                pendingTaskId = generateTaskId(); 
-                let capturedTaskId = pendingTaskId; 
-
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                session.recorder.ondataavailable = e => { if (e.data.size > 0) session.chunks.push(e.data); };
                 
-                mediaRecorder.onstop = () => {
-                    const mimeType = mediaRecorder.mimeType || 'audio/webm';
-                    const audioBlob = new Blob(audioChunks, { type: mimeType });
+                // 2. 只有當硬體確實停止並回傳資料後，才進行資料庫存取
+                session.recorder.onstop = () => {
+                    const mimeType = session.recorder.mimeType || 'audio/webm';
+                    const audioBlob = new Blob(session.chunks, { type: mimeType });
                     
                     if (audioBlob.size === 0) {
-                        console.warn("⚠️ 錄製到空檔");
-                        let targetLog = logs.find(l => l.taskId === capturedTaskId);
+                        console.warn("⚠️ 錄製到 0 bytes 的空檔，已自動隱藏播放鍵");
+                        let targetLog = logs.find(l => l.taskId === session.taskId);
                         if (targetLog) { targetLog.hasAudio = false; saveLogs(); }
-                        return; 
+                    } else {
+                        saveAudioToDB(session.taskId, audioBlob); // 💾 確實存入
                     }
-                    saveAudioToDB(capturedTaskId, audioBlob); 
-                };
-                mediaRecorder.start();
-                
-                // 🍎 v8.4 翻譯官浴火重生：每次點擊都重新建立一個全新的 SpeechRecognition
-                if ('webkitSpeechRecognition' in window) {
-                    rec = new webkitSpeechRecognition();
-                    rec.continuous = true; 
-                    rec.interimResults = true; 
-                    rec.lang = 'zh-TW';
                     
-                    rec.onresult = (e) => {
+                    // 安全釋放硬體
+                    session.stream.getTracks().forEach(track => track.stop());
+                };
+                
+                session.recorder.start();
+                
+                // 3. 呼叫翻譯官 (蘋果 iOS 必須每次重新呼叫)
+                if ('webkitSpeechRecognition' in window) {
+                    session.rec = new webkitSpeechRecognition();
+                    session.rec.continuous = true; 
+                    session.rec.interimResults = true; 
+                    session.rec.lang = 'zh-TW';
+                    
+                    session.rec.onresult = (e) => {
                         let finalTranscript = ''; let interimTranscript = '';
                         for (let i = 0; i < e.results.length; ++i) { 
                             if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript; 
                             else interimTranscript += e.results[i][0].transcript; 
                         }
-                        curTxt = finalTranscript;
+                        session.curTxt = finalTranscript;
                         document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
                     };
 
-                    rec.onerror = (e) => {
-                        console.error("語音辨識發生錯誤:", e.error);
-                        if (e.error === 'not-allowed' || e.error === 'audio-capture') {
-                            alert("麥克風被系統中斷，這在 iOS 播放聲音後很常見，請再按一次重試！");
-                        }
-                    };
-
-                    rec.onend = () => {
+                    session.rec.onend = () => {
                         isRec = false; 
                         clearTimeout(timerObj); 
                         document.getElementById('toggleBtn').classList.remove('active'); 
                         document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
                         
-                        // 徹底摧毀錄音通道，不留痕跡
-                        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-                        if (mediaStream) {
-                            mediaStream.getTracks().forEach(track => track.stop());
-                            mediaStream = null;
+                        // 🛑 溫柔地呼叫錄音機停止，讓它自己去執行 onstop 存檔
+                        if (session.recorder && session.recorder.state !== 'inactive') {
+                            session.recorder.stop();
+                        } else if (session.stream) {
+                            session.stream.getTracks().forEach(t => t.stop());
                         }
-                        mediaRecorder = null;
-                        rec = null; // 釋放舊的翻譯官
 
-                        if(!curTxt.trim()) { pendingTaskId = null; return; }
-                        
-                        const finalTaskId = pendingTaskId || generateTaskId();
-                        logs.push({ 
-                            taskId: finalTaskId, 
-                            time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
-                            createdAt: Date.now(), 
-                            text: applyDict(curTxt.trim()), 
-                            tags: [], 
-                            timerEnd: null, 
-                            advances: [], 
-                            checked: false, 
-                            isEditing: false,
-                            hasAudio: true 
-                        });
-                        curTxt = ""; 
-                        pendingTaskId = null;
-                        saveLogs();
+                        // 將日誌寫入畫面，並預設顯示 PLAY 鍵
+                        if (session.curTxt.trim()) {
+                            logs.push({ 
+                                taskId: session.taskId, 
+                                time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
+                                createdAt: Date.now(), 
+                                text: applyDict(session.curTxt.trim()), 
+                                tags: [], timerEnd: null, advances: [], checked: false, isEditing: false,
+                                hasAudio: true // 預設為 true，若錄到空檔會在 onstop 修正
+                            });
+                            saveLogs();
+                        }
+                        document.getElementById('livePreview').innerText = "";
                     };
                     
-                    curTxt = ""; 
-                    rec.start(); 
+                    session.rec.start(); 
                 } else {
                     alert("您的瀏覽器不支援語音辨識功能！");
                     isRec = false;
@@ -709,22 +702,22 @@
                 }
 
                 document.getElementById('toggleBtn').classList.add('active'); 
-                
                 const sec = parseInt(document.getElementById('recordTimerSelect').value);
                 if (sec > 0) { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; 
-                    timerObj = setTimeout(() => { if(rec) rec.stop(); }, sec); 
+                    timerObj = setTimeout(() => { if(session.rec) session.rec.stop(); }, sec); 
                 } else { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; 
                 }
+
             } catch (err) {
                 isRec = false;
-                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或使用真正的 Chrome APP 打開！)");
+                alert("⚠️ 無法取得麥克風權限！(Android 請確認使用 HTTPS)");
                 console.error(err);
             }
         } else { 
             clearTimeout(timerObj); 
-            if(rec) rec.stop(); 
+            if(currentSession && currentSession.rec) currentSession.rec.stop(); 
         }
     };
 
