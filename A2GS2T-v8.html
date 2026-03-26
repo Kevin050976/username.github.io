@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v8.3 終極相容版)</title>
+    <title>SNG 勤務終端 (v8.4 終極重生版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -163,6 +163,8 @@
     </div>
 </div>
 
+<audio id="sysPlayer" style="display:none;"></audio>
+
 <script>
     // ==========================================
     // ⚠️ 這裡的網址必須是你「更新部署」後的新 GAS Webhook 網址
@@ -192,7 +194,7 @@
         tx.objectStore("recordings").put(blob, id);
     }
 
-    // 🍎 v8.3 修正版：回歸單純的非同步播放，讓 iOS 靠 MIME Type 自行解碼
+    // 🍎 v8.4 播放解鎖機制：使用專屬 DOM 音響，並強制清理 src 以釋放 iOS 音訊通道
     function playAudioFromDB(id, event) {
         if (event) event.stopPropagation(); 
         if (!db) { alert("資料庫尚未準備好！"); return; }
@@ -202,15 +204,20 @@
         
         req.onsuccess = () => {
             if (req.result) {
-                // 產生網址並丟給 Audio 播放
+                const player = document.getElementById('sysPlayer');
                 const url = URL.createObjectURL(req.result);
-                const audio = new Audio(url);
+                player.src = url;
                 
-                audio.play().catch(e => {
+                player.play().catch(e => {
                     console.error("播放錯誤細節:", e);
-                    // 如果還是失敗，把錯誤訊息印出來，幫助我們釐清是格式問題還是權限問題
                     alert(`播放失敗 (${e.name}): \n${e.message}\n請確認手機未處於靜音模式。`);
                 });
+
+                // 當播放完畢，立刻清空資源，強迫蘋果把麥克風還給我們！
+                player.onended = () => {
+                    URL.revokeObjectURL(url);
+                    player.src = ""; 
+                };
             } else {
                 alert("找不到音檔，可能已過期或被清除！");
             }
@@ -599,56 +606,18 @@
     function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
     function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
 
-    let rec, isRec = false, curTxt = "", timerObj = null;
+    let rec = null;
+    let isRec = false, curTxt = "", timerObj = null;
     let pendingTaskId = null;
     let mediaRecorder = null;
     let audioChunks = [];
     let mediaStream = null;
 
-    if ('webkitSpeechRecognition' in window) {
-        rec = new webkitSpeechRecognition();
-        rec.continuous = true; rec.interimResults = true; rec.lang = 'zh-TW';
-        rec.onresult = (e) => {
-            let finalTranscript = ''; let interimTranscript = '';
-            for (let i = 0; i < e.results.length; ++i) { if (e.results[i].isFinal) { finalTranscript += e.results[i][0].transcript; } else { interimTranscript += e.results[i][0].transcript; } }
-            curTxt = finalTranscript;
-            document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
-        };
-        rec.onend = () => {
-            isRec = false; 
-            clearTimeout(timerObj); 
-            document.getElementById('toggleBtn').classList.remove('active'); 
-            document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
-            
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-            if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
-
-            if(!curTxt.trim()) { pendingTaskId = null; return; }
-            
-            const finalTaskId = pendingTaskId || generateTaskId();
-            
-            logs.push({ 
-                taskId: finalTaskId, 
-                time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
-                createdAt: Date.now(), 
-                text: applyDict(curTxt.trim()), 
-                tags: [], 
-                timerEnd: null, 
-                advances: [], 
-                checked: false, 
-                isEditing: false,
-                hasAudio: !!mediaRecorder 
-            });
-            curTxt = ""; 
-            pendingTaskId = null;
-            saveLogs();
-        };
-    }
-
     document.getElementById('toggleBtn').onclick = async () => {
         if(!isRec) { 
+            isRec = true; // 鎖住按鈕防止連點
             try {
-                // 🍎 拿掉所有會讓 iOS 崩潰的自訂壓縮設定，回歸最單純的錄音請求
+                // 1. 啟動音訊錄製
                 mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(mediaStream);
 
@@ -659,41 +628,103 @@
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 
                 mediaRecorder.onstop = () => {
-                    // 🔑 iOS 破冰關鍵：強制貼上檔案的 MIME Type 身分證！
                     const mimeType = mediaRecorder.mimeType || 'audio/webm';
                     const audioBlob = new Blob(audioChunks, { type: mimeType });
                     
                     if (audioBlob.size === 0) {
-                        console.warn("⚠️ 麥克風被語音辨識獨佔，無法錄製音檔");
+                        console.warn("⚠️ 錄製到空檔");
                         let targetLog = logs.find(l => l.taskId === capturedTaskId);
-                        if (targetLog) {
-                            targetLog.hasAudio = false;
-                            saveLogs(); 
-                        }
+                        if (targetLog) { targetLog.hasAudio = false; saveLogs(); }
                         return; 
                     }
-                    
                     saveAudioToDB(capturedTaskId, audioBlob); 
                 };
-                
                 mediaRecorder.start();
-                curTxt = ""; rec.start(); isRec = true; 
+                
+                // 🍎 v8.4 翻譯官浴火重生：每次點擊都重新建立一個全新的 SpeechRecognition
+                if ('webkitSpeechRecognition' in window) {
+                    rec = new webkitSpeechRecognition();
+                    rec.continuous = true; 
+                    rec.interimResults = true; 
+                    rec.lang = 'zh-TW';
+                    
+                    rec.onresult = (e) => {
+                        let finalTranscript = ''; let interimTranscript = '';
+                        for (let i = 0; i < e.results.length; ++i) { 
+                            if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript; 
+                            else interimTranscript += e.results[i][0].transcript; 
+                        }
+                        curTxt = finalTranscript;
+                        document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
+                    };
+
+                    rec.onerror = (e) => {
+                        console.error("語音辨識發生錯誤:", e.error);
+                        if (e.error === 'not-allowed' || e.error === 'audio-capture') {
+                            alert("麥克風被系統中斷，這在 iOS 播放聲音後很常見，請再按一次重試！");
+                        }
+                    };
+
+                    rec.onend = () => {
+                        isRec = false; 
+                        clearTimeout(timerObj); 
+                        document.getElementById('toggleBtn').classList.remove('active'); 
+                        document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
+                        
+                        // 徹底摧毀錄音通道，不留痕跡
+                        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+                        if (mediaStream) {
+                            mediaStream.getTracks().forEach(track => track.stop());
+                            mediaStream = null;
+                        }
+                        mediaRecorder = null;
+                        rec = null; // 釋放舊的翻譯官
+
+                        if(!curTxt.trim()) { pendingTaskId = null; return; }
+                        
+                        const finalTaskId = pendingTaskId || generateTaskId();
+                        logs.push({ 
+                            taskId: finalTaskId, 
+                            time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
+                            createdAt: Date.now(), 
+                            text: applyDict(curTxt.trim()), 
+                            tags: [], 
+                            timerEnd: null, 
+                            advances: [], 
+                            checked: false, 
+                            isEditing: false,
+                            hasAudio: true 
+                        });
+                        curTxt = ""; 
+                        pendingTaskId = null;
+                        saveLogs();
+                    };
+                    
+                    curTxt = ""; 
+                    rec.start(); 
+                } else {
+                    alert("您的瀏覽器不支援語音辨識功能！");
+                    isRec = false;
+                    return;
+                }
+
                 document.getElementById('toggleBtn').classList.add('active'); 
                 
                 const sec = parseInt(document.getElementById('recordTimerSelect').value);
                 if (sec > 0) { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; 
-                    timerObj = setTimeout(() => rec.stop(), sec); 
+                    timerObj = setTimeout(() => { if(rec) rec.stop(); }, sec); 
                 } else { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; 
                 }
             } catch (err) {
-                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或是使用真正的 Chrome APP 打開！)");
+                isRec = false;
+                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或使用真正的 Chrome APP 打開！)");
                 console.error(err);
             }
         } else { 
             clearTimeout(timerObj); 
-            rec.stop(); 
+            if(rec) rec.stop(); 
         }
     };
 
