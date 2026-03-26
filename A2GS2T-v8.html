@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v8.1 戰術對講版)</title>
+    <title>SNG 勤務終端 (v8.2 終極破冰版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -192,18 +192,26 @@
         tx.objectStore("recordings").put(blob, id);
     }
 
+    // 🍎 v8.2 終極破冰：iOS 解鎖魔法
     function playAudioFromDB(id, event) {
         if (event) event.stopPropagation(); // 防止觸發勾選紀錄
         if (!db) { alert("資料庫尚未準備好！"); return; }
+        
+        // 核心魔法：在手指點擊的「同步」瞬間，立刻生出音響並空載，建立使用者互動上下文
+        const audio = new Audio();
+        audio.load();
         
         const tx = db.transaction("recordings", "readonly");
         const req = tx.objectStore("recordings").get(id);
         
         req.onsuccess = () => {
             if (req.result) {
-                const url = URL.createObjectURL(req.result);
-                const audio = new Audio(url);
-                audio.play();
+                // 資料撈到了，塞進剛剛解鎖的音響裡
+                audio.src = URL.createObjectURL(req.result);
+                audio.play().catch(e => {
+                    console.error("播放失敗:", e);
+                    alert("播放失敗，請檢查手機靜音模式或重新整理網頁！");
+                });
             } else {
                 alert("找不到音檔，可能已過期或被清除！");
             }
@@ -535,7 +543,7 @@
             logs.forEach(l => {
                 if (l.checked) {
                     if (l.timerEnd) sendToGAS('delete_task', l.taskId);
-                    if (l.hasAudio) deleteAudioFromDB(l.taskId); // 🗑️ 同步清除
+                    if (l.hasAudio) deleteAudioFromDB(l.taskId); 
                 }
             });
             logs = logs.filter(l => !l.checked); 
@@ -641,7 +649,7 @@
     document.getElementById('toggleBtn').onclick = async () => {
         if(!isRec) { 
             try {
-                // 📻 戰術對講機音質優化 (16kHz / 單聲道 / 降噪)
+                // 📻 戰術對講機音質優化
                 const audioConstraints = {
                     sampleRate: 16000,
                     channelCount: 1,
@@ -660,7 +668,7 @@
 
                 audioChunks = [];
                 pendingTaskId = generateTaskId(); 
-                let capturedTaskId = pendingTaskId; // 鎖定當下的 ID 供非同步使用
+                let capturedTaskId = pendingTaskId; 
 
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 
@@ -669,8 +677,7 @@
                     
                     // 🍎 蘋果防霸凌機制：檢測 iOS 麥克風獨佔導致的 0 bytes 空檔案
                     if (audioBlob.size === 0) {
-                        console.warn("⚠️ 麥克風被語音辨識獨佔，無法錄製音檔 (iOS 常見現象)");
-                        // 深入日誌，把剛剛產生那筆紀錄的 hasAudio 改成 false，收起播放鍵
+                        console.warn("⚠️ 麥克風被語音辨識獨佔，無法錄製音檔");
                         let targetLog = logs.find(l => l.taskId === capturedTaskId);
                         if (targetLog) {
                             targetLog.hasAudio = false;
@@ -679,7 +686,7 @@
                         return; 
                     }
                     
-                    saveAudioToDB(capturedTaskId, audioBlob); // 💾 成功則存入 IndexedDB
+                    saveAudioToDB(capturedTaskId, audioBlob); 
                 };
                 
                 mediaRecorder.start();
@@ -694,7 +701,7 @@
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; 
                 }
             } catch (err) {
-                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或是在真正的 Chrome 裡打開！)");
+                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或是使用真正的 Chrome APP 打開！)");
                 console.error(err);
             }
         } else { 
