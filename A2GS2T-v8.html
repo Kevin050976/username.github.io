@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (跨日戰情版) v8</title>
+    <title>SNG 勤務終端 (v8.1 戰術對講版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -115,7 +115,6 @@
 
         <div class="tag-grid">
             <button class="tag-btn tag-live" onclick="toggleGroup2(this)">直播</button>
-            
             <button class="tag-btn tag-task" onclick="toggleGroup3(this)">側錄</button>
             <button class="tag-btn tag-task" onclick="toggleGroup3(this)">準連</button>
             <button class="tag-btn tag-task" onclick="toggleGroup3(this)">傳帶</button>
@@ -171,7 +170,7 @@
     // ==========================================
 
     // ==========================================
-    // 🌟 IndexedDB 語音重裝甲保險箱 (v8 新增)
+    // 🌟 IndexedDB 語音重裝甲保險箱
     // ==========================================
     const dbName = "sng_audio_db";
     let db;
@@ -228,12 +227,11 @@
     let selGroup4 = [];   
     let selGroup5 = null; 
     let tempEnd = null;
-
     let globalSyncLock = false; 
 
     function checkSyncLock() {
         if (globalSyncLock) {
-            alert('📡 雲端大腦正在處理上一筆指令，為避免重複發送，請稍候 3 秒...');
+            alert('📡 雲端大腦正在處理上一筆指令，請稍候...');
             return true;
         }
         return false;
@@ -306,9 +304,7 @@
     }
 
     function fetchCloudData() {
-        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) {
-            alert("請先設定好 GAS 網址！"); return;
-        }
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) { alert("請先設定好 GAS 網址！"); return; }
         document.getElementById('cloudModal').style.display = 'block';
         document.getElementById('cloudLoading').style.display = 'block';
         document.getElementById('cloudDataArea').innerHTML = '';
@@ -317,11 +313,8 @@
             .then(res => res.json())
             .then(data => {
                 document.getElementById('cloudLoading').style.display = 'none';
-                if(data.error) {
-                    document.getElementById('cloudDataArea').innerHTML = `<p style="color:red;">讀取失敗: ${data.error}</p>`; return;
-                }
-                const now = new Date();
-                now.setHours(0,0,0,0); 
+                if(data.error) { document.getElementById('cloudDataArea').innerHTML = `<p style="color:red;">讀取失敗: ${data.error}</p>`; return; }
+                const now = new Date(); now.setHours(0,0,0,0); 
                 const futureTasks = data.filter(item => {
                     const itemDate = new Date(item.timestamp);
                     return itemDate >= now && !item.status.includes('刪除') && !item.status.includes('取消');
@@ -332,8 +325,7 @@
                 let html = '';
                 futureTasks.forEach(item => {
                     let sc = item.status.includes('倒數中') ? '#28a745' : (item.status.includes('引爆') ? '#dc3545' : '#6c757d');
-                    html += `
-                    <div class="radar-item">
+                    html += `<div class="radar-item">
                         <span class="radar-time">${item.timestamp} <span class="radar-status" style="color:${sc};">${item.status}</span></span>
                         <div style="font-size:1.1em; font-weight:bold;">${item.task}</div>
                     </div>`;
@@ -381,43 +373,30 @@
     function toggleExactTime(input) {
         if(input.value) {
             document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
-            selGroup5 = null; 
-            tempEnd = new Date(input.value).getTime(); 
+            selGroup5 = null; tempEnd = new Date(input.value).getTime(); 
         } else { tempEnd = null; }
     }
-
     function toggleGroup2(btn) {
         const txt = btn.innerText;
         if (selGroup2 === txt) { selGroup2 = null; btn.classList.remove('selected'); } 
         else { selGroup2 = txt; document.querySelectorAll('.tag-live').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); }
     }
-
     function toggleGroup3(btn) {
         const txt = btn.innerText;
         if (selGroup3.includes(txt)) { selGroup3 = selGroup3.filter(t => t !== txt); btn.classList.remove('selected'); } 
         else { selGroup3.push(txt); btn.classList.add('selected'); }
     }
-
     function toggleGroup4(btn, sec, text) {
         if (selGroup4.some(a => a.text === text)) { selGroup4 = selGroup4.filter(a => a.text !== text); btn.classList.remove('selected'); } 
         else { selGroup4.push({ sec: sec, text: text }); btn.classList.add('selected'); }
     }
-
     function toggleGroup5(btn, sec) {
         const txt = btn.innerText;
         document.getElementById('exactTimeInput').value = ''; 
-        if (selGroup5 === txt) { 
-            selGroup5 = null; 
-            tempEnd = null; 
-            btn.classList.remove('selected'); 
-        } 
+        if (selGroup5 === txt) { selGroup5 = null; tempEnd = null; btn.classList.remove('selected'); } 
         else { 
-            selGroup5 = txt; 
-            const baseTime = getCreatedAt(logs[currentIdx]);
-            tempEnd = baseTime + (sec * 1000); 
-            
-            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected')); 
-            btn.classList.add('selected'); 
+            selGroup5 = txt; const baseTime = getCreatedAt(logs[currentIdx]); tempEnd = baseTime + (sec * 1000); 
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); 
         }
     }
 
@@ -426,25 +405,19 @@
         const logTags = logs[i].tags || [];
         selGroup2 = logTags.find(t => t === '直播') || null;
         selGroup3 = logTags.filter(t => ['側錄','準連','傳帶'].includes(t));
-        
         selGroup4 = [];
         logTags.filter(t => t.startsWith('-')).forEach(t => {
             let s = 0;
             if (t==='-1分') s=60; else if (t==='-2分') s=120; else if (t==='-3分') s=180; else if (t==='-4分') s=240; else if (t==='-5分') s=300; else if (t==='-10分') s=600;
             if (s>0) selGroup4.push({ sec: s, text: t });
         });
-        
         selGroup5 = logTags.find(t => !t.startsWith('-') && !t.includes(':') && !t.includes('/') && (t.includes('時') || t.includes('分'))) || null;
         
         tempEnd = logs[i].timerEnd;
-        if(tempEnd && !selGroup5) {
-            document.getElementById('exactTimeInput').value = formatForDatetimeInput(tempEnd);
-        } else {
-            document.getElementById('exactTimeInput').value = '';
-        }
+        if(tempEnd && !selGroup5) { document.getElementById('exactTimeInput').value = formatForDatetimeInput(tempEnd); } 
+        else { document.getElementById('exactTimeInput').value = ''; }
 
         const isExpired = tempEnd && tempEnd < Date.now();
-
         document.querySelectorAll('.tag-btn').forEach(btn => {
             const txt = btn.innerText;
             if (txt === '直播') { btn.classList.toggle('selected', txt === selGroup2); } 
@@ -457,7 +430,6 @@
 
     function applyTags() {
         if (checkSyncLock()) return;
-
         const wasTicking = !!logs[currentIdx].timerEnd;
         let timeTag = selGroup5;
         if (tempEnd && !selGroup5) { timeTag = getReadableTagText(tempEnd); }
@@ -506,22 +478,17 @@
     
     function updateTimerValue() {
         if (checkSyncLock()) return;
-
         const timeVal = document.getElementById('editExactTimeInput').value;
         if (timeVal) {
             const target = new Date(timeVal).getTime();
             logs[currentIdx].timerEnd = target;
-            
             const newTimeTag = getReadableTagText(target);
             
-            logs[currentIdx].tags = logs[currentIdx].tags.filter(t => 
-                t === '直播' || ['側錄','準連','傳帶'].includes(t) || t.startsWith('-')
-            );
+            logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t) || t.startsWith('-'));
             logs[currentIdx].tags.push(newTimeTag);
             
             updateDisplayTimer(logs[currentIdx]);
             saveLogs();
-
             setSyncLock();
 
             let baseDelay = target - Date.now();
@@ -545,43 +512,30 @@
     
     function stopTimer() { 
         if (checkSyncLock()) return;
-
         if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
-        logs[currentIdx].timerEnd = null; 
-        logs[currentIdx].displayTimer = null; 
+        logs[currentIdx].timerEnd = null; logs[currentIdx].displayTimer = null; 
         logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t));
         logs[currentIdx].advances = [];
-        saveLogs(); 
-        
-        setSyncLock();
-        
-        closeTimerModal(); 
+        saveLogs(); setSyncLock(); closeTimerModal(); 
     }
-    
     function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
     function addManualLog() {
         logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), createdAt: Date.now(), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, hasAudio: false });
         saveLogs();
-        setTimeout(() => {
-            const newIndex = logs.length - 1;
-            const inputField = document.getElementById(`edit-${newIndex}`);
-            if(inputField) inputField.focus();
-        }, 100);
+        setTimeout(() => { const inputField = document.getElementById(`edit-${logs.length - 1}`); if(inputField) inputField.focus(); }, 100);
     }
 
     function deleteSelectedLogs() {
         if (checkSyncLock()) return;
-
         const hasSelected = logs.some(l => l.checked);
         if (!hasSelected) { alert('請先勾選要刪除的紀錄！'); return; }
         if (confirm('確定要刪除勾選紀錄嗎？ (語音檔也會同步清除)')) { 
             setSyncLock();
-
             logs.forEach(l => {
                 if (l.checked) {
                     if (l.timerEnd) sendToGAS('delete_task', l.taskId);
-                    if (l.hasAudio) deleteAudioFromDB(l.taskId); // 🗑️ 同步刪除資料庫音檔
+                    if (l.hasAudio) deleteAudioFromDB(l.taskId); // 🗑️ 同步清除
                 }
             });
             logs = logs.filter(l => !l.checked); 
@@ -659,7 +613,6 @@
             document.getElementById('toggleBtn').classList.remove('active'); 
             document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
             
-            // 🛑 同步停止錄音與釋放麥克風
             if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
             if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
 
@@ -677,7 +630,7 @@
                 advances: [], 
                 checked: false, 
                 isEditing: false,
-                hasAudio: !!mediaRecorder // 標記此筆紀錄有實體音檔
+                hasAudio: !!mediaRecorder 
             });
             curTxt = ""; 
             pendingTaskId = null;
@@ -688,52 +641,60 @@
     document.getElementById('toggleBtn').onclick = async () => {
         if(!isRec) { 
             try {
-                // 🎙️ 取得麥克風權限並啟動 MediaRecorder
-                // ✅ 新的寫法 (16kHz, 單聲道, 32kbps, 開啟降噪)
-const audioConstraints = {
-    sampleRate: 16000,      // 限制採樣率為 16kHz
-    channelCount: 1,        // 強制單聲道 (省一半容量)
-    echoCancellation: true, // 啟用硬體回音消除
-    noiseSuppression: true  // 啟用硬體環境降噪
-};
-mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
-
-const recorderOptions = {
-    audioBitsPerSecond: 32000 // 限制錄音位元率為 32 kbps
-};
-// 嘗試套用設定 (加上 try-catch 防呆，因為部分老舊瀏覽器可能不支援指定 bitrate)
-try {
-    mediaRecorder = new MediaRecorder(mediaStream, recorderOptions);
-} catch (e) {
-    console.warn("瀏覽器不支援指定 32kbps，退回預設壓縮", e);
-    mediaRecorder = new MediaRecorder(mediaStream);
-}
-                audioChunks = [];
+                // 📻 戰術對講機音質優化 (16kHz / 單聲道 / 降噪)
+                const audioConstraints = {
+                    sampleRate: 16000,
+                    channelCount: 1,
+                    echoCancellation: true,
+                    noiseSuppression: true
+                };
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
                 
-                // 預先產生 ID 供雙軌系統綁定
+                const recorderOptions = { audioBitsPerSecond: 32000 };
+                try {
+                    mediaRecorder = new MediaRecorder(mediaStream, recorderOptions);
+                } catch (e) {
+                    console.warn("⚠️ 瀏覽器不支援指定 32kbps，退回預設壓縮", e);
+                    mediaRecorder = new MediaRecorder(mediaStream);
+                }
+
+                audioChunks = [];
                 pendingTaskId = generateTaskId(); 
+                let capturedTaskId = pendingTaskId; // 鎖定當下的 ID 供非同步使用
 
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                
                 mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks);
-                    saveAudioToDB(pendingTaskId, audioBlob); // 💾 存入 IndexedDB
+                    
+                    // 🍎 蘋果防霸凌機制：檢測 iOS 麥克風獨佔導致的 0 bytes 空檔案
+                    if (audioBlob.size === 0) {
+                        console.warn("⚠️ 麥克風被語音辨識獨佔，無法錄製音檔 (iOS 常見現象)");
+                        // 深入日誌，把剛剛產生那筆紀錄的 hasAudio 改成 false，收起播放鍵
+                        let targetLog = logs.find(l => l.taskId === capturedTaskId);
+                        if (targetLog) {
+                            targetLog.hasAudio = false;
+                            saveLogs(); 
+                        }
+                        return; 
+                    }
+                    
+                    saveAudioToDB(capturedTaskId, audioBlob); // 💾 成功則存入 IndexedDB
                 };
                 
                 mediaRecorder.start();
-                
-                // 啟動語音辨識
                 curTxt = ""; rec.start(); isRec = true; 
                 document.getElementById('toggleBtn').classList.add('active'); 
                 
                 const sec = parseInt(document.getElementById('recordTimerSelect').value);
                 if (sec > 0) { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; 
-                    timerObj = setTimeout(() => rec.stop(), sec); // rec.stop() 會連帶觸發 rec.onend 停止錄音
+                    timerObj = setTimeout(() => rec.stop(), sec); 
                 } else { 
                     document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; 
                 }
             } catch (err) {
-                alert("⚠️ 無法取得麥克風權限！請確認瀏覽器是否允許使用麥克風。");
+                alert("⚠️ 無法取得麥克風權限！(Android 請確認您正在使用 HTTPS 環境，或是在真正的 Chrome 裡打開！)");
                 console.error(err);
             }
         } else { 
