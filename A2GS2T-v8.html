@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v8.2 終極破冰版)</title>
+    <title>SNG 勤務終端 (v8.3 終極相容版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -192,25 +192,24 @@
         tx.objectStore("recordings").put(blob, id);
     }
 
-    // 🍎 v8.2 終極破冰：iOS 解鎖魔法
+    // 🍎 v8.3 修正版：回歸單純的非同步播放，讓 iOS 靠 MIME Type 自行解碼
     function playAudioFromDB(id, event) {
-        if (event) event.stopPropagation(); // 防止觸發勾選紀錄
+        if (event) event.stopPropagation(); 
         if (!db) { alert("資料庫尚未準備好！"); return; }
-        
-        // 核心魔法：在手指點擊的「同步」瞬間，立刻生出音響並空載，建立使用者互動上下文
-        const audio = new Audio();
-        audio.load();
         
         const tx = db.transaction("recordings", "readonly");
         const req = tx.objectStore("recordings").get(id);
         
         req.onsuccess = () => {
             if (req.result) {
-                // 資料撈到了，塞進剛剛解鎖的音響裡
-                audio.src = URL.createObjectURL(req.result);
+                // 產生網址並丟給 Audio 播放
+                const url = URL.createObjectURL(req.result);
+                const audio = new Audio(url);
+                
                 audio.play().catch(e => {
-                    console.error("播放失敗:", e);
-                    alert("播放失敗，請檢查手機靜音模式或重新整理網頁！");
+                    console.error("播放錯誤細節:", e);
+                    // 如果還是失敗，把錯誤訊息印出來，幫助我們釐清是格式問題還是權限問題
+                    alert(`播放失敗 (${e.name}): \n${e.message}\n請確認手機未處於靜音模式。`);
                 });
             } else {
                 alert("找不到音檔，可能已過期或被清除！");
@@ -649,22 +648,9 @@
     document.getElementById('toggleBtn').onclick = async () => {
         if(!isRec) { 
             try {
-                // 📻 戰術對講機音質優化
-                const audioConstraints = {
-                    sampleRate: 16000,
-                    channelCount: 1,
-                    echoCancellation: true,
-                    noiseSuppression: true
-                };
-                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
-                
-                const recorderOptions = { audioBitsPerSecond: 32000 };
-                try {
-                    mediaRecorder = new MediaRecorder(mediaStream, recorderOptions);
-                } catch (e) {
-                    console.warn("⚠️ 瀏覽器不支援指定 32kbps，退回預設壓縮", e);
-                    mediaRecorder = new MediaRecorder(mediaStream);
-                }
+                // 🍎 拿掉所有會讓 iOS 崩潰的自訂壓縮設定，回歸最單純的錄音請求
+                mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(mediaStream);
 
                 audioChunks = [];
                 pendingTaskId = generateTaskId(); 
@@ -673,9 +659,10 @@
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 
                 mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks);
+                    // 🔑 iOS 破冰關鍵：強制貼上檔案的 MIME Type 身分證！
+                    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+                    const audioBlob = new Blob(audioChunks, { type: mimeType });
                     
-                    // 🍎 蘋果防霸凌機制：檢測 iOS 麥克風獨佔導致的 0 bytes 空檔案
                     if (audioBlob.size === 0) {
                         console.warn("⚠️ 麥克風被語音辨識獨佔，無法錄製音檔");
                         let targetLog = logs.find(l => l.taskId === capturedTaskId);
