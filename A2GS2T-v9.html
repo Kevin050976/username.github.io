@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v9.0 擴音常駐版)</title>
+    <title>SNG 勤務終端 (v9.1 擴音5倍版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -633,10 +633,6 @@
     let isRec = false;
     let timerObj = null;
     let currentSession = null; 
-    
-    // 🌟 v9 新增全域變數：保持通道常駐，避免重複要權限
-    let globalAudioStream = null; 
-    let globalAmplifiedStream = null;
 
     document.getElementById('toggleBtn').onclick = async () => {
         if (!isRec) { 
@@ -645,6 +641,7 @@
             let session = {
                 recorder: null,
                 stream: null,
+                rawStream: null, // 🌟 儲存最原始的硬體麥克風，方便結束時切斷
                 rec: null,
                 chunks: [],
                 taskId: generateTaskId(),
@@ -653,43 +650,39 @@
             currentSession = session;
 
             try {
-                // 1. 🌟 v9 升級：啟動音訊硬體 (加入擴大機與常駐邏輯)
-                if (!globalAudioStream) {
-                    // 關閉系統自動壓抑音量機制
-                    globalAudioStream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: {
-                            autoGainControl: false,  
-                            noiseSuppression: false, 
-                            echoCancellation: false  
-                        } 
-                    });
+                // 1. 啟動音訊硬體，關閉系統壓抑機制
+                let rawAudioStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        autoGainControl: false,  
+                        noiseSuppression: false, 
+                        echoCancellation: false  
+                    } 
+                });
+                
+                // 將原始軌道存起來，錄完才能關掉橘燈
+                session.rawStream = rawAudioStream; 
 
-                    // 建立錄音專用的 Web Audio 引擎
-                    const AudioContext = window.AudioContext || window.webkitAudioContext;
-                    const recCtx = new AudioContext();
+                // 2. 建立擴大機引擎
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                const recCtx = new AudioContext();
 
-                    // 將原始聲音接入「擴大機」
-                    const micSource = recCtx.createMediaStreamSource(globalAudioStream);
-                    const gainNode = recCtx.createGain();
-                    
-                    // 音量放大 3 倍 (可依據實際情況調整為 4.0 或 5.0)
-                    gainNode.gain.value = 3.0; 
+                const micSource = recCtx.createMediaStreamSource(rawAudioStream);
+                const gainNode = recCtx.createGain();
+                
+                // 🌟 音量放大 5 倍
+                gainNode.gain.value = 5.0; 
 
-                    // 輸出放大後的聲音
-                    const destNode = recCtx.createMediaStreamDestination();
-                    micSource.connect(gainNode);
-                    gainNode.connect(destNode);
+                const destNode = recCtx.createMediaStreamDestination();
+                micSource.connect(gainNode);
+                gainNode.connect(destNode);
 
-                    globalAmplifiedStream = destNode.stream;
-                }
-
-                // 餵給錄音機的是「放大後」的音軌
-                session.stream = globalAmplifiedStream;
+                // 餵給錄音機的是放大後的軌道
+                session.stream = destNode.stream;
                 session.recorder = new MediaRecorder(session.stream);
 
                 session.recorder.ondataavailable = e => { if (e.data.size > 0) session.chunks.push(e.data); };
                 
-                // 2. 確實存檔
+                // 3. 確實存檔，並切斷所有電源
                 session.recorder.onstop = () => {
                     const mimeType = session.recorder.mimeType || 'audio/webm';
                     const audioBlob = new Blob(session.chunks, { type: mimeType });
@@ -702,13 +695,15 @@
                         saveAudioToDB(session.taskId, audioBlob); 
                     }
                     
-                    // 🌟 v9 升級：這裡原本有關閉軌道的指令被註解掉了，藉此讓麥克風保持常駐
-                    // session.stream.getTracks().forEach(track => track.stop());
+                    // 🌟 徹底關閉麥克風，熄滅橘燈
+                    if(session.rawStream) { session.rawStream.getTracks().forEach(track => track.stop()); }
+                    session.stream.getTracks().forEach(track => track.stop());
+                    if(recCtx && recCtx.state !== 'closed') { recCtx.close(); }
                 };
                 
                 session.recorder.start();
                 
-                // 3. 呼叫翻譯官
+                // 4. 呼叫翻譯官
                 if ('webkitSpeechRecognition' in window) {
                     session.rec = new webkitSpeechRecognition();
                     session.rec.continuous = true; 
@@ -733,9 +728,10 @@
                         
                         if (session.recorder && session.recorder.state !== 'inactive') {
                             session.recorder.stop();
-                        } else if (session.stream) {
-                            // 🌟 v9 升級：同樣註解掉關閉軌道的指令
-                            // session.stream.getTracks().forEach(t => t.stop());
+                        } else {
+                            // 預防錯誤發生時也要強行關閉軌道
+                            if(session.rawStream) { session.rawStream.getTracks().forEach(t => t.stop()); }
+                            if(session.stream) { session.stream.getTracks().forEach(t => t.stop()); }
                         }
 
                         if (session.curTxt.trim()) {
