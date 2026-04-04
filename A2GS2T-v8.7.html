@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SNG 勤務終端 (v9.1 擴音5倍版)</title>
+    <title>SNG 勤務終端 (v8.7 播放擴音穩定版)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
         .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
@@ -207,13 +207,14 @@
         tx.objectStore("recordings").put(blob, id);
     }
 
-    // 🍎 v8.6 全新殺手鐧：建立底層 Web Audio 引擎，繞過傳統播放器
+    // 🍎 建立底層 Web Audio 引擎，繞過傳統播放器
     let audioCtx = null;
 
     function playAudioFromDB(id, event) {
         if (event) event.stopPropagation(); 
         if (!db) { alert("資料庫尚未準備好！"); return; }
         
+        // 確保引擎啟動 (必須在使用者點擊的當下喚醒)
         if (!audioCtx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             audioCtx = new AudioContext();
@@ -227,14 +228,28 @@
         
         req.onsuccess = () => {
             if (req.result) {
+                // 將 Blob 讀取為 ArrayBuffer
                 const reader = new FileReader();
                 reader.onload = function() {
                     const arrayBuffer = reader.result;
+                    // 解碼音軌
                     audioCtx.decodeAudioData(arrayBuffer, function(buffer) {
                         const source = audioCtx.createBufferSource();
                         source.buffer = buffer;
-                        source.connect(audioCtx.destination);
-                        source.onended = () => { source.disconnect(); };
+                        
+                        // 🌟 v8.7 新增：在播放端加上擴大機
+                        const gainNode = audioCtx.createGain();
+                        gainNode.gain.value = 5.0; // 將播放音量硬體級放大 5 倍
+
+                        // 連接路線：音源 -> 擴大機 -> 系統喇叭輸出
+                        source.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
+
+                        // 播完自動斷開，絕不霸佔通道
+                        source.onended = () => { 
+                            source.disconnect(); 
+                            gainNode.disconnect();
+                        };
                         source.start(0);
                     }, function(e) {
                         console.error("解碼失敗:", e);
@@ -634,6 +649,7 @@
     let timerObj = null;
     let currentSession = null; 
 
+    // 🌟 錄音端維持最原始乾淨的寫法，確保不會干擾 iOS Safari 語音辨識
     document.getElementById('toggleBtn').onclick = async () => {
         if (!isRec) { 
             isRec = true; 
@@ -641,7 +657,6 @@
             let session = {
                 recorder: null,
                 stream: null,
-                rawStream: null, // 🌟 儲存最原始的硬體麥克風，方便結束時切斷
                 rec: null,
                 chunks: [],
                 taskId: generateTaskId(),
@@ -650,39 +665,13 @@
             currentSession = session;
 
             try {
-                // 1. 啟動音訊硬體，關閉系統壓抑機制
-                let rawAudioStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        autoGainControl: false,  
-                        noiseSuppression: false, 
-                        echoCancellation: false  
-                    } 
-                });
-                
-                // 將原始軌道存起來，錄完才能關掉橘燈
-                session.rawStream = rawAudioStream; 
-
-                // 2. 建立擴大機引擎
-                const AudioContext = window.AudioContext || window.webkitAudioContext;
-                const recCtx = new AudioContext();
-
-                const micSource = recCtx.createMediaStreamSource(rawAudioStream);
-                const gainNode = recCtx.createGain();
-                
-                // 🌟 音量放大 5 倍
-                gainNode.gain.value = 5.0; 
-
-                const destNode = recCtx.createMediaStreamDestination();
-                micSource.connect(gainNode);
-                gainNode.connect(destNode);
-
-                // 餵給錄音機的是放大後的軌道
-                session.stream = destNode.stream;
+                // 1. 啟動音訊硬體
+                session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 session.recorder = new MediaRecorder(session.stream);
 
                 session.recorder.ondataavailable = e => { if (e.data.size > 0) session.chunks.push(e.data); };
                 
-                // 3. 確實存檔，並切斷所有電源
+                // 2. 確實存檔
                 session.recorder.onstop = () => {
                     const mimeType = session.recorder.mimeType || 'audio/webm';
                     const audioBlob = new Blob(session.chunks, { type: mimeType });
@@ -695,15 +684,12 @@
                         saveAudioToDB(session.taskId, audioBlob); 
                     }
                     
-                    // 🌟 徹底關閉麥克風，熄滅橘燈
-                    if(session.rawStream) { session.rawStream.getTracks().forEach(track => track.stop()); }
                     session.stream.getTracks().forEach(track => track.stop());
-                    if(recCtx && recCtx.state !== 'closed') { recCtx.close(); }
                 };
                 
                 session.recorder.start();
                 
-                // 4. 呼叫翻譯官
+                // 3. 呼叫翻譯官
                 if ('webkitSpeechRecognition' in window) {
                     session.rec = new webkitSpeechRecognition();
                     session.rec.continuous = true; 
@@ -728,10 +714,8 @@
                         
                         if (session.recorder && session.recorder.state !== 'inactive') {
                             session.recorder.stop();
-                        } else {
-                            // 預防錯誤發生時也要強行關閉軌道
-                            if(session.rawStream) { session.rawStream.getTracks().forEach(t => t.stop()); }
-                            if(session.stream) { session.stream.getTracks().forEach(t => t.stop()); }
+                        } else if (session.stream) {
+                            session.stream.getTracks().forEach(t => t.stop());
                         }
 
                         if (session.curTxt.trim()) {
