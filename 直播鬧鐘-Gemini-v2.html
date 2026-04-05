@@ -725,7 +725,6 @@
             closeModal('ioModal');
         }
 
-        // --- ⭐ 強化版匯入功能 (防呆、防不可見字元、補齊 raw 資料) ---
         function processImport(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -736,51 +735,52 @@
             const reader = new FileReader();
 
             reader.onload = function(e) {
-                // 1. 清除檔案頭的 BOM 隱形字元
+                // 清除檔案可能夾帶的隱藏 BOM 字元，避免比對失敗
                 const text = e.target.result.replace(/^\uFEFF/, '');
-                
-                // 2. 支援所有作業系統的換行符號 (\r\n 或 \n)，避免行尾殘留 \r
-                const lines = text.split(/\r?\n/);
+                const lines = text.split('\n');
                 let count = 0;
 
                 lines.forEach(line => {
                     line = line.trim(); 
                     if (!line) return;
 
-                    // 遇到標籤直接跳過
+                    // 遇到標籤直接跳過換下一行 (系統現在會自動判斷，不需要依賴標籤)
                     if (line.includes("[固定鬧鐘]") || line.includes("[日期鬧鐘]")) return;
 
-                    // 3. 放寬正則表達式，加強對空白鍵的容錯處理
-                    const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})(?:\s+(.*))?$/);
-                    const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})(?:\s+(.*))?$/);
+                    // 正規表達式：有日期的格式 (例如: 03/18 標題 18:00 開始)
+                    const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
+                    // 正規表達式：無日期的格式 (例如: 標題 18:00 開始)
+                    const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
 
+                    // 優先判斷是否為「有日期」的格式
                     if (matchDate) {
                         if (!importDate) return; 
                         let dStr = matchDate[1];
                         const dateParts = dStr.split('/');
                         dStr = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
                         
-                        // if (getDateVal(dStr) < todayVal) return; // 移除日期阻擋，確保都能匯入
+                        if (getDateVal(dStr) < todayVal) return; // 過去的日期直接阻擋
 
                         const title = matchDate[2].trim();
                         let time = normalizeTime(matchDate[3]);
-                        let suffix = (matchDate[4] || "").trim() || "開始";
+                        let suffix = matchDate[4] || "開始";
 
+                        // 防呆：避免重複匯入 (加入 suffix 判斷)
                         if (!alarms.some(a => a.date === dStr && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            // 4. 加入 raw: encodeURIComponent(line) 確保有原始資訊
-                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, raw: encodeURIComponent(line), checked: true, id: generateId(), suffix: suffix, hasExplicitDate: true });
+                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: true });
                             count++;
                         }
                     } 
+                    // 若沒有日期，則進入「無日期」判斷邏輯
                     else if (matchFixed) {
                         if (!importFixed) return; 
                         const title = matchFixed[1].trim();
                         let time = normalizeTime(matchFixed[2]);
-                        let suffix = (matchFixed[3] || "").trim() || "開始";
+                        let suffix = matchFixed[3] || "開始";
 
+                        // 無日期就是強制匯入成「今天」
                         if (!alarms.some(a => a.date === today && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            // 4. 加入 raw: encodeURIComponent(line) 確保有原始資訊
-                            alarms.push({ date: today, title, origTime: time, alarmTime: time, raw: encodeURIComponent(line), checked: true, id: generateId(), suffix: suffix, hasExplicitDate: false });
+                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: false });
                             count++;
                         }
                     }
@@ -790,8 +790,6 @@
                 renderAlarms(); 
                 closeModal('ioModal');
             };
-            
-            // 提醒：若在 Windows 記事本編輯，存檔時編碼請選擇「UTF-8」，避免中文字變亂碼
             reader.readAsText(file);
             event.target.value = ''; // 清空 input，確保下次選同一個檔案也能觸發
         }
