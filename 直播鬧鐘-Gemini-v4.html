@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 直播鬧鐘擷取工具 (SNG 戰情終極版 v4)</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; }
+        
+        .system-control { background-color: #fff3cd; border: 2px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .btn-master { background-color: #e67e22; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; margin-bottom: 8px; }
+        .btn-master.active { background-color: #27ae60; }
+        .btn-test-sound { background-color: #34495e; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .system-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
+        .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
+        .btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        
+        .tool-btns { display: flex; gap: 5px; }
+        .btn-tool { background-color: #7f8c8d; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        
+        textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        
+        .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
+        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+        .btn-io { background-color: #9b59b6; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+        .btn-danger { background-color: #e74c3c; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+
+        .date-header { background-color: #2c3e50; color: white; padding: 4px 12px; border-radius: 6px; margin-top: 15px; margin-bottom: 8px; font-size: 14px; font-weight: bold; display: inline-block; }
+
+        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); gap: 10px; }
+        .alarm-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+        .title-wrapper { display: flex; align-items: center; gap: 4px; width: 100%; }
+        .alarm-title { font-size: 15px; font-weight: bold; color: #2c3e50; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; flex: 1; }
+
+        .time-control { display: flex; align-items: center; gap: 4px; }
+        .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; text-align: center; }
+        .btn-edit-trigger { background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px; opacity: 0.8; }
+        
+        .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        
+        /* 倒數計時器樣式 (v4 優化) */
+        .nearest-timer { font-size: 20px; font-weight: 900; width: 105px; text-align: right; line-height: 1.1; flex-shrink: 0; white-space: pre-line; }
+        .timer-red { color: #e74c3c; } /* 倒數中 */
+        .timer-green { color: #27ae60; font-size: 18px; } /* 已開播 */
+        .timer-ended { color: #7f8c8d; font-size: 17px; } /* 已結束/凍結 */
+
+        .switch { position: relative; display: inline-block; width: 22px; height: 40px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #06C755; }
+        input:checked + .slider:before { transform: translateY(-18px); }
+
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; }
+        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #ddd; font-size: 18px; margin-bottom: 20px; text-align: center; width: 100%; box-sizing: border-box; }
+        .raw-data-text { font-size: 15px; color: #333; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; text-align: left; margin-bottom: 20px; word-break: break-all; }
+        .btn-modal { padding: 12px; border-radius: 8px; border: none; font-weight: bold; flex: 1; cursor: pointer; }
+        .btn-confirm { background: #3498db; color: white; }
+        .btn-cancel { background: #eee; color: #666; }
+    </style>
+</head>
+<body onclick="ensureAudioInit()">
+
+    <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+
+    <h2>直播鬧鐘設定 v4 ⏰</h2>
+    
+    <div class="system-control">
+        <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
+            1. 點擊啟動防熄屏與背景鬧鐘
+        </button><br>
+        <button class="btn-test-sound" onclick="testSound()">🎵 測試鈴聲</button>
+        <p class="system-hint">💡 跨日後，昨日鬧鐘會自動刪除。</p>
+    </div>
+    
+    <div class="input-group">
+        <div class="toolbar">
+            <div class="early-box">提早 <button class="btn-early" onclick="adjustEarly(-1)">-</button> <span class="early-val" id="earlyMinsText">0</span> 分 <button class="btn-early" onclick="adjustEarly(1)">+</button></div>
+            <div class="tool-btns">
+                <button class="btn-tool" onclick="pasteFromClipboard()">📋 貼上</button>
+                <button class="btn-tool" onclick="wrapBrackets()">➕ 加【 】</button>
+            </div>
+        </div>
+        <textarea id="inputText" placeholder="2. 請在此貼上內容..."></textarea>
+        <div class="button-group-row">
+            <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
+            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間+組別排序</button>
+        </div>
+        <div class="button-group-row">
+            <button class="btn-io" onclick="showIOModal('import')">📥 匯入</button>
+            <button class="btn-io" onclick="showIOModal('export')">📤 匯出</button>
+            <button class="btn-danger" onclick="confirmDeleteAll()">🗑️ 全部刪除</button>
+        </div>
+    </div>
+
+    <div id="alarmListContainer"></div>
+
+    <div id="ioModal" class="modal-overlay"><div class="modal-content"><h3 id="ioModalTitle">匯出選項</h3><div class="option-group"><label class="option-item"><input type="checkbox" id="optFixed" checked> 固定鬧鐘</label><label class="option-item"><input type="checkbox" id="optDate" checked> 日期鬧鐘</label></div><input type="file" id="importFileInput" style="display:none" onchange="processImport(event)" accept=".txt"><div class="modal-buttons"><button class="btn-modal btn-cancel" onclick="closeModal('ioModal')">取消</button><button class="btn-modal btn-confirm" id="ioConfirmBtn">執行</button></div></div></div>
+    <div id="infoModal" class="modal-overlay"><div class="modal-content"><h3>📄 完整資訊</h3><div style="background:#fff3cd;padding:10px;border-radius:8px;margin-bottom:10px;">結束時間 <input type="time" id="endAlarmTimeInput"> <button onclick="createEndAlarm()">新增</button></div><div class="raw-data-text" id="infoModalText"></div><button class="btn-modal btn-confirm" onclick="closeModal('infoModal')">關閉</button></div></div>
+    <div id="promptModal" class="modal-overlay"><div class="modal-content"><h3 id="promptTitle">修改</h3><input type="text" id="promptInput" class="modal-input"><div class="modal-buttons"><button class="btn-modal btn-cancel" onclick="closeModal('promptModal')">取消</button><button class="btn-modal btn-confirm" id="promptConfirmBtn">確定</button></div></div></div>
+    <div id="msgModal" class="modal-overlay"><div class="modal-content"><h3>提示</h3><div id="msgModalContent" style="margin-bottom:20px;"></div><button class="btn-modal btn-confirm" onclick="closeModal('msgModal')">我知道了</button></div></div>
+    <div id="confirmAllModal" class="modal-overlay"><div class="modal-content"><h3 style="color:#e74c3c;">⚠️ 全部刪除？</h3><div class="modal-buttons"><button class="btn-modal btn-cancel" onclick="closeModal('confirmAllModal')">取消</button><button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeDeleteAll()">確定</button></div></div></div>
+    <div id="confirmSingleModal" class="modal-overlay"><div class="modal-content"><h3 style="color:#e74c3c;">⚠️ 刪除鬧鐘</h3><p id="deleteSingleMsg"></p><div class="modal-buttons"><button class="btn-modal btn-cancel" onclick="closeModal('confirmSingleModal')">取消</button><button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeDeleteSingle()">確定</button></div></div></div>
+    <div id="alarmModal" class="modal-overlay"><div class="modal-content"><h3 style="color:#e74c3c;">⏰ 鬧鐘響了！</h3><div id="alarmModalText" style="margin-bottom:20px;"></div><button class="btn-modal" style="background:#e74c3c;color:white;" onclick="stopAlarm()">關閉鬧鐘</button></div></div>
+
+    <script>
+        // Version: v4
+        let audioCtx, wakeLock = null, alarmInterval;
+        let isSystemActive = false, alarms = [], sortMode = 0, currentEditingId = null, singleDeleteId = null, idCounter = 0, lastCheckedDateMD = null;
+        const sortLabels = ["依時間+組別排序", "依時間排序"];
+
+        window.onload = function() {
+            const savedAlarms = localStorage.getItem('lineAlarmsData_v5');
+            if (savedAlarms) alarms = JSON.parse(savedAlarms);
+            const savedSort = localStorage.getItem('lineAlarmsSortMode_v5');
+            if (savedSort !== null) sortMode = parseInt(savedSort);
+            lastCheckedDateMD = getTodayMD();
+            checkAndHandleDayCrossing();
+            renderAlarms();
+        };
+
+        function save() { localStorage.setItem('lineAlarmsData_v5', JSON.stringify(alarms)); localStorage.setItem('lineAlarmsSortMode_v5', sortMode); }
+        function getTodayMD() { const d = new Date(); return `${d.getMonth() + 1}/${d.getDate()}`; }
+        function getDateVal(dStr) { const [m, d] = dStr.split('/').map(Number); return m * 100 + d; }
+        function generateId() { idCounter++; return "ID_" + Date.now() + "_" + idCounter; }
+        function ensureAudioInit() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+        function checkAndHandleDayCrossing() {
+            const todayMD = getTodayMD();
+            if (lastCheckedDateMD === todayMD) return false;
+            const todayVal = getDateVal(todayMD);
+            let changed = false;
+            alarms = alarms.filter(a => !a.hasExplicitDate || getDateVal(a.date) >= todayVal);
+            alarms.forEach(a => { if (!a.hasExplicitDate && a.date !== todayMD) { a.date = todayMD; a.rang = false; changed = true; } });
+            lastCheckedDateMD = todayMD;
+            if (changed) { renderAlarms(); save(); }
+            return changed;
+        }
+
+        function renderAlarms() {
+            applySort();
+            const container = document.getElementById('alarmListContainer');
+            container.innerHTML = '';
+            let lastDate = "";
+
+            alarms.forEach((a) => {
+                if (a.date !== lastDate) {
+                    const header = document.createElement('div');
+                    header.className = "date-header";
+                    header.innerText = a.date;
+                    container.appendChild(header);
+                    lastDate = a.date;
+                }
+
+                const li = document.createElement('li');
+                li.className = 'alarm-item';
+                li.style.backgroundColor = getBgColor(a.title);
+                li.innerHTML = `
+                    <div class="alarm-info">
+                        <div class="title-wrapper">
+                            <button class="btn-edit-trigger" onclick="openNameEditPrompt('${a.id}')">✏️</button>
+                            <span class="alarm-title" onclick="showInfoModal('${a.id}')">${a.title} ${a.origTime} ${a.suffix}</span>
+                        </div>
+                        <div class="time-control">
+                            <button class="btn-edit-trigger" onclick="openTimeEditPrompt('${a.id}')">✏️</button>
+                            <button onclick="adjustItemTime('${a.id}', -1)">-</button>
+                            <span class="time-text">${a.alarmTime}</span>
+                            <button onclick="adjustItemTime('${a.id}', 1)">+</button>
+                        </div>
+                    </div>
+                    <div class="alarm-controls">
+                        <div class="nearest-timer" id="timer-${a.id}"></div>
+                        <label class="switch"><input type="checkbox" ${a.checked ? 'checked' : ''} onchange="toggleAlarm('${a.id}')"><span class="slider"></span></label>
+                        <button style="background:none;border:none;color:#7f8c8d;cursor:pointer;" onclick="requestDeleteSingle('${a.id}')">🗑️</button>
+                    </div>
+                `;
+                container.appendChild(li);
+            });
+            save();
+        }
+
+        // 核心計時邏輯 (v4 終極優化)
+        setInterval(() => {
+            localStorage.setItem('sng_alarm_heartbeat', Date.now());
+            checkAndHandleDayCrossing();
+            const now = new Date();
+            const nowMD = getTodayMD();
+            let ringing = [];
+
+            alarms.forEach(a => {
+                const timerEl = document.getElementById(`timer-${a.id}`);
+                if (!timerEl) return;
+                
+                const [ah, am] = a.alarmTime.split(':').map(Number);
+                const [amth, ady] = a.date.split('/').map(Number);
+                let alarmTarget = new Date(now.getFullYear(), amth - 1, ady, ah, am, 0);
+                
+                if (alarmTarget < now && !a.hasExplicitDate) alarmTarget.setDate(alarmTarget.getDate() + 1);
+
+                // --- 檢查是否已達結束時間 ---
+                let isEnded = false;
+                let endTarget = null;
+                
+                if (a.suffix === "開始") {
+                    const endAlarm = alarms.find(x => x.title === a.title && x.date === a.date && x.suffix === "結束");
+                    if (endAlarm) {
+                        const [eh, em] = endAlarm.alarmTime.split(':').map(Number);
+                        endTarget = new Date(now.getFullYear(), amth - 1, ady, eh, em, 0);
+                        if (endTarget <= alarmTarget) endTarget.setDate(endTarget.getDate() + 1); // 跨日防呆
+                        if (now >= endTarget) isEnded = true;
+                    }
+                } else if (a.suffix === "結束") {
+                    if (now >= alarmTarget) isEnded = true;
+                }
+
+                // --- 開關控制邏輯 ---
+                // 如果開關是關的，且還沒「結束」，那就隱藏不計時
+                if (!a.checked && !isEnded) { 
+                    timerEl.innerText = ''; 
+                    return; 
+                }
+
+                // --- 響鈴邏輯 ---
+                if (a.checked && a.date === nowMD && ah === now.getHours() && am === now.getMinutes() && !a.rang) {
+                    ringing.push(`${a.title} ${a.suffix}`); a.rang = true;
+                } else if (now.getMinutes() !== am) { a.rang = false; }
+
+                // --- 狀態顯示邏輯 ---
+                const diffSec = Math.floor((alarmTarget - now) / 1000);
+
+                if (diffSec > 0) {
+                    // 尚未開始：紅色倒數
+                    const h = Math.floor(diffSec / 3600), m = Math.floor((diffSec % 3600) / 60), s = diffSec % 60;
+                    timerEl.innerText = h > 0 ? `${h}時\n${m}分` : (m > 0 ? `${m}分\n${s}秒` : `${s}秒`);
+                    timerEl.className = "nearest-timer timer-red";
+                } else {
+                    // 時間到了
+                    if (a.suffix === "開始") {
+                        if (isEnded) {
+                            // 已經結束：凍結最終已播時間，並顯示為灰色（無視開關狀態）
+                            const elapsed = Math.floor((endTarget - alarmTarget) / 1000);
+                            const emins = Math.floor(elapsed / 60), esecs = elapsed % 60;
+                            timerEl.innerText = `已結束\n${String(emins).padStart(2, '0')}:${String(esecs).padStart(2, '0')}`;
+                            timerEl.className = "nearest-timer timer-ended";
+                        } else {
+                            // 播送中：綠色無限正計時
+                            const elapsed = Math.floor((now - alarmTarget) / 1000);
+                            const emins = Math.floor(elapsed / 60), esecs = elapsed % 60;
+                            timerEl.innerText = `已播\n${String(emins).padStart(2, '0')}:${String(esecs).padStart(2, '0')}`;
+                            timerEl.className = "nearest-timer timer-green";
+                        }
+                    } else if (a.suffix === "結束") {
+                        if (isEnded) {
+                            timerEl.innerText = "已結束";
+                            timerEl.className = "nearest-timer timer-ended";
+                        } else {
+                            timerEl.innerText = '';
+                        }
+                    } else {
+                         // 其他自訂狀態，預設給予無限綠色正計時
+                         const elapsed = Math.floor((now - alarmTarget) / 1000);
+                         const emins = Math.floor(elapsed / 60), esecs = elapsed % 60;
+                         timerEl.innerText = `已播\n${String(emins).padStart(2, '0')}:${String(esecs).padStart(2, '0')}`;
+                         timerEl.className = "nearest-timer timer-green";
+                    }
+                }
+            });
+
+            if (ringing.length > 0) {
+                document.getElementById('alarmModalText').innerHTML = "🔔 鬧鐘提醒：<br><b>" + ringing.join("</b><br><b>") + "</b>";
+                document.getElementById('alarmModal').style.display = 'flex';
+                if (!alarmInterval) { playBeep(); alarmInterval = setInterval(playBeep, 1000); }
+            }
+        }, 1000);
+
+        // 其餘工具函數 (略，維持原樣)
+        function toggleSystem() { /* ... 同原版 ... */ isSystemActive = !isSystemActive; document.getElementById('masterBtn').classList.toggle('active'); }
+        function testSound() { ensureAudioInit(); playBeep(); }
+        function playBeep() { const osc = audioCtx.createOscillator(), g = audioCtx.createGain(); osc.connect(g); g.connect(audioCtx.destination); osc.frequency.value = 800; g.gain.value = 0.3; osc.start(); setTimeout(() => osc.stop(), 250); }
+        function stopAlarm() { document.getElementById('alarmModal').style.display = 'none'; clearInterval(alarmInterval); alarmInterval = null; }
+        function adjustEarly(d) { const el = document.getElementById('earlyMinsText'); el.innerText = Math.max(0, parseInt(el.innerText) + d); }
+        function normalizeTime(t) { let time = t.trim(); if (!time.includes(':') && !time.includes('：')) { if (time.length === 3) time = "0" + time; if (time.length === 4) time = time.substring(0, 2) + ":" + time.substring(2); } else { time = time.replace('：', ':'); const ps = time.split(':'); time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0'); } return time; }
+        function parseAndAdd() { 
+            ensureAudioInit(); const text = document.getElementById('inputText').value; if (!text.trim()) return;
+            const regex = /(?:(\d{1,2}\/\d{1,2}|\d{4})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
+            const match = text.match(regex);
+            if (match) {
+                let date = match[1] ? (match[1].includes('/') ? match[1] : `${parseInt(match[1].substring(0,2))}/${parseInt(match[1].substring(2,4))}`) : getTodayMD();
+                const title = match[2].trim(), origTime = normalizeTime(match[3]);
+                let [h, m] = origTime.split(':').map(Number);
+                m -= parseInt(document.getElementById('earlyMinsText').innerText);
+                while (m < 0) { m += 60; h -= 1; } h = (h + 24) % 24;
+                const alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                alarms.push({ date, title, origTime, alarmTime, raw: encodeURIComponent(text), suffix: "開始", checked: true, id: generateId(), hasExplicitDate: !!match[1] });
+                document.getElementById('inputText').value = ''; renderAlarms();
+            } else { showMessage("格式辨識失敗！"); }
+        }
+        function toggleAlarm(id) { const a = alarms.find(x => x.id === id); if (a) a.checked = !a.checked; save(); }
+        function toggleSortMode() { sortMode = (sortMode + 1) % 2; document.getElementById('sortBtn').innerText = sortLabels[sortMode]; renderAlarms(); }
+        function applySort() { const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); }; alarms.sort((a, b) => getDateVal(a.date) - getDateVal(b.date) || getMins(a.alarmTime) - getMins(b.alarmTime)); }
+        function getBgColor(name) { const colors = ['#f8c291', '#82ccdd', '#b8e994', '#f6b93b', '#78e08f', '#60a3bc']; let hash = 0; for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash); return colors[Math.abs(hash) % colors.length]; }
+        function showMessage(msg) { document.getElementById('msgModalContent').innerText = msg; document.getElementById('msgModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function adjustItemTime(id, d) { const a = alarms.find(x => x.id === id); let [h, m] = a.alarmTime.split(':').map(Number); m += d; if (m >= 60) { m = 0; h = (h + 1) % 24; } else if (m < 0) { m = 59; h = (h - 1 + 24) % 24; } a.alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`; renderAlarms(); }
+        function processImport(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader(); reader.onload = function(e) {
+                const text = e.target.result.replace(/^\uFEFF/, ''), lines = text.split('\n'), today = getTodayMD();
+                lines.forEach(line => {
+                    const match = line.match(/^(?:(\d{1,2}\/\d{1,2})\s+)?(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
+                    if (match) {
+                        let d = match[1] || today, t = match[2].trim(), time = normalizeTime(match[3]), s = match[4] || "開始";
+                        if (!alarms.some(a => a.date === d && a.title === t && a.alarmTime === time && a.suffix === s))
+                            alarms.push({ date: d, title: t, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: s, hasExplicitDate: !!match[1] });
+                    }
+                });
+                renderAlarms(); closeModal('ioModal');
+            }; reader.readAsText(file);
+        }
+        function createEndAlarm() {
+            const time = document.getElementById('endAlarmTimeInput').value; if (!time || !currentEditingId) return;
+            const base = alarms.find(x => x.id === currentEditingId);
+            alarms.push({ date: base.date, title: base.title, origTime: time, alarmTime: time, raw: base.raw, suffix: "結束", checked: true, id: generateId(), hasExplicitDate: base.hasExplicitDate });
+            renderAlarms(); closeModal('infoModal');
+        }
+        function executeExport() {
+            let list = alarms.map(a => `${a.hasExplicitDate ? a.date + ' ' : ''}${a.title} ${a.origTime} ${a.suffix}`);
+            const blob = new Blob([list.join('\n')], { type: 'text/plain' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `SNG鬧鐘備份.txt`; a.click();
+        }
+        function showIOModal(type) { document.getElementById('ioModal').style.display = 'flex'; document.getElementById('ioConfirmBtn').onclick = type === 'export' ? executeExport : () => document.getElementById('importFileInput').click(); }
+        function showInfoModal(id) { currentEditingId = id; const a = alarms.find(x => x.id === id); document.getElementById('infoModalText').innerText = decodeURIComponent(a.raw); document.getElementById('infoModal').
