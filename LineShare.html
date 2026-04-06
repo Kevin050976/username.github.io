@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SNG AKIRA - 訊號回報</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --primary-color: #4da8da;
+            --border-color: #333;
+            --btn-bg: #2c2c2c;
+            --btn-active: #4da8da;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: var(--container-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        h2 {
+            text-align: center;
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        input[type="text"], input[type="tel"] {
+            width: 100%;
+            padding: 12px;
+            background-color: #000;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+        /* 按鈕群組設計 (Radio 變身按鈕) */
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .btn-group label {
+            background-color: var(--btn-bg);
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 0;
+            font-size: 15px;
+            font-weight: normal;
+            border: 1px solid transparent;
+            transition: 0.2s;
+            user-select: none;
+        }
+        .btn-group input[type="radio"] {
+            display: none;
+        }
+        .btn-group input[type="radio"]:checked + label {
+            background-color: var(--btn-active);
+            color: #000;
+            font-weight: bold;
+        }
+        /* 特別的按鈕列 */
+        .flex-row {
+            display: flex;
+            gap: 10px;
+        }
+        .flex-row input {
+            flex: 1;
+        }
+        .action-btn {
+            background-color: #444;
+            color: #fff;
+            border: none;
+            padding: 0 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        .submit-btn {
+            width: 100%;
+            padding: 15px;
+            background-color: #00c300; /* LINE Green */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        #custom-route-container {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📡 SNG AKIRA</h2>
+    
+    <div class="form-group">
+        <label>SLUG：</label>
+        <input type="text" id="slug" placeholder="例如：0407富邦應援">
+    </div>
+
+    <div class="form-group">
+        <label>攝影：</label>
+        <input type="text" id="cameraman" onchange="saveLocal()" placeholder="請輸入姓名">
+    </div>
+
+    <div class="form-group">
+        <label>電話：</label>
+        <input type="tel" id="phone" onchange="saveLocal()" placeholder="請輸入電話">
+    </div>
+
+    <div class="form-group">
+        <label>路數：</label>
+        <div class="btn-group" id="route-group">
+            <input type="radio" id="r31" name="route" value="31路"><label for="r31">31路</label>
+            <input type="radio" id="r32" name="route" value="32路"><label for="r32">32路</label>
+            <input type="radio" id="r33" name="route" value="33路"><label for="r33">33路</label>
+            <input type="radio" id="r71" name="route" value="71路"><label for="r71">71路</label>
+            <input type="radio" id="r72" name="route" value="72路"><label for="r72">72路</label>
+            <input type="radio" id="r73" name="route" value="73路"><label for="r73">73路</label>
+            <input type="radio" id="r74" name="route" value="74路"><label for="r74">74路</label>
+            <input type="radio" id="r75" name="route" value="75路"><label for="r75">75路</label>
+            <input type="radio" id="r76" name="route" value="76路"><label for="r76">76路</label>
+            <input type="radio" id="r77" name="route" value="77路"><label for="r77">77路</label>
+            <input type="radio" id="rcustom" name="route" value="自訂" onclick="toggleCustomRoute()"><label for="rcustom">自訂</label>
+        </div>
+        <div id="custom-route-container">
+            <input type="text" id="custom-route-input" placeholder="請輸入自訂路數">
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>1軌音：</label>
+        <div class="btn-group">
+            <input type="radio" id="a1_wire" name="audio1" value="有線麥" checked><label for="a1_wire">有線麥</label>
+            <input type="radio" id="a1_live" name="audio1" value="現場音"><label for="a1_live">現場音</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>2軌音：</label>
+        <div class="btn-group">
+            <input type="radio" id="a2_wire" name="audio2" value="有線麥"><label for="a2_wire">有線麥</label>
+            <input type="radio" id="a2_live" name="audio2" value="現場音" checked><label for="a2_live">現場音</label>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>側錄檔名：</label>
+        <div class="flex-row">
+            <input type="text" id="record_name" placeholder="請輸入檔名">
+            <button class="action-btn" onclick="copySlug()">同上(複製SLUG)</button>
+        </div>
+    </div>
+
+    <button class="submit-btn" onclick="sendToLine()">傳送至 LINE</button>
+</div>
+
+<script>
+    // 網頁載入時執行
+    window.onload = function() {
+        // 1. 自動產生今天日期 (例如 0407) 並填入 SLUG
+        const today = new Date();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        document.getElementById('slug').value = month + day;
+        
+        // 2. 從 LocalStorage 載入上次紀錄的姓名與電話
+        if(localStorage.getItem('akira_cameraman')) {
+            document.getElementById('cameraman').value = localStorage.getItem('akira_cameraman');
+        }
+        if(localStorage.getItem('akira_phone')) {
+            document.getElementById('phone').value = localStorage.getItem('akira_phone');
+        }
+
+        // 監聽路數按鈕，如果不是選自訂，就隱藏自訂輸入框
+        const routeRadios = document.querySelectorAll('input[name="route"]');
+        routeRadios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                if(this.value !== '自訂') {
+                    document.getElementById('custom-route-container').style.display = 'none';
+                }
+            });
+        });
+    };
+
+    // 儲存姓名電話到 LocalStorage (當欄位內容改變時觸發)
+    function saveLocal() {
+        localStorage.setItem('akira_cameraman', document.getElementById('cameraman').value);
+        localStorage.setItem('akira_phone', document.getElementById('phone').value);
+    }
+
+    // 顯示自訂路數輸入框
+    function toggleCustomRoute() {
+        document.getElementById('custom-route-container').style.display = 'block';
+        document.getElementById('custom-route-input').focus();
+    }
+
+    // 複製 SLUG 內容到側錄檔名
+    function copySlug() {
+        document.getElementById('record_name').value = document.getElementById('slug').value;
+    }
+
+    // 組合文字並傳送至 LINE
+    function sendToLine() {
+        const slug = document.getElementById('slug').value || '';
+        const cameraman = document.getElementById('cameraman').value || '';
+        const phone = document.getElementById('phone').value || '';
+        
+        // 取得路數
+        let route = '';
+        const selectedRoute = document.querySelector('input[name="route"]:checked');
+        if (selectedRoute) {
+            route = selectedRoute.value === '自訂' ? document.getElementById('custom-route-input').value : selectedRoute.value;
+        }
+
+        // 取得音軌
+        const audio1 = document.querySelector('input[name="audio1"]:checked') ? document.querySelector('input[name="audio1"]:checked').value : '';
+        const audio2 = document.querySelector('input[name="audio2"]:checked') ? document.querySelector('input[name="audio2"]:checked').value : '';
+        
+        const recordName = document.getElementById('record_name').value || '';
+
+        // 防呆：檢查重要欄位是否有填
+        if(!slug || !route) {
+            alert("請至少填寫 SLUG 和 路數！");
+            return;
+        }
+
+        // 依照規定格式組合文字 (\n 代表換行)
+        const message = `SLUG：${slug}\n攝影：${cameraman}\n電話：${phone}\n路數：${route}\n1軌音：${audio1}\n2軌音：${audio2}\n側錄檔名：${recordName}`;
+
+        // 使用 LINE URI Scheme 喚醒 LINE App
+        const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
+        window.location.href = lineUrl;
+    }
+</script>
+
+</body>
+</html>
