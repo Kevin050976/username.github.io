@@ -3,930 +3,773 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (SNG 戰情終極版)</title>
+    <title>SNG 勤務終端 (v8.7 播放擴音穩定版)</title>
     <style>
-        /* 網頁基本排版與顏色 */
-        body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
-        h2 { text-align: center; color: #333; margin-bottom: 10px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 10px; background-color: #f4f4f9; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 200px; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); }
+        .modal-content { background: white; margin: 8% auto; padding: 15px; width: 90%; max-width: 450px; border-radius: 15px; text-align: center; max-height: 80vh; overflow-y: auto; }
+        button { border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background: #007bff; color: white; padding: 8px 10px; }
+        .btn-success { background: #28a745; color: white; padding: 12px; }
+        .btn-danger { background: #dc3545; color: white; padding: 12px; }
+        .btn-secondary { background: #6c757d; color: white; padding: 8px 10px; }
+        .btn-purple { background: #6f42c1; color: white; padding: 8px 10px; }
         
-        /* 系統控制區 */
-        .system-control { background-color: #fff3cd; border: 2px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
-        .btn-master { background-color: #e67e22; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; margin-bottom: 8px; }
-        .btn-master.active { background-color: #27ae60; }
-        .btn-test-sound { background-color: #34495e; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
-        .system-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
-
-        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
-        .toolbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
-        .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
-        .btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        .tag-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 15px; }
+        .tag-btn { padding: 8px 2px; font-size: 0.95em; border: 2px solid transparent; border-radius: 6px; font-weight: bold; word-break: keep-all; }
+        .confirm-btn { padding: 16px; font-size: 1.3em; width: 100%; box-sizing: border-box; margin-top: 10px; }
         
-        .tool-btns { display: flex; gap: 5px; }
-        .btn-tool { background-color: #7f8c8d; color: white; border: none; padding: 6px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .tag-live { background: #28a745; color: white; } 
+        .tag-task { background: #17a2b8; color: white; } 
+        .tag-advance { background: #6f42c1; color: white; } 
+        .tag-time { background: #fd7e14; color: white; } 
+        .tag-btn.selected { border-color: #212529; box-shadow: inset 0 0 8px rgba(0,0,0,0.5); transform: scale(0.94); }
+        .tag-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; border-color: transparent; }
         
-        textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        .bottom-controls { position: fixed; bottom: 0; left: 0; right: 0; background: #212529; z-index: 100; padding: 12px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+        #toggleBtn { width: 100%; max-width: 500px; height: 75px; font-size: 1.6em; background: #28a745; color: white; border-radius: 12px; }
+        #toggleBtn.active { background: #dc3545; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        .log-item { background: #fff; border: 1px solid #eee; padding: 12px; margin-bottom: 12px; border-radius: 10px; display: flex; align-items: flex-start; }
+        .log-checkbox { margin-top: 5px; margin-right: 12px; transform: scale(1.6); }
+        .log-content { flex-grow: 1; }
+        .log-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+        .log-time { color: #888; font-size: 0.85em; }
+        .log-timer { color: #dc3545; font-size: 0.85em; font-weight: bold; cursor: pointer; background: #fff5f5; padding: 2px 6px; border-radius: 4px; }
+        .log-text { font-size: 1.25em; font-weight: bold; color: #333; line-height: 1.4; }
+        .badge { display: inline-block; padding: 2px 6px; font-size: 0.75em; border-radius: 4px; margin-left: 5px; color: white; vertical-align: middle; }
+        .badge-live { background: #28a745; }
+        .badge-task { background: #17a2b8; }
+        .badge-advance { background: #6f42c1; }
+        .badge-time { background: #fd7e14; }
+        .badge-play { background: #007bff; cursor: pointer; border: none; box-shadow: 0 2px 4px rgba(0,0,0,0.2); margin-right: 5px; }
+        .badge-play:active { transform: scale(0.95); }
+        .icon-btn { width: 34px; height: 34px; background: #f8f9fa; border: 1px solid #ddd; border-radius: 8px; margin-bottom: 5px; display: flex; align-items: center; justify-content: center; }
+        #livePreview { color: #007bff; font-weight: bold; text-align: center; margin-bottom: 8px; height: 1.2em; font-size: 1.1em; }
+        .action-bar-btn { flex: 1; height: 55px; color: white; border-radius: 8px; font-size: 1.1em; font-weight: bold; }
+        textarea { box-sizing: border-box; }
         
-        .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
-        .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
-        .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
-        .btn-io { background-color: #9b59b6; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
-        .btn-danger { background-color: #e74c3c; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
-
-        .date-header { background-color: #2c3e50; color: white; padding: 4px 12px; border-radius: 6px; margin-top: 15px; margin-bottom: 8px; font-size: 14px; font-weight: bold; display: inline-block; }
-
-        .alarm-list { list-style: none; padding: 0; margin: 0; }
-        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; gap: 10px; }
-        
-        .alarm-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
-        .title-wrapper { display: flex; align-items: center; gap: 4px; width: 100%; }
-        
-        .alarm-title { 
-            font-size: 15px; 
-            font-weight: bold; 
-            color: #2c3e50; 
-            cursor: pointer; 
-            text-decoration: underline; 
-            text-underline-offset: 4px; 
-            line-height: 1.3;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            word-break: break-all;
-            flex: 1;
-        }
-
-        .time-control { display: flex; align-items: center; gap: 4px; }
-        .btn-edit-trigger { background: none; border: none; font-size: 16px; cursor: pointer; padding: 4px; opacity: 0.8; flex-shrink: 0; }
-        .btn-edit-trigger:hover { opacity: 1; transform: scale(1.1); }
-        .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; text-align: center; flex-shrink: 0; }
-        .btn-time-step { background-color: rgba(255,255,255,0.6); border: 1px solid #ccc; width: 28px; height: 28px; border-radius: 6px; font-size: 16px; font-weight: bold; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; }
-        
-        .alarm-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .nearest-timer { color: #c0392b; font-size: 26px; font-weight: 900; width: 95px; text-align: right; line-height: 1.0; flex-shrink: 0; }
-        
-        .btn-delete { background: none; border: none; color: #7f8c8d; font-size: 14px; padding: 4px; cursor: pointer; opacity: 0.8; flex-shrink: 0; }
-        .btn-delete:hover { color: #e74c3c; opacity: 1; }
-        
-        .switch { position: relative; display: inline-block; width: 22px; height: 40px; flex-shrink: 0; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #06C755; }
-        input:checked + .slider:before { transform: translateY(-18px); }
-
-        /* 彈窗樣式 */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; }
-        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
-        
-        .modal-input { padding: 12px; border-radius: 8px; border: 2px solid #ddd; font-size: 18px; margin-bottom: 20px; text-align: center; width: 100%; box-sizing: border-box; }
-        .modal-msg { margin-bottom: 20px; line-height: 1.5; font-size: 16px; }
-
-        .end-alarm-box { background: #fff3cd; border: 1px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .end-alarm-box input[type="time"] { padding: 6px; border-radius: 6px; border: 1px solid #ccc; font-size: 16px; width: 110px; }
-        .btn-end-alarm { background-color: #e67e22; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer; }
-
-        .raw-data-text { font-size: 15px; color: #333; background: #f9f9f9; padding: 12px; border-radius: 8px; border: 1px solid #eee; text-align: left; overflow-y: auto; margin-bottom: 20px; flex-grow: 1; word-break: break-all; }
-        .raw-data-text a { color: #06C755; text-decoration: underline; font-weight: bold; }
-        
-        .option-group { text-align: left; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
-        .option-item { margin: 10px 0; display: flex; align-items: center; gap: 10px; font-size: 16px; cursor: pointer; }
-        .option-item input { transform: scale(1.3); }
-        .modal-buttons { display: flex; gap: 10px; margin-top: auto; }
-        .btn-modal { padding: 12px; border-radius: 8px; border: none; font-weight: bold; flex: 1; cursor: pointer; }
-        .btn-cancel { background: #eee; color: #666; }
-        .btn-confirm { background: #3498db; color: white; }
-        .btn-alarm-stop { background: #e74c3c; color: white; font-size: 18px; }
+        .radar-item { padding: 12px; border-bottom: 1px solid #eee; text-align: left; background: #fcfcfc; border-radius: 6px; margin-bottom: 8px; }
+        .radar-time { font-size: 0.85em; color: #666; display: block; margin-bottom: 4px; border-bottom: 1px dashed #ccc; padding-bottom: 4px;}
+        .radar-status { font-weight: bold; float: right; font-size: 0.9em; }
     </style>
 </head>
-<body onclick="ensureAudioInit()">
+<body>
 
-    <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
-
-    <h2>直播鬧鐘設定 ⏰</h2>
-    
-    <div class="system-control">
-        <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
-            1. 點擊啟動防熄屏與背景鬧鐘 (加強Android穩定性)
-        </button><br>
-        <button class="btn-test-sound" onclick="testSound()">🎵 測試鈴聲</button>
-        <p class="system-hint">
-            💡 跨日後，昨日鬧鐘會自動刪除清空版面。
-        </p>
-    </div>
-    
-    <div class="input-group">
-        <div class="toolbar">
-            <div class="early-box">
-                提早 
-                <button class="btn-early" onclick="adjustEarly(-1)">-</button>
-                <span class="early-val" id="earlyMinsText">0</span> 分
-                <button class="btn-early" onclick="adjustEarly(1)">+</button>
-            </div>
-            <div class="tool-btns">
-                <button class="btn-tool" onclick="pasteFromClipboard()">📋 貼上</button>
-                <button class="btn-tool" onclick="wrapBrackets()">➕ 幫反白加【 】</button>
-            </div>
+<div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <select id="recordTimerSelect" style="padding: 4px 6px; border-radius: 5px; border: 1px solid #ccc; font-weight:bold; color: #155724; background: #d4edda; font-size: 0.9em;">
+                <option value="0">手動</option>
+                <option value="3000">3秒</option>
+                <option value="4000">4秒</option>
+                <option value="5000" selected>5秒</option>
+                <option value="6000">6秒</option>
+            </select>
+            <h3 style="margin:0; font-size: 1.3em; white-space: nowrap;">🎙️</h3>
         </div>
-        <textarea id="inputText" placeholder="2. 請在此貼上內容... (例如: 03/06【標題】1800)"></textarea>
+        <div style="display: flex; gap: 5px; white-space: nowrap;">
+            <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
+            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">⚙️ 詞彙</button>
+            <button class="btn-purple" onclick="fetchCloudData()" style="font-size:0.9em; box-shadow: 0 0 5px rgba(111,66,193,0.5);">📅 戰情</button>
+        </div>
+    </div>
+    <div id="livePreview"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;">
+        <span style="font-weight:bold;">📝 紀錄列表</span>
+        <div>
+            <button onclick="selectAll()" class="btn-secondary" style="padding: 4px 8px; font-size: 0.8em;">全選</button>
+            <button onclick="deleteSelectedLogs()" class="btn-danger" style="padding: 4px 8px; font-size: 0.8em; border: none;">刪除</button>
+        </div>
+    </div>
+    <div id="logArea"></div>
+</div>
+
+<div class="bottom-controls">
+    <button id="toggleBtn">🎤 點擊開始錄音</button>
+    <div style="display:flex; gap:8px; width:100%; max-width:500px;">
+        <button onclick="copySelected()" class="action-bar-btn" style="background:#17a2b8;">📋 複製</button>
+        <button onclick="shareSelected()" class="action-bar-btn" style="background:#28a745;">📲 分享</button>
+        <button onclick="exportSelected()" class="action-bar-btn" style="background:#6c757d;">💾 匯出</button>
+    </div>
+</div>
+
+<div id="timerEditModal" class="modal">
+    <div class="modal-content">
+        <h4>⏱️ 修改確切日期與時間</h4>
+        <input type="datetime-local" id="editExactTimeInput" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 15px; text-align: center;">
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn-success confirm-btn" style="margin-top:0;" onclick="updateTimerValue()">✅ 確定修改</button>
+            <button class="btn-danger confirm-btn" style="margin-top:0; padding:12px;" onclick="stopTimer()">⏹️ 不顯示 (取消警報)</button>
+            <button class="btn-secondary" style="padding:12px;" onclick="closeTimerModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="tagModal" class="modal">
+    <div class="modal-content">
+        <h4 style="margin-top:0;">🏷️ 標籤設定</h4>
+        <p style="text-align:left; font-size:0.8em; margin:5px 0; color:#dc3545; font-weight:bold;">【第一組：指定日期與時間】</p>
+        <input type="datetime-local" id="exactTimeInput" onchange="toggleExactTime(this)" style="padding: 10px; font-size: 1.2em; border-radius: 8px; border: 1px solid #ccc; width: 100%; box-sizing: border-box; margin-bottom: 15px; text-align: center;">
+
+        <div class="tag-grid">
+            <button class="tag-btn tag-live" onclick="toggleGroup2(this)">直播</button>
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">側錄</button>
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">準連</button>
+            <button class="tag-btn tag-task" onclick="toggleGroup3(this)">傳帶</button>
+
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 60, '-1分')">-1分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 120, '-2分')">-2分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 180, '-3分')">-3分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 240, '-4分')">-4分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 300, '-5分')">-5分</button>
+            <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 600, '-10分')">-10分</button>
+            <div style="grid-column: span 2;"></div>
+
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 14400)">4時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 10800)">3時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 7200)">2時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 3600)">1時</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1800)">30分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1200)">20分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 600)">10分</button>
+            <button class="tag-btn tag-time" onclick="toggleGroup5(this, 300)">5分</button>
+        </div>
+        <button class="btn-success confirm-btn" onclick="applyTags()">✅ 確定</button>
+    </div>
+</div>
+
+<div id="cloudModal" class="modal">
+    <div class="modal-content">
+        <h4>📡 戰情室 (當日與未來勤務)</h4>
+        <div id="cloudLoading" style="color:#007bff; font-weight:bold; padding: 20px;">⏳ 正在呼叫雲端大腦...<br><span style="font-size:0.8em; color:#666;">(請稍候約 1~3 秒)</span></div>
+        <div id="cloudDataArea" style="max-height: 50vh; overflow-y:auto; margin-top:10px;"></div>
+        <button class="btn-secondary confirm-btn" onclick="closeCloudModal()">關閉雷達</button>
+    </div>
+</div>
+
+<div id="vocabModal" class="modal">
+    <div class="modal-content">
+        <h4>📚 詞彙庫</h4>
+        <textarea id="vocab" style="width:100%; height:150px; font-size: 1.2em; padding: 10px; border-radius: 8px;"></textarea>
+        <div style="display: flex; justify-content: space-between; gap: 5px; margin-top: 15px;">
+            <button class="btn-secondary" style="flex:1;" onclick="document.getElementById('fileInput').click()">📥 匯入</button>
+            <input type="file" id="fileInput" accept=".txt" style="display:none">
+            <button class="btn-secondary" style="flex:1;" onclick="exportVocab()">📤 匯出</button>
+            <button class="btn-success" style="flex:1;" onclick="saveVocab()">💾 儲存</button>
+        </div>
+        <button class="btn-secondary" onclick="closeVocabModal()" style="width:100%; margin-top:10px; background:#e9ecef; color:#333;">關閉視窗</button>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // ⚠️ 這裡的網址必須是你「更新部署」後的新 GAS Webhook 網址
+    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exec';
+    // ==========================================
+
+    // ==========================================
+    // 記憶錄音秒數設定
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedTimer = localStorage.getItem('sng_record_timer');
+        const timerSelect = document.getElementById('recordTimerSelect');
+        if (savedTimer) {
+            timerSelect.value = savedTimer;
+        }
         
-        <div class="button-group-row">
-            <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
-            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間+組別排序</button>
-        </div>
-        <div class="button-group-row">
-            <button class="btn-io" onclick="showIOModal('import')">📥 匯入</button>
-            <button class="btn-io" onclick="showIOModal('export')">📤 匯出</button>
-            <button class="btn-danger" onclick="confirmDeleteAll()">🗑️ 全部刪除</button>
-        </div>
-    </div>
+        timerSelect.addEventListener('change', function(e) {
+            localStorage.setItem('sng_record_timer', e.target.value);
+        });
+    });
 
-    <div id="alarmListContainer"></div>
+    // ==========================================
+    // 🌟 IndexedDB 語音重裝甲保險箱
+    // ==========================================
+    const dbName = "sng_audio_db";
+    let db;
+    const request = indexedDB.open(dbName, 1);
+    
+    request.onupgradeneeded = (event) => {
+        db = event.target.result;
+        if (!db.objectStoreNames.contains("recordings")) {
+            db.createObjectStore("recordings"); 
+        }
+    };
+    
+    request.onsuccess = (event) => { db = event.target.result; };
+    request.onerror = (event) => { console.error("IndexedDB 打開失敗", event); };
 
-    <div id="ioModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" id="ioModalTitle">匯出選項</h3>
-            <div class="option-group">
-                <label class="option-item"><input type="checkbox" id="optFixed" checked> 固定鬧鐘 (隨日期更動)</label>
-                <label class="option-item"><input type="checkbox" id="optDate" checked> 日期鬧鐘 (指定日期)</label>
-            </div>
-            <input type="file" id="importFileInput" style="display:none" onchange="processImport(event)" accept=".txt">
-            <div class="modal-buttons">
-                <button class="btn-modal btn-cancel" onclick="closeModal('ioModal')">取消</button>
-                <button class="btn-modal btn-confirm" id="ioConfirmBtn">執行</button>
-            </div>
-        </div>
-    </div>
+    function saveAudioToDB(id, blob) {
+        if (!db) return;
+        const tx = db.transaction("recordings", "readwrite");
+        tx.objectStore("recordings").put(blob, id);
+    }
 
-    <div id="infoModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" style="color: #2980b9;">📄 完整直播資訊</h3>
-            <div class="end-alarm-box">
-                <span style="font-weight:bold; color:#d35400;">結束鬧鐘</span>
-                <input type="time" id="endAlarmTimeInput">
-                <button class="btn-end-alarm" onclick="createEndAlarm()">新增</button>
-            </div>
-            <div class="raw-data-text" id="infoModalText"></div>
-            <button class="btn-modal btn-confirm" onclick="closeModal('infoModal')">關閉</button>
-        </div>
-    </div>
+    // 🍎 建立底層 Web Audio 引擎，繞過傳統播放器
+    let audioCtx = null;
 
-    <div id="promptModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" id="promptTitle">修改資料</h3>
-            <input type="text" id="promptInput" class="modal-input">
-            <div class="modal-buttons">
-                <button class="btn-modal btn-cancel" onclick="closeModal('promptModal')">取消</button>
-                <button class="btn-modal btn-confirm" id="promptConfirmBtn">確定</button>
-            </div>
-        </div>
-    </div>
+    function playAudioFromDB(id, event) {
+        if (event) event.stopPropagation(); 
+        if (!db) { alert("資料庫尚未準備好！"); return; }
+        
+        // 確保引擎啟動 (必須在使用者點擊的當下喚醒)
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
 
-    <div id="msgModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title">提示</h3>
-            <div id="msgModalContent" class="modal-msg"></div>
-            <button class="btn-modal btn-confirm" onclick="closeModal('msgModal')">我知道了</button>
-        </div>
-    </div>
-
-    <div id="confirmAllModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" style="color:#e74c3c;">⚠️ 再三確認</h3>
-            <p style="margin-bottom:20px;">您確定要刪除「所有」鬧鐘嗎？<br>此動作無法復原！</p>
-            <div class="modal-buttons">
-                <button class="btn-modal btn-cancel" onclick="closeModal('confirmAllModal')">取消</button>
-                <button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeDeleteAll()">確定刪除</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="confirmSingleModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" style="color:#e74c3c;">⚠️ 確認刪除</h3>
-            <p style="margin-bottom:20px;" id="deleteSingleMsg">確定要刪除這個鬧鐘嗎？</p>
-            <div class="modal-buttons">
-                <button class="btn-modal btn-cancel" onclick="closeModal('confirmSingleModal')">取消</button>
-                <button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeDeleteSingle()">確定刪除</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="alarmModal" class="modal-overlay">
-        <div class="modal-content">
-            <h3 class="modal-title" style="color: #e74c3c;">⏰ 鬧鐘響了！</h3>
-            <div id="alarmModalText" style="margin-bottom:20px; line-height:1.5;"></div>
-            <button class="btn-modal btn-alarm-stop" onclick="stopAlarm()">關閉鬧鐘</button>
-        </div>
-    </div>
-
-    <script>
-        let audioCtx, wakeLock = null, alarmInterval;
-        let isSystemActive = false; 
-        let alarms = [];
-        let sortMode = 0; 
-        let currentEditingId = null;
-        let singleDeleteId = null;
-        let idCounter = 0;
-        let lastCheckedDateMD = null; 
-        const sortLabels = ["依時間+組別排序", "依時間排序"];
-
-        window.onload = function() {
-            const savedAlarms = localStorage.getItem('lineAlarmsData_v5');
-            if (savedAlarms) alarms = JSON.parse(savedAlarms);
-            const savedSort = localStorage.getItem('lineAlarmsSortMode_v5');
-            if (savedSort !== null) sortMode = parseInt(savedSort);
-            
-            lastCheckedDateMD = getTodayMD();
-            checkAndHandleDayCrossing(); 
-
-            // --- ⭐【新增跨分頁同步機制】⭐ ---
-            window.addEventListener('storage', function(e) {
-                if (e.key === 'lineAlarmsData_v5') {
-                    const latestAlarms = localStorage.getItem('lineAlarmsData_v5');
-                    if (latestAlarms) {
-                        alarms = JSON.parse(latestAlarms);
-                        renderAlarms(); // 瞬間重繪畫面
-                    }
-                }
-            });
-            // ---------------------------------
-
-            // --- ⭐【AI 自動化：攔截網址參數 (支援日期與開始/結束)】⭐ ---
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            const alarmsToAdd = [
-                { date: urlParams.get('date1'), time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
-                { date: urlParams.get('date2'), time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
-            ];
-
-            let addedCount = 0;
-
-            alarmsToAdd.forEach(item => {
-                if (item.time && item.title) {
-                    let timeStr = normalizeTime(item.time);
-                    let [h, m] = timeStr.split(':').map(Number);
-                    
-                    if ((h < 24 && m < 60) || (h === 24 && m === 0)) {
-                        let dayOffset = 0;
-                        if (h === 24) { h = 0; dayOffset = 1; }
-
-                        let formattedTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const tx = db.transaction("recordings", "readonly");
+        const req = tx.objectStore("recordings").get(id);
+        
+        req.onsuccess = () => {
+            if (req.result) {
+                // 將 Blob 讀取為 ArrayBuffer
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const arrayBuffer = reader.result;
+                    // 解碼音軌
+                    audioCtx.decodeAudioData(arrayBuffer, function(buffer) {
+                        const source = audioCtx.createBufferSource();
+                        source.buffer = buffer;
                         
-                        // 處理日期：如果有傳 date 就轉格式，沒有就預設今天
-                        let targetDate = item.date ? item.date.trim() : getTodayMD();
-                        
-                        // 若 AI 傳入 0318，轉換成 3/18 或 03/18，統一網頁內的日期格式 M/D
-                        if (targetDate.length === 4 && !targetDate.includes('/')) {
-                            targetDate = `${parseInt(targetDate.substring(0,2))}/${parseInt(targetDate.substring(2,4))}`;
-                        } else if (targetDate.includes('/')) {
-                            const [month, day] = targetDate.split('/');
-                            targetDate = `${parseInt(month)}/${parseInt(day)}`;
-                        }
+                        // 🌟 v8.7 新增：在播放端加上擴大機
+                        const gainNode = audioCtx.createGain();
+                        gainNode.gain.value = 5.0; // 將播放音量硬體級放大 5 倍
 
-                        if (dayOffset !== 0) {
-                            let dParts = targetDate.split('/');
-                            let tmpDate = new Date(new Date().getFullYear(), parseInt(dParts[0]) - 1, parseInt(dParts[1]));
-                            tmpDate.setDate(tmpDate.getDate() + dayOffset);
-                            targetDate = `${tmpDate.getMonth() + 1}/${tmpDate.getDate()}`;
-                        }
+                        // 連接路線：音源 -> 擴大機 -> 系統喇叭輸出
+                        source.connect(gainNode);
+                        gainNode.connect(audioCtx.destination);
 
-                        // 防呆檢查：連同日期與 suffix 一起檢查
-                        if (!alarms.some(a => a.date === targetDate && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
-                            alarms.push({
-                                date: targetDate, 
-                                title: item.title, 
-                                origTime: item.time, 
-                                alarmTime: formattedTime, 
-                                raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), 
-                                suffix: item.suffix,
-                                checked: true, 
-                                id: generateId(),
-                                hasExplicitDate: true
-                            });
-                            addedCount++;
-                        }
-                    }
-                }
-            });
-
-            if (addedCount > 0) {
-                save(); // 寫入記憶體觸發其他分頁更新
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                // --- ⭐【心跳偵測與自動銷毀】⭐ ---
-                const lastHeartbeat = parseInt(localStorage.getItem('sng_alarm_heartbeat') || '0');
-                const isMainTabAlive = (Date.now() - lastHeartbeat) < 3000; 
-
-                if (isMainTabAlive) {
-                    document.body.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f4f7f6; font-family:sans-serif; text-align:center;">
-                            <h1 style="font-size: 80px; margin: 0; color: #27ae60;">✅</h1>
-                            <h2 style="color:#2c3e50;">鬧鐘已同步至主畫面！</h2>
-                            <p style="color:#7f8c8d;">此小幫手分頁已完成任務，請直接關閉並返回主頁籤。<br>(若瀏覽器允許，2秒後將自動關閉)</p>
-                            <button onclick="window.close()" style="margin-top:20px; padding:15px 30px; font-size:16px; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">手動關閉此分頁</button>
-                        </div>
-                    `;
-                    setTimeout(() => window.close(), 2000);
-                    return; 
-                }
-                // ---------------------------------
-            }
-            // --- 【AI 自動化結束】 ---
-
-            renderAlarms();
-        };
-
-        function save() {
-            localStorage.setItem('lineAlarmsData_v5', JSON.stringify(alarms));
-            localStorage.setItem('lineAlarmsSortMode_v5', sortMode);
-        }
-
-        function ensureAudioInit() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
-
-        function generateId() {
-            idCounter++;
-            return "ID_" + Date.now() + "_" + idCounter + "_" + Math.floor(Math.random() * 1000).toString();
-        }
-
-        function getTodayMD() {
-            const d = new Date();
-            return `${d.getMonth() + 1}/${d.getDate()}`;
-        }
-
-        function getDateVal(dStr) {
-            const [m, d] = dStr.split('/').map(Number);
-            return m * 100 + d;
-        }
-
-        function checkAndHandleDayCrossing() {
-            const todayMD = getTodayMD();
-            if (lastCheckedDateMD === todayMD) return false;
-
-            const todayVal = getDateVal(todayMD);
-            let changed = false;
-
-            const originalLength = alarms.length;
-            alarms = alarms.filter(a => {
-                if (a.hasExplicitDate) {
-                    return getDateVal(a.date) >= todayVal; 
-                }
-                return true; 
-            });
-
-            if (alarms.length !== originalLength) changed = true;
-
-            alarms.forEach(a => {
-                if (!a.hasExplicitDate && a.date !== todayMD) {
-                    a.date = todayMD;
-                    a.rang = false; 
-                    changed = true;
-                }
-            });
-
-            lastCheckedDateMD = todayMD;
-            if (changed) {
-                renderAlarms();
-                save();
-            }
-            return changed;
-        }
-
-        function showMessage(msg) {
-            document.getElementById('msgModalContent').innerText = msg;
-            document.getElementById('msgModal').style.display = 'flex';
-        }
-
-        async function pasteFromClipboard() {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.getElementById('inputText').value = text;
-            } catch (err) {
-                showMessage("無法自動讀取剪貼簿，請手動貼上。");
-            }
-        }
-
-        function parseAndAdd() {
-            ensureAudioInit();
-            const text = document.getElementById('inputText').value;
-            if (!text.trim()) return;
-
-            // ⭐ 連同手動貼上的防呆處理也加上 0318 這種四位數的支援
-            const regex = /(?:(\d{1,2}\/\d{1,2}|\d{4})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
-            const match = text.match(regex);
-            
-            if (match) {
-                let date = match[1];
-                let hasExplicitDate = false;
-                if (date) {
-                    if (date.length === 4 && !date.includes('/')) {
-                        date = `${parseInt(date.substring(0,2))}/${parseInt(date.substring(2,4))}`;
-                    } else if (date.includes('/')) {
-                        const dateParts = date.split('/');
-                        date = `${parseInt(dateParts[0])}/${parseInt(dateParts[1])}`;
-                    }
-                    hasExplicitDate = true;
-                } else {
-                    date = getTodayMD();
-                    hasExplicitDate = false;
-                }
-                
-                const title = match[2].trim();
-                let timeStr = normalizeTime(match[3]);
-
-                let [h, m] = timeStr.split(':').map(Number);
-                if (h > 24 || m >= 60 || (h === 24 && m > 0)) { showMessage("❌ 時間數值無效"); return; }
-
-                const origTime = timeStr;
-                const earlyMins = parseInt(document.getElementById('earlyMinsText').innerText);
-                m -= earlyMins;
-                
-                let dayOffset = 0;
-                if (h === 24) { h = 0; dayOffset = 1; }
-
-                while (m < 0) { m += 60; h -= 1; }
-                while (h < 0) { h += 24; dayOffset -= 1; }
-
-                if (dayOffset !== 0) {
-                    let year = new Date().getFullYear();
-                    let dParts = date.split('/');
-                    let tmpDate = new Date(year, parseInt(dParts[0]) - 1, parseInt(dParts[1]));
-                    tmpDate.setDate(tmpDate.getDate() + dayOffset);
-                    date = `${tmpDate.getMonth() + 1}/${tmpDate.getDate()}`;
-                }
-
-                const alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-
-                if (!alarms.some(a => a.date === date && a.title === title && a.alarmTime === alarmTime)) {
-                    alarms.push({
-                        date, title, origTime, alarmTime, 
-                        raw: encodeURIComponent(text), suffix: "開始", 
-                        checked: true, id: generateId(),
-                        hasExplicitDate: hasExplicitDate
+                        // 播完自動斷開，絕不霸佔通道
+                        source.onended = () => { 
+                            source.disconnect(); 
+                            gainNode.disconnect();
+                        };
+                        source.start(0);
+                    }, function(e) {
+                        console.error("解碼失敗:", e);
+                        alert("音檔解碼失敗，這可能是特定瀏覽器的格式相容問題。");
                     });
-                    document.getElementById('inputText').value = '';
-                    renderAlarms();
-                } else {
-                    showMessage("重複的鬧鐘！");
-                }
+                };
+                reader.readAsArrayBuffer(req.result);
             } else {
-                showMessage("格式辨識失敗！");
+                alert("找不到音檔，可能已被系統清空！");
+            }
+        };
+    }
+
+    function deleteAudioFromDB(id) {
+        if (!db) return;
+        const tx = db.transaction("recordings", "readwrite");
+        tx.objectStore("recordings").delete(id);
+    }
+    // ==========================================
+
+    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    const logArea = document.getElementById('logArea');
+    const vocabBox = document.getElementById('vocab');
+    
+    let currentIdx = null;
+    let selGroup2 = null; 
+    let selGroup3 = [];   
+    let selGroup4 = [];   
+    let selGroup5 = null; 
+    let tempEnd = null;
+    let globalSyncLock = false; 
+
+    function checkSyncLock() {
+        if (globalSyncLock) {
+            alert('📡 雲端大腦正在處理上一筆指令，請稍候...');
+            return true;
+        }
+        return false;
+    }
+
+    function setSyncLock() {
+        globalSyncLock = true;
+        setTimeout(() => { globalSyncLock = false; }, 3000); 
+    }
+
+    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
+    function generateTaskId() { return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
+
+    function getCreatedAt(log) {
+        if (log.createdAt) return log.createdAt;
+        if (log.taskId) {
+            const match = log.taskId.match(/^T_(\d+)_/);
+            if (match) return parseInt(match[1]);
+        }
+        return Date.now();
+    }
+
+    function updateDisplayTimer(log) {
+        if (!log.timerEnd) {
+            log.displayTimer = null;
+            return;
+        }
+        const diff = Math.floor((log.timerEnd - Date.now()) / 1000);
+        if (diff > 0) {
+            const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
+            log.displayTimer = `⏳ ${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+        } else {
+            log.displayTimer = `❌ 時間到`;
+        }
+    }
+
+    function formatForDatetimeInput(ms) {
+        if (!ms) return '';
+        const d = new Date(ms);
+        const tzoffset = (new Date()).getTimezoneOffset() * 60000;
+        return (new Date(d - tzoffset)).toISOString().slice(0, 16);
+    }
+
+    function getReadableTagText(ms) {
+        const d = new Date(ms);
+        const today = new Date();
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        if (d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
+            return `${hh}:${mm}`; 
+        } else {
+            return `${d.getMonth()+1}/${d.getDate()} ${hh}:${mm}`; 
+        }
+    }
+
+    function sendToGAS(action, taskId, pureText, fullTitle, triggersData) {
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) return;
+        const payload = { action: action, taskId: taskId };
+        if (action === 'set') {
+            payload.text = pureText; 
+            payload.title = fullTitle; 
+            payload.triggersData = triggersData || []; 
+        }
+        fetch(GAS_WEBHOOK_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        }).catch(e => console.error('傳送失敗:', e));
+    }
+
+    function fetchCloudData() {
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) { alert("請先設定好 GAS 網址！"); return; }
+        document.getElementById('cloudModal').style.display = 'block';
+        document.getElementById('cloudLoading').style.display = 'block';
+        document.getElementById('cloudDataArea').innerHTML = '';
+
+        fetch(GAS_WEBHOOK_URL)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('cloudLoading').style.display = 'none';
+                if(data.error) { document.getElementById('cloudDataArea').innerHTML = `<p style="color:red;">讀取失敗: ${data.error}</p>`; return; }
+                const now = new Date(); now.setHours(0,0,0,0); 
+                const futureTasks = data.filter(item => {
+                    const itemDate = new Date(item.timestamp);
+                    return itemDate >= now && !item.status.includes('刪除') && !item.status.includes('取消');
+                });
+                if(futureTasks.length === 0) {
+                    document.getElementById('cloudDataArea').innerHTML = `<p style="color:#666;">✅ 雲端目前沒有近期的勤務紀錄。</p>`; return;
+                }
+                let html = '';
+                futureTasks.forEach(item => {
+                    let sc = item.status.includes('倒數中') ? '#28a745' : (item.status.includes('引爆') ? '#dc3545' : '#6c757d');
+                    html += `<div class="radar-item">
+                        <span class="radar-time">${item.timestamp} <span class="radar-status" style="color:${sc};">${item.status}</span></span>
+                        <div style="font-size:1.1em; font-weight:bold;">${item.task}</div>
+                    </div>`;
+                });
+                document.getElementById('cloudDataArea').innerHTML = html;
+            })
+            .catch(err => {
+                document.getElementById('cloudLoading').style.display = 'none';
+                document.getElementById('cloudDataArea').innerHTML = `<p style="color:red;">⚠️ 網路連線錯誤或跨域設定未開放。</p>`;
+            });
+    }
+    function closeCloudModal() { document.getElementById('cloudModal').style.display = 'none'; }
+
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(e) { vocabBox.value = e.target.result; alert("✅ 詞彙匯入成功！"); };
+        if(e.target.files[0]) reader.readAsText(e.target.files[0]);
+        fileInput.value = ''; 
+    });
+    function exportVocab() { const blob = new Blob([vocabBox.value], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download="SNG_詞彙庫.txt"; a.click(); }
+    function saveVocab() { localStorage.setItem('sng_vocab', vocabBox.value); alert("✅ 詞彙已儲存！"); document.getElementById('vocabModal').style.display='none'; }
+    function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
+    function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
+
+    setInterval(() => {
+        const now = Date.now();
+        logs.forEach((log, index) => {
+            if (log.timerEnd) {
+                const diff = Math.floor((log.timerEnd - now) / 1000);
+                let newTimerStr = "❌ 時間到";
+                if (diff > 0) {
+                    const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
+                    newTimerStr = `⏳ ${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+                }
+                if (log.displayTimer !== newTimerStr) {
+                    log.displayTimer = newTimerStr;
+                    const spanElement = document.getElementById(`timer-span-${index}`);
+                    if (spanElement) spanElement.innerText = newTimerStr;
+                }
+            }
+        });
+    }, 1000);
+
+    function toggleExactTime(input) {
+        if(input.value) {
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
+            selGroup5 = null; tempEnd = new Date(input.value).getTime(); 
+        } else { tempEnd = null; }
+    }
+    function toggleGroup2(btn) {
+        const txt = btn.innerText;
+        if (selGroup2 === txt) { selGroup2 = null; btn.classList.remove('selected'); } 
+        else { selGroup2 = txt; document.querySelectorAll('.tag-live').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); }
+    }
+    function toggleGroup3(btn) {
+        const txt = btn.innerText;
+        if (selGroup3.includes(txt)) { selGroup3 = selGroup3.filter(t => t !== txt); btn.classList.remove('selected'); } 
+        else { selGroup3.push(txt); btn.classList.add('selected'); }
+    }
+    function toggleGroup4(btn, sec, text) {
+        if (selGroup4.some(a => a.text === text)) { selGroup4 = selGroup4.filter(a => a.text !== text); btn.classList.remove('selected'); } 
+        else { selGroup4.push({ sec: sec, text: text }); btn.classList.add('selected'); }
+    }
+    function toggleGroup5(btn, sec) {
+        const txt = btn.innerText;
+        document.getElementById('exactTimeInput').value = ''; 
+        if (selGroup5 === txt) { selGroup5 = null; tempEnd = null; btn.classList.remove('selected'); } 
+        else { 
+            selGroup5 = txt; const baseTime = getCreatedAt(logs[currentIdx]); tempEnd = baseTime + (sec * 1000); 
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); 
+        }
+    }
+
+    function openTagModal(i) {
+        currentIdx = i;
+        const logTags = logs[i].tags || [];
+        selGroup2 = logTags.find(t => t === '直播') || null;
+        selGroup3 = logTags.filter(t => ['側錄','準連','傳帶'].includes(t));
+        selGroup4 = [];
+        logTags.filter(t => t.startsWith('-')).forEach(t => {
+            let s = 0;
+            if (t==='-1分') s=60; else if (t==='-2分') s=120; else if (t==='-3分') s=180; else if (t==='-4分') s=240; else if (t==='-5分') s=300; else if (t==='-10分') s=600;
+            if (s>0) selGroup4.push({ sec: s, text: t });
+        });
+        selGroup5 = logTags.find(t => !t.startsWith('-') && !t.includes(':') && !t.includes('/') && (t.includes('時') || t.includes('分'))) || null;
+        
+        tempEnd = logs[i].timerEnd;
+        if(tempEnd && !selGroup5) { document.getElementById('exactTimeInput').value = formatForDatetimeInput(tempEnd); } 
+        else { document.getElementById('exactTimeInput').value = ''; }
+
+        const isExpired = tempEnd && tempEnd < Date.now();
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            const txt = btn.innerText;
+            if (txt === '直播') { btn.classList.toggle('selected', txt === selGroup2); } 
+            else if (['側錄','準連','傳帶'].includes(txt)) { btn.classList.toggle('selected', selGroup3.includes(txt)); btn.disabled = isExpired; } 
+            else if (txt.startsWith('-')) { btn.classList.toggle('selected', selGroup4.some(a => a.text === txt)); btn.disabled = isExpired; } 
+            else { btn.classList.toggle('selected', txt === selGroup5); }
+        });
+        document.getElementById('tagModal').style.display = 'block';
+    }
+
+    function applyTags() {
+        if (checkSyncLock()) return;
+        const wasTicking = !!logs[currentIdx].timerEnd;
+        let timeTag = selGroup5;
+        if (tempEnd && !selGroup5) { timeTag = getReadableTagText(tempEnd); }
+
+        selGroup4.sort((a,b) => b.sec - a.sec);
+        const advTexts = selGroup4.map(a => a.text);
+        
+        logs[currentIdx].tags = [selGroup2, ...selGroup3, timeTag, ...advTexts].filter(t => t);
+        logs[currentIdx].timerEnd = tempEnd;
+        logs[currentIdx].advances = [...selGroup4]; 
+        
+        updateDisplayTimer(logs[currentIdx]);
+        document.getElementById('tagModal').style.display = 'none';
+        saveLogs();
+
+        const taskName = logs[currentIdx].tags.join(' ');
+        const pureText = logs[currentIdx].text;
+        const fullTitle = `[${taskName}] ${pureText}`;
+
+        setSyncLock();
+
+        if (tempEnd) {
+            let baseDelay = tempEnd - Date.now(); 
+            if (baseDelay > 0) {
+                let triggersData = [];
+                selGroup4.forEach(adv => {
+                    let advDelay = baseDelay - (adv.sec * 1000);
+                    if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
+                });
+                triggersData.push({ delayMs: baseDelay, label: "" });
+                sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
+            }
+        } else if (!tempEnd && logs[currentIdx].tags.length > 0) {
+            sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, []);
+        } else if (wasTicking && !tempEnd) {
+            sendToGAS('cancel_timer', logs[currentIdx].taskId);
+        }
+    }
+
+    function openTimerEdit(i) { 
+        currentIdx = i; 
+        const targetMs = logs[i].timerEnd || Date.now();
+        document.getElementById('editExactTimeInput').value = formatForDatetimeInput(targetMs);
+        document.getElementById('timerEditModal').style.display = 'block'; 
+    }
+    
+    function updateTimerValue() {
+        if (checkSyncLock()) return;
+        const timeVal = document.getElementById('editExactTimeInput').value;
+        if (timeVal) {
+            const target = new Date(timeVal).getTime();
+            logs[currentIdx].timerEnd = target;
+            const newTimeTag = getReadableTagText(target);
+            
+            logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t) || t.startsWith('-'));
+            logs[currentIdx].tags.push(newTimeTag);
+            
+            updateDisplayTimer(logs[currentIdx]);
+            saveLogs();
+            setSyncLock();
+
+            let baseDelay = target - Date.now();
+            if(baseDelay > 0) {
+                let triggersData = [];
+                let currentAdvances = logs[currentIdx].advances || [];
+                currentAdvances.forEach(adv => {
+                    let advDelay = baseDelay - (adv.sec * 1000);
+                    if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
+                });
+                triggersData.push({ delayMs: baseDelay, label: "" });
+
+                const taskName = logs[currentIdx].tags.join(' ');
+                const pureText = logs[currentIdx].text;
+                const fullTitle = `[${taskName}] ${pureText}`;
+                sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
             }
         }
+        closeTimerModal();
+    }
+    
+    function stopTimer() { 
+        if (checkSyncLock()) return;
+        if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
+        logs[currentIdx].timerEnd = null; logs[currentIdx].displayTimer = null; 
+        logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t));
+        logs[currentIdx].advances = [];
+        saveLogs(); setSyncLock(); closeTimerModal(); 
+    }
+    function closeTimerModal() { document.getElementById('timerEditModal').style.display = 'none'; }
 
-        function renderAlarms() {
-            applySort();
-            const container = document.getElementById('alarmListContainer');
-            container.innerHTML = '';
-            let lastDate = "";
+    function addManualLog() {
+        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), createdAt: Date.now(), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, hasAudio: false });
+        saveLogs();
+        setTimeout(() => { const inputField = document.getElementById(`edit-${logs.length - 1}`); if(inputField) inputField.focus(); }, 100);
+    }
 
-            alarms.forEach((a) => {
-                if (a.date !== lastDate) {
-                    const header = document.createElement('div');
-                    header.className = "date-header";
-                    header.innerText = a.date;
-                    container.appendChild(header);
-                    lastDate = a.date;
+    function deleteSelectedLogs() {
+        if (checkSyncLock()) return;
+        const hasSelected = logs.some(l => l.checked);
+        if (!hasSelected) { alert('請先勾選要刪除的紀錄！'); return; }
+        if (confirm('確定要刪除勾選紀錄嗎？ (語音檔也會同步清除)')) { 
+            setSyncLock();
+            logs.forEach(l => {
+                if (l.checked) {
+                    if (l.timerEnd) sendToGAS('delete_task', l.taskId);
+                    if (l.hasAudio) deleteAudioFromDB(l.taskId); 
                 }
+            });
+            logs = logs.filter(l => !l.checked); 
+            saveLogs(); 
+        }
+    }
 
-                const li = document.createElement('li');
-                li.className = 'alarm-item';
-                li.style.backgroundColor = getBgColor(a.title);
-                li.innerHTML = `
-                    <div class="alarm-info">
-                        <div class="title-wrapper">
-                            <button class="btn-edit-trigger" onclick="openNameEditPrompt('${a.id}')">✏️</button>
-                            <span class="alarm-title" onclick="showInfoModal('${a.id}')">${a.title} ${a.origTime} ${a.suffix}</span>
-                        </div>
-                        <div class="time-control">
-                            <button class="btn-edit-trigger" onclick="openTimeEditPrompt('${a.id}')">✏️</button>
-                            <button class="btn-time-step" onclick="adjustItemTime('${a.id}', -1)">-</button>
-                            <span class="time-text">${a.alarmTime}</span>
-                            <button class="btn-time-step" onclick="adjustItemTime('${a.id}', 1)">+</button>
-                        </div>
+    function renderLogs() {
+        logArea.innerHTML = '';
+        [...logs].reverse().forEach((log, revIdx) => {
+            const i = logs.length - 1 - revIdx;
+            const item = document.createElement('div');
+            item.className = `log-item ${log.checked ? 'selected' : ''}`;
+            
+            const tags = (log.tags || []).map(t => {
+                let cls = 'badge-time';
+                if (t === '直播') cls = 'badge-live';
+                else if (['側錄','準連','傳帶'].includes(t)) cls = 'badge-task';
+                else if (t.startsWith('-')) cls = 'badge-advance';
+                return `<span class="badge ${cls}">${t}</span>`;
+            }).join('');
+            
+            const timer = log.timerEnd ? `<span class="log-timer" id="timer-span-${i}" onclick="openTimerEdit(${i})">${log.displayTimer || '⏳ 計算中...'}</span>` : '';
+            const playBtn = log.hasAudio ? `<button class="badge badge-play" onclick="playAudioFromDB('${log.taskId}', event)">▶️</button>` : '';
+
+            if (log.isEditing) {
+                item.innerHTML = `<div style="width:100%; display:flex; gap:10px;">
+                    <input type="text" id="edit-${i}" class="log-text" style="flex-grow:1; padding:10px; border:2px solid #007bff; border-radius:5px; font-size:1.2em;" value="${log.text}">
+                    <button class="btn-success" style="padding:10px 15px;" onclick="saveEdit(${i})">💾 儲存</button>
+                </div>`;
+            } else {
+                item.innerHTML = `
+                    <input type="checkbox" class="log-checkbox" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
+                    <div class="log-content">
+                        <div class="log-header"><span class="log-time">${log.time}</span>${playBtn}${timer}</div>
+                        <div class="log-text" onclick="toggleCheck(${i})">${log.text}${tags}</div>
                     </div>
-                    <div class="alarm-controls">
-                        <div class="nearest-timer" id="timer-${a.id}"></div>
-                        <label class="switch">
-                            <input type="checkbox" ${a.checked ? 'checked' : ''} onchange="toggleAlarm('${a.id}')">
-                            <span class="slider"></span>
-                        </label>
-                        <button class="btn-delete" onclick="requestDeleteSingle('${a.id}')">🗑️</button>
-                    </div>
-                `;
-                container.appendChild(li);
-            });
-            save();
-        }
+                    <div class="log-actions">
+                        <button class="icon-btn" onclick="openTagModal(${i})">🏷️</button>
+                        <button class="icon-btn" onclick="editLog(${i})">✏️</button>
+                    </div>`;
+            }
+            logArea.appendChild(item);
+        });
+    }
 
-        function openNameEditPrompt(id) {
-            ensureAudioInit();
-            const a = alarms.find(x => x.id === id);
-            if (!a) return;
-            currentEditingId = id;
-            const modal = document.getElementById('promptModal');
-            document.getElementById('promptTitle').innerText = "✏️ 修改鬧鐘名稱";
-            const input = document.getElementById('promptInput');
-            input.value = a.title;
+    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+    function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); saveLogs(); }
+    function editLog(i) { logs[i].isEditing = true; renderLogs(); }
+    function saveEdit(i) { logs[i].text = document.getElementById(`edit-${i}`).value; logs[i].isEditing = false; saveLogs(); }
+    
+    function copySelected() { const sel = logs.filter(l => l.checked); if(sel.length) navigator.clipboard.writeText(sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')).then(()=>alert("複製成功")); }
+    function shareSelected() { const sel = logs.filter(l => l.checked); if(sel.length && navigator.share) navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); }
+    function exportSelected() { const sel = logs.filter(l => l.checked); if(!sel.length) return; const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); const blob = new Blob([text], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download=`SNG_${Date.now()}.txt`; a.click(); }
+
+    let isRec = false;
+    let timerObj = null;
+    let currentSession = null; 
+
+    // 🌟 錄音端維持最原始乾淨的寫法，確保不會干擾 iOS Safari 語音辨識
+    document.getElementById('toggleBtn').onclick = async () => {
+        if (!isRec) { 
+            isRec = true; 
             
-            document.getElementById('promptConfirmBtn').onclick = function() {
-                const newName = input.value.trim();
-                if (newName) { a.title = newName; closeModal('promptModal'); renderAlarms(); }
-                else { showMessage("❌ 名稱不能為空！"); }
+            let session = {
+                recorder: null,
+                stream: null,
+                rec: null,
+                chunks: [],
+                taskId: generateTaskId(),
+                curTxt: ""
             };
-            modal.style.display = 'flex';
-        }
+            currentSession = session;
 
-        function openTimeEditPrompt(id) {
-            ensureAudioInit();
-            const a = alarms.find(x => x.id === id);
-            if (!a) return;
-            currentEditingId = id;
-            const modal = document.getElementById('promptModal');
-            document.getElementById('promptTitle').innerText = "✏️ 修改鬧鐘時間";
-            const input = document.getElementById('promptInput');
-            input.value = a.alarmTime;
-            
-            document.getElementById('promptConfirmBtn').onclick = function() {
-                const newTime = input.value.trim();
-                const match = newTime.match(/^(\d{1,2})[.:：](\d{1,2})$/);
-                if (match) {
-                    let h = parseInt(match[1]), m = parseInt(match[2]);
-                    if (h > 24 || m >= 60 || (h === 24 && m > 0)) { showMessage("❌ 時間格式錯誤！"); return; }
+            try {
+                // 1. 啟動音訊硬體
+                session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                session.recorder = new MediaRecorder(session.stream);
+
+                session.recorder.ondataavailable = e => { if (e.data.size > 0) session.chunks.push(e.data); };
+                
+                // 2. 確實存檔
+                session.recorder.onstop = () => {
+                    const mimeType = session.recorder.mimeType || 'audio/webm';
+                    const audioBlob = new Blob(session.chunks, { type: mimeType });
                     
-                    let dayOffset = 0;
-                    if (h === 24) { h = 0; dayOffset = 1; }
-
-                    if (dayOffset !== 0) {
-                        let dParts = a.date.split('/');
-                        let tmpDate = new Date(new Date().getFullYear(), parseInt(dParts[0]) - 1, parseInt(dParts[1]));
-                        tmpDate.setDate(tmpDate.getDate() + dayOffset);
-                        a.date = `${tmpDate.getMonth() + 1}/${tmpDate.getDate()}`;
+                    if (audioBlob.size === 0) {
+                        console.warn("⚠️ 錄製到空檔");
+                        let targetLog = logs.find(l => l.taskId === session.taskId);
+                        if (targetLog) { targetLog.hasAudio = false; saveLogs(); }
+                    } else {
+                        saveAudioToDB(session.taskId, audioBlob); 
                     }
                     
-                    a.alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                    closeModal('promptModal');
-                    renderAlarms();
-                } else { showMessage("❌ 時間格式錯誤！"); }
-            };
-            modal.style.display = 'flex';
-        }
+                    session.stream.getTracks().forEach(track => track.stop());
+                };
+                
+                session.recorder.start();
+                
+                // 3. 呼叫翻譯官
+                if ('webkitSpeechRecognition' in window) {
+                    session.rec = new webkitSpeechRecognition();
+                    session.rec.continuous = true; 
+                    session.rec.interimResults = true; 
+                    session.rec.lang = 'zh-TW';
+                    
+                    session.rec.onresult = (e) => {
+                        let finalTranscript = ''; let interimTranscript = '';
+                        for (let i = 0; i < e.results.length; ++i) { 
+                            if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript; 
+                            else interimTranscript += e.results[i][0].transcript; 
+                        }
+                        session.curTxt = finalTranscript;
+                        document.getElementById('livePreview').innerText = "🗣️ " + (finalTranscript + interimTranscript || "聽寫中...");
+                    };
 
-        function showInfoModal(id) {
-            ensureAudioInit();
-            const a = alarms.find(x => x.id === id);
-            if (!a) return;
-            currentEditingId = id;
-            document.getElementById('endAlarmTimeInput').value = "";
-            let rawContent = decodeURIComponent(a.raw || "無原始資訊");
-            let safeHtml = document.createElement('div');
-            safeHtml.innerText = rawContent;
-            let htmlText = safeHtml.innerHTML.replace(/(https?:\/\/[^\s]+)/g, `<a href="$1" target="_blank">$1</a>`).replace(/\n/g, '<br>');
-            document.getElementById('infoModalText').innerHTML = htmlText;
-            document.getElementById('infoModal').style.display = 'flex';
-        }
-
-        function createEndAlarm() {
-            const timeVal = document.getElementById('endAlarmTimeInput').value;
-            if (!timeVal || currentEditingId === null) return;
-            const base = alarms.find(x => x.id === currentEditingId);
-            if (!base) return;
-            alarms.push({
-                date: base.date, title: base.title, origTime: timeVal, alarmTime: timeVal,
-                raw: base.raw, suffix: "結束", checked: true, id: generateId(),
-                hasExplicitDate: base.hasExplicitDate
-            });
-            showMessage(`✅ 已新增結束鬧鐘 (${timeVal})！`);
-            renderAlarms();
-            closeModal('infoModal');
-        }
-
-        function requestDeleteSingle(id) {
-            const a = alarms.find(x => x.id === id);
-            if (!a) return;
-            singleDeleteId = id;
-            document.getElementById('deleteSingleMsg').innerText = `確定要刪除「${a.title} ${a.origTime}」嗎？`;
-            document.getElementById('confirmSingleModal').style.display = 'flex';
-        }
-
-        function executeDeleteSingle() {
-            if (singleDeleteId) {
-                alarms = alarms.filter(a => a.id !== singleDeleteId);
-                renderAlarms();
-                closeModal('confirmSingleModal');
-                singleDeleteId = null;
-            }
-        }
-
-        // --- 系統控制 ---
-        async function toggleSystem() {
-            ensureAudioInit();
-            const btn = document.getElementById('masterBtn'), silentAudio = document.getElementById('silentAudio');
-            
-            if (isSystemActive) {
-                if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
-                silentAudio.pause();
-                isSystemActive = false;
-                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘 (加強Android穩定性)"; 
-                btn.classList.remove('active');
-            } else {
-                silentAudio.play().catch(e => console.log(e));
-                isSystemActive = true;
-                if ('wakeLock' in navigator) {
-                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-                }
-                btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動";
-                btn.classList.add('active');
-            }
-        }
-
-        function testSound() {
-            ensureAudioInit();
-            playBeep();
-        }
-
-        function playBeep() {
-            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
-            osc.connect(g); g.connect(audioCtx.destination);
-            osc.frequency.value = 800; g.gain.value = 0.3;
-            osc.start(); setTimeout(() => osc.stop(), 250);
-        }
-
-        function stopAlarm() {
-            closeModal('alarmModal');
-            if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
-        }
-
-        function adjustItemTime(id, delta) {
-            const a = alarms.find(x => x.id === id);
-            if (!a) return;
-            let [h, m] = a.alarmTime.split(':').map(Number);
-            m += delta;
-            if (m >= 60) { m = 0; h = (h + 1) % 24; }
-            else if (m < 0) { m = 59; h = (h - 1 + 24) % 24; }
-            a.alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-            renderAlarms();
-        }
-
-        function toggleAlarm(id) {
-            const a = alarms.find(x => x.id === id);
-            if (a) a.checked = !a.checked;
-            save();
-        }
-
-        function toggleSortMode() {
-            sortMode = (sortMode + 1) % 2;
-            document.getElementById('sortBtn').innerText = sortLabels[sortMode];
-            renderAlarms();
-        }
-
-        function applySort() {
-            const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
-
-            if (sortMode === 0) {
-                const groupMetadata = {};
-                alarms.forEach(a => {
-                    const groupKey = a.date + "|" + a.title;
-                    const mins = getMins(a.alarmTime);
-                    if (!groupMetadata[groupKey]) {
-                        groupMetadata[groupKey] = { startTime: Infinity, minTime: Infinity };
-                    }
-                    if (a.suffix === "開始") {
-                        if (mins < groupMetadata[groupKey].startTime) groupMetadata[groupKey].startTime = mins;
-                    }
-                    if (mins < groupMetadata[groupKey].minTime) groupMetadata[groupKey].minTime = mins;
-                });
-
-                alarms.sort((a, b) => {
-                    const dateA = getDateVal(a.date), dateB = getDateVal(b.date);
-                    if (dateA !== dateB) return dateA - dateB;
-
-                    const gA = groupMetadata[a.date + "|" + a.title], gB = groupMetadata[b.date + "|" + b.title];
-                    const refTimeA = gA.startTime === Infinity ? gA.minTime : gA.startTime;
-                    const refTimeB = gB.startTime === Infinity ? gB.minTime : gB.startTime;
-                    if (refTimeA !== refTimeB) return refTimeA - refTimeB;
-                    if (a.title !== b.title) return a.title.localeCompare(b.title, 'zh-TW');
-                    if (a.suffix !== b.suffix) return a.suffix === "開始" ? -1 : 1;
-                    return getMins(a.alarmTime) - getMins(b.alarmTime);
-                });
-            } else {
-                alarms.sort((a, b) => {
-                    const dateDiff = getDateVal(a.date) - getDateVal(b.date);
-                    if (dateDiff !== 0) return dateDiff;
-                    return getMins(a.alarmTime) - getMins(b.alarmTime);
-                });
-            }
-        }
-
-        function showIOModal(type) {
-            const modal = document.getElementById('ioModal');
-            const title = document.getElementById('ioModalTitle');
-            const btn = document.getElementById('ioConfirmBtn');
-            modal.style.display = 'flex';
-            if (type === 'export') {
-                title.innerText = "匯出選項";
-                btn.innerText = "確認匯出";
-                btn.onclick = executeExport;
-            } else {
-                title.innerText = "匯入選項";
-                btn.innerText = "選擇檔案並匯入";
-                btn.onclick = () => document.getElementById('importFileInput').click();
-            }
-        }
-
-        function executeExport() {
-            const exportFixed = document.getElementById('optFixed').checked, exportDate = document.getElementById('optDate').checked;
-            const today = getTodayMD();
-            let fixedList = [], dateList = [];
-            alarms.forEach(a => {
-                if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.origTime} ${a.suffix}`);
-                else dateList.push(`${a.date} ${a.title} ${a.origTime} ${a.suffix}`);
-            });
-            let finalStr = "";
-            if (exportFixed && fixedList.length > 0) finalStr += "[固定鬧鐘]\n" + fixedList.join('\n') + "\n\n";
-            if (exportDate && dateList.length > 0) finalStr += "[日期鬧鐘]\n" + dateList.join('\n');
-            if (!finalStr) { showMessage("無內容可匯出！"); return; }
-            const blob = new Blob([finalStr], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a'); a.href = url;
-            a.download = `直播鬧鐘備份_${new Date().getTime()}.txt`; a.click();
-            closeModal('ioModal');
-        }
-
-        function processImport(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const importFixed = document.getElementById('optFixed').checked;
-            const importDate = document.getElementById('optDate').checked;
-            const today = getTodayMD();
-            const todayVal = getDateVal(today);
-            const reader = new FileReader();
-
-            reader.onload = function(e) {
-                // 清除檔案可能夾帶的隱藏 BOM 字元，避免比對失敗
-                const text = e.target.result.replace(/^\uFEFF/, '');
-                const lines = text.split('\n');
-                let count = 0;
-
-                lines.forEach(line => {
-                    line = line.trim(); 
-                    if (!line) return;
-
-                    // 遇到標籤直接跳過換下一行 (系統現在會自動判斷，不需要依賴標籤)
-                    if (line.includes("[固定鬧鐘]") || line.includes("[日期鬧鐘]")) return;
-
-                    // 正規表達式：有日期的格式 (例如: 03/18 標題 18:00 開始)
-                    const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
-                    // 正規表達式：無日期的格式 (例如: 標題 18:00 開始)
-                    const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
-
-                    // 優先判斷是否為「有日期」的格式
-                    if (matchDate) {
-                        if (!importDate) return; 
-                        let dStr = matchDate[1];
-                        const dateParts = dStr.split('/');
-                        dStr = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                    session.rec.onend = () => {
+                        isRec = false; 
+                        clearTimeout(timerObj); 
+                        document.getElementById('toggleBtn').classList.remove('active'); 
+                        document.getElementById('toggleBtn').innerText = '🎤 點擊開始錄音';
                         
-                        if (getDateVal(dStr) < todayVal) return; // 過去的日期直接阻擋
-
-                        const title = matchDate[2].trim();
-                        let time = normalizeTime(matchDate[3]);
-                        let suffix = matchDate[4] || "開始";
-
-                        // 防呆：避免重複匯入 (加入 suffix 判斷)
-                        if (!alarms.some(a => a.date === dStr && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: true });
-                            count++;
+                        if (session.recorder && session.recorder.state !== 'inactive') {
+                            session.recorder.stop();
+                        } else if (session.stream) {
+                            session.stream.getTracks().forEach(t => t.stop());
                         }
-                    } 
-                    // 若沒有日期，則進入「無日期」判斷邏輯
-                    else if (matchFixed) {
-                        if (!importFixed) return; 
-                        const title = matchFixed[1].trim();
-                        let time = normalizeTime(matchFixed[2]);
-                        let suffix = matchFixed[3] || "開始";
 
-                        // 無日期就是強制匯入成「今天」
-                        if (!alarms.some(a => a.date === today && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: false });
-                            count++;
+                        if (session.curTxt.trim()) {
+                            logs.push({ 
+                                taskId: session.taskId, 
+                                time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
+                                createdAt: Date.now(), 
+                                text: applyDict(session.curTxt.trim()), 
+                                tags: [], timerEnd: null, advances: [], checked: false, isEditing: false,
+                                hasAudio: true 
+                            });
+                            saveLogs();
                         }
-                    }
-                });
-
-                showMessage(`✅ 匯入成功！新增了 ${count} 筆。`);
-                renderAlarms(); 
-                closeModal('ioModal');
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // 清空 input，確保下次選同一個檔案也能觸發
-        }
-
-        function normalizeTime(t) {
-            let time = t.trim();
-            if (!time.includes(':') && !time.includes('：')) {
-                if (time.length === 3) time = "0" + time;
-                if (time.length === 4) time = time.substring(0, 2) + ":" + time.substring(2);
-            } else {
-                time = time.replace('：', ':');
-                const ps = time.split(':');
-                time = ps[0].padStart(2, '0') + ":" + ps[1].padStart(2, '0');
-            }
-            return time;
-        }
-
-        function confirmDeleteAll() { document.getElementById('confirmAllModal').style.display = 'flex'; }
-        function executeDeleteAll() { alarms = []; renderAlarms(); closeModal('confirmAllModal'); }
-        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
-
-        // --- ⭐ 核心倒數與響鈴邏輯 ---
-        setInterval(() => {
-            // 發送心跳 (讓由Gemini意外開啟的新分頁知道主畫面還活著)
-            localStorage.setItem('sng_alarm_heartbeat', Date.now());
-
-            checkAndHandleDayCrossing();
-
-            const now = new Date();
-            const nowMD = getTodayMD();
-            let ringing = [], minDiffSeconds = Infinity;
-            
-            alarms.forEach(a => {
-                const timerEl = document.getElementById(`timer-${a.id}`);
-                if (timerEl) timerEl.innerText = '';
-                
-                if (!a.checked) return;
-
-                const [ah, am] = a.alarmTime.split(':').map(Number);
-                const [amth, ady] = a.date.split('/').map(Number);
-                
-                let alarmTarget = new Date(now.getFullYear(), amth - 1, ady, ah, am, 0);
-
-                if (a.date === nowMD) {
-                    if (ah === now.getHours() && am === now.getMinutes() && !a.rang) {
-                         ringing.push(`${a.title} ${a.suffix}`); a.rang = true;
-                    } else if (am !== now.getMinutes()) { a.rang = false; }
-                }
-
-                if (alarmTarget < now) {
-                    if (a.hasExplicitDate) return; 
-                    else alarmTarget.setDate(alarmTarget.getDate() + 1);
-                }
-
-                let diff = Math.floor((alarmTarget - now) / 1000);
-                if (diff >= 0 && diff < minDiffSeconds) {
-                    minDiffSeconds = diff;
-                }
-            });
-
-            if (minDiffSeconds !== Infinity) {
-                const h = Math.floor(minDiffSeconds / 3600), m = Math.floor((minDiffSeconds % 3600) / 60), s = minDiffSeconds % 60;
-                const text = h > 0 ? `${h}時\n${m}分` : (m > 0 ? `${m}分\n${s}秒` : `${s}秒`);
-                
-                alarms.forEach(a => {
-                    if (!a.checked) return;
-                    const [ah, am] = a.alarmTime.split(':').map(Number);
-                    const [amth, ady] = a.date.split('/').map(Number);
-                    let target = new Date(now.getFullYear(), amth - 1, ady, ah, am, 0);
-                    if (target < now && !a.hasExplicitDate) target.setDate(target.getDate() + 1);
+                        document.getElementById('livePreview').innerText = "";
+                    };
                     
-                    let diff = Math.floor((target - now) / 1000);
-                    if (diff === minDiffSeconds) {
-                        const el = document.getElementById(`timer-${a.id}`);
-                        if(el) el.innerText = text;
-                    }
-                });
-            }
+                    session.rec.start(); 
+                } else {
+                    alert("您的瀏覽器不支援語音辨識功能！");
+                    isRec = false;
+                    return;
+                }
 
-            if (ringing.length > 0) {
-                document.getElementById('alarmModalText').innerHTML = "🔔 鬧鐘提醒：<br><br><b>" + ringing.join("</b><br><b>") + "</b>";
-                document.getElementById('alarmModal').style.display = 'flex';
-                if (!alarmInterval) { playBeep(); alarmInterval = setInterval(playBeep, 1000); }
-            }
-        }, 1000);
+                document.getElementById('toggleBtn').classList.add('active'); 
+                const sec = parseInt(document.getElementById('recordTimerSelect').value);
+                if (sec > 0) { 
+                    document.getElementById('toggleBtn').innerText = `🔴 錄音中 (${sec/1000}秒)...`; 
+                    timerObj = setTimeout(() => { if(session.rec) session.rec.stop(); }, sec); 
+                } else { 
+                    document.getElementById('toggleBtn').innerText = `🔴 錄音中...`; 
+                }
 
-        const colors = ['#f8c291', '#82ccdd', '#b8e994', '#f6b93b', '#78e08f', '#60a3bc'];
-        const colorMap = {};
-        function getBgColor(name) {
-            if (!colorMap[name]) colorMap[name] = colors[Object.keys(colorMap).length % colors.length];
-            return colorMap[name];
+            } catch (err) {
+                isRec = false;
+                alert("⚠️ 無法取得麥克風權限！(Android 請確認使用 HTTPS)");
+                console.error(err);
+            }
+        } else { 
+            clearTimeout(timerObj); 
+            if(currentSession && currentSession.rec) currentSession.rec.stop(); 
         }
-        function adjustEarly(d) {
-            const el = document.getElementById('earlyMinsText');
-            el.innerText = Math.max(0, parseInt(el.innerText) + d);
-        }
-        function wrapBrackets() {
-            const t = document.getElementById('inputText');
-            const s = t.selectionStart, e = t.selectionEnd;
-            if (s !== e) { t.value = t.value.slice(0, s) + '【' + t.value.slice(s, e) + '】' + t.value.slice(e); }
-        }
-    </script>
+    };
+
+    function applyDict(txt) {
+        let dict = {};
+        vocabBox.value.split(/[,，\n]+/).forEach(v => {
+            if(v.includes('=')) { let [keys, val] = v.split('='); keys.split('/').forEach(k => { if(k.trim()) dict[k.trim()] = val.trim(); }); } 
+            else if(v.trim()) dict[v.trim()] = v.trim();
+        });
+        Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
+        return txt;
+    }
+
+    renderLogs();
+</script>
 </body>
 </html>
