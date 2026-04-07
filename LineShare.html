@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNG AKIRA - 訊號回報</title>
+    <title>SNG 訊號回報</title>
     <style>
         :root {
             --bg-color: #121212;
@@ -30,11 +30,6 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.3);
         }
-        h2 {
-            text-align: center;
-            margin-top: 0;
-            color: var(--primary-color);
-        }
         .form-group {
             margin-bottom: 20px;
         }
@@ -58,11 +53,17 @@
             outline: none;
             border-color: var(--primary-color);
         }
-        /* 按鈕群組設計 (Radio 變身按鈕) */
+        /* 按鈕群組設計 (預設靈活排列) */
         .btn-group {
             display: flex;
             flex-wrap: wrap;
             gap: 10px;
+        }
+        /* 專門給路數使用：一排 5 個的網格排版 */
+        .grid-5 {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
         }
         .btn-group label {
             background-color: var(--btn-bg);
@@ -75,6 +76,11 @@
             border: 1px solid transparent;
             transition: 0.2s;
             user-select: none;
+            text-align: center;
+        }
+        .grid-5 label {
+            padding: 10px 0; /* 縮小左右 padding 讓 5 個按鈕能完美塞入 */
+            font-size: 14px;
         }
         .btn-group input[type="radio"] {
             display: none;
@@ -84,7 +90,6 @@
             color: #000;
             font-weight: bold;
         }
-        /* 特別的按鈕列 */
         .flex-row {
             display: flex;
             gap: 10px;
@@ -114,7 +119,7 @@
             cursor: pointer;
             margin-top: 10px;
         }
-        #custom-route-container {
+        .custom-input-container {
             display: none;
             margin-top: 10px;
         }
@@ -123,7 +128,6 @@
 <body>
 
 <div class="container">
-    <h2>📡 SNG AKIRA</h2>
     
     <div class="form-group">
         <label>SLUG：</label>
@@ -142,7 +146,7 @@
 
     <div class="form-group">
         <label>路數：</label>
-        <div class="btn-group" id="route-group">
+        <div class="btn-group grid-5" id="route-group">
             <input type="radio" id="r31" name="route" value="31路"><label for="r31">31路</label>
             <input type="radio" id="r32" name="route" value="32路"><label for="r32">32路</label>
             <input type="radio" id="r33" name="route" value="33路"><label for="r33">33路</label>
@@ -153,9 +157,9 @@
             <input type="radio" id="r75" name="route" value="75路"><label for="r75">75路</label>
             <input type="radio" id="r76" name="route" value="76路"><label for="r76">76路</label>
             <input type="radio" id="r77" name="route" value="77路"><label for="r77">77路</label>
-            <input type="radio" id="rcustom" name="route" value="自訂" onclick="toggleCustomRoute()"><label for="rcustom">自訂</label>
+            <input type="radio" id="rcustom" name="route" value="自訂"><label for="rcustom">自訂</label>
         </div>
-        <div id="custom-route-container">
+        <div id="custom-route-container" class="custom-input-container">
             <input type="text" id="custom-route-input" placeholder="請輸入自訂路數">
         </div>
     </div>
@@ -165,6 +169,10 @@
         <div class="btn-group">
             <input type="radio" id="a1_wire" name="audio1" value="有線麥" checked><label for="a1_wire">有線麥</label>
             <input type="radio" id="a1_live" name="audio1" value="現場音"><label for="a1_live">現場音</label>
+            <input type="radio" id="a1_custom" name="audio1" value="自訂"><label for="a1_custom">自訂</label>
+        </div>
+        <div id="custom-audio1-container" class="custom-input-container">
+            <input type="text" id="custom-audio1-input" placeholder="請輸入自訂1軌音">
         </div>
     </div>
 
@@ -173,6 +181,10 @@
         <div class="btn-group">
             <input type="radio" id="a2_wire" name="audio2" value="有線麥"><label for="a2_wire">有線麥</label>
             <input type="radio" id="a2_live" name="audio2" value="現場音" checked><label for="a2_live">現場音</label>
+            <input type="radio" id="a2_custom" name="audio2" value="自訂"><label for="a2_custom">自訂</label>
+        </div>
+        <div id="custom-audio2-container" class="custom-input-container">
+            <input type="text" id="custom-audio2-input" placeholder="請輸入自訂2軌音">
         </div>
     </div>
 
@@ -188,15 +200,12 @@
 </div>
 
 <script>
-    // 網頁載入時執行
     window.onload = function() {
-        // 1. 自動產生今天日期 (例如 0407) 並填入 SLUG
         const today = new Date();
         const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         document.getElementById('slug').value = month + day;
         
-        // 2. 從 LocalStorage 載入上次紀錄的姓名與電話
         if(localStorage.getItem('akira_cameraman')) {
             document.getElementById('cameraman').value = localStorage.getItem('akira_cameraman');
         }
@@ -204,35 +213,37 @@
             document.getElementById('phone').value = localStorage.getItem('akira_phone');
         }
 
-        // 監聽路數按鈕，如果不是選自訂，就隱藏自訂輸入框
-        const routeRadios = document.querySelectorAll('input[name="route"]');
-        routeRadios.forEach(radio => {
-            radio.addEventListener('change', function() {
-                if(this.value !== '自訂') {
-                    document.getElementById('custom-route-container').style.display = 'none';
-                }
-            });
-        });
+        // 共用的切換自訂輸入框邏輯
+        setupCustomToggle('route', 'custom-route-container');
+        setupCustomToggle('audio1', 'custom-audio1-container');
+        setupCustomToggle('audio2', 'custom-audio2-container');
     };
 
-    // 儲存姓名電話到 LocalStorage (當欄位內容改變時觸發)
     function saveLocal() {
         localStorage.setItem('akira_cameraman', document.getElementById('cameraman').value);
         localStorage.setItem('akira_phone', document.getElementById('phone').value);
     }
 
-    // 顯示自訂路數輸入框
-    function toggleCustomRoute() {
-        document.getElementById('custom-route-container').style.display = 'block';
-        document.getElementById('custom-route-input').focus();
+    // 監聽單選按鈕，決定是否顯示自訂輸入框
+    function setupCustomToggle(radioName, containerId) {
+        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
+        radios.forEach(radio => {
+            radio.addEventListener('change', function() {
+                const container = document.getElementById(containerId);
+                if(this.value === '自訂') {
+                    container.style.display = 'block';
+                    container.querySelector('input').focus();
+                } else {
+                    container.style.display = 'none';
+                }
+            });
+        });
     }
 
-    // 複製 SLUG 內容到側錄檔名
     function copySlug() {
         document.getElementById('record_name').value = document.getElementById('slug').value;
     }
 
-    // 組合文字並傳送至 LINE
     function sendToLine() {
         const slug = document.getElementById('slug').value || '';
         const cameraman = document.getElementById('cameraman').value || '';
@@ -245,22 +256,29 @@
             route = selectedRoute.value === '自訂' ? document.getElementById('custom-route-input').value : selectedRoute.value;
         }
 
-        // 取得音軌
-        const audio1 = document.querySelector('input[name="audio1"]:checked') ? document.querySelector('input[name="audio1"]:checked').value : '';
-        const audio2 = document.querySelector('input[name="audio2"]:checked') ? document.querySelector('input[name="audio2"]:checked').value : '';
+        // 取得1軌音
+        let audio1 = '';
+        const selectedA1 = document.querySelector('input[name="audio1"]:checked');
+        if (selectedA1) {
+            audio1 = selectedA1.value === '自訂' ? document.getElementById('custom-audio1-input').value : selectedA1.value;
+        }
+
+        // 取得2軌音
+        let audio2 = '';
+        const selectedA2 = document.querySelector('input[name="audio2"]:checked');
+        if (selectedA2) {
+            audio2 = selectedA2.value === '自訂' ? document.getElementById('custom-audio2-input').value : selectedA2.value;
+        }
         
         const recordName = document.getElementById('record_name').value || '';
 
-        // 防呆：檢查重要欄位是否有填
         if(!slug || !route) {
             alert("請至少填寫 SLUG 和 路數！");
             return;
         }
 
-        // 依照規定格式組合文字 (\n 代表換行)
         const message = `SLUG：${slug}\n攝影：${cameraman}\n電話：${phone}\n路數：${route}\n1軌音：${audio1}\n2軌音：${audio2}\n側錄檔名：${recordName}`;
 
-        // 使用 LINE URI Scheme 喚醒 LINE App
         const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(message)}`;
         window.location.href = lineUrl;
     }
