@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 V6.1 (SNG 戰情終極版)</title>
+    <title>LINE 直播鬧鐘擷取工具 V6.2 (SNG 戰情終極版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -109,7 +109,7 @@
 
     <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
-    <h2>直播鬧鐘設定 ⏰ (V6.1)</h2>
+    <h2>直播鬧鐘設定 ⏰ (V6.2)</h2>
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
@@ -424,6 +424,7 @@
                 return;
             }
             
+            // 使用調整後的鬧鐘時間 (a.alarmTime)
             const shareText = selectedAlarms.map(a => `${a.date} ${a.title} ${a.alarmTime} ${a.suffix}`).join('\n');
             
             // 1. 背景執行複製到剪貼簿
@@ -436,11 +437,11 @@
                 showMessage("❌ 複製失敗，請手動複製。");
             });
 
-            // 2. 「同步強制跳轉」：使用 Android 底層的 LAUNCHER 意圖 (等同於點擊桌面圖示)
+            // 2. 「同步強制跳轉」：使用 Android 底層的 LAUNCHER 意圖
             const packageName = "appinventor.ai_gygy4466.LiveAlarm";
             const intentUrl = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${packageName};end`;
             
-            // 利用建立隱藏連結並模擬點擊的方式，最容易繞過瀏覽器的彈出視窗阻擋
+            // 建立隱藏連結並模擬點擊，繞過瀏覽器阻擋
             const a = document.createElement('a');
             a.href = intentUrl;
             document.body.appendChild(a);
@@ -813,7 +814,6 @@
             }
         }
 
-        // V6.1 同步更新：匯出也改用 a.alarmTime
         function executeExport() {
             const exportFixed = document.getElementById('optFixed').checked, exportDate = document.getElementById('optDate').checked;
             
@@ -821,7 +821,6 @@
 
             let fixedList = [], dateList = [];
             targetAlarms.forEach(a => {
-                // 將 a.origTime 改為 a.alarmTime
                 if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.alarmTime} ${a.suffix}`);
                 else dateList.push(`${a.date} ${a.title} ${a.alarmTime} ${a.suffix}`);
             });
