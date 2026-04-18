@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 (SNG 戰情終極版V6)</title>
+    <title>LINE 直播鬧鐘擷取工具 V6 (SNG 戰情終極版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -29,8 +29,8 @@
         
         .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
         .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
-        /* 新增同步按鈕的樣式 */
         .btn-sync { background-color: #f1c40f; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
+        .btn-share { background-color: #27ae60; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
         .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
         .btn-io { background-color: #9b59b6; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
         .btn-danger { background-color: #e74c3c; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
@@ -40,6 +40,9 @@
         .alarm-list { list-style: none; padding: 0; margin: 0; }
         .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; gap: 10px; }
         
+        /* 新增的核取方塊樣式 */
+        .batch-cb { transform: scale(1.6); margin-right: 8px; cursor: pointer; flex-shrink: 0; accent-color: #3498db; }
+
         .alarm-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
         .title-wrapper { display: flex; align-items: center; gap: 4px; width: 100%; }
         
@@ -108,7 +111,7 @@
 
     <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
-    <h2>直播鬧鐘設定 ⏰</h2>
+    <h2>直播鬧鐘設定 ⏰ (V6)</h2>
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
@@ -137,13 +140,18 @@
         
         <div class="button-group-row">
             <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
-            <button class="btn-sync" id="syncBtn">🔄 同步</button>
+            <button class="btn-sync" id="syncBtn">🔄 雲端同步</button>
+        </div>
+        <div class="button-group-row" style="background:#ecf0f1; padding:8px; border-radius:8px;">
+            <button class="btn-tool" style="flex:1;" onclick="selectAll(true)">☑️ 全選</button>
+            <button class="btn-tool" style="flex:1;" onclick="selectAll(false)">☐ 清除</button>
+            <button class="btn-share" style="flex:2;" onclick="shareSelected()">📲 分享(勾選)</button>
         </div>
         <div class="button-group-row">
-            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間+組別排序</button>
+            <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間排序</button>
             <button class="btn-io" onclick="showIOModal('import')">📥 匯入</button>
             <button class="btn-io" onclick="showIOModal('export')">📤 匯出</button>
-            <button class="btn-danger" onclick="confirmDeleteAll()">🗑️ 全部刪除</button>
+            <button class="btn-danger" onclick="confirmBatchDelete()">🗑️ 刪除</button>
         </div>
     </div>
 
@@ -198,11 +206,11 @@
 
     <div id="confirmAllModal" class="modal-overlay">
         <div class="modal-content">
-            <h3 class="modal-title" style="color:#e74c3c;">⚠️ 再三確認</h3>
-            <p style="margin-bottom:20px;">您確定要刪除「所有」鬧鐘嗎？<br>此動作無法復原！</p>
+            <h3 class="modal-title" id="batchDeleteTitle" style="color:#e74c3c;">⚠️ 刪除確認</h3>
+            <p style="margin-bottom:20px;" id="batchDeleteMsg">您確定要刪除鬧鐘嗎？</p>
             <div class="modal-buttons">
                 <button class="btn-modal btn-cancel" onclick="closeModal('confirmAllModal')">取消</button>
-                <button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeDeleteAll()">確定刪除</button>
+                <button class="btn-modal btn-confirm" style="background:#e74c3c;" onclick="executeBatchDelete()">確定刪除</button>
             </div>
         </div>
     </div>
@@ -243,7 +251,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const docRef = doc(db, "schedules", "my-data"); // 您可以自訂集合和文件名稱
+        const docRef = doc(db, "schedules", "my-data"); 
 
         let audioCtx, wakeLock = null, alarmInterval;
         let isSystemActive = false; 
@@ -255,7 +263,7 @@
         let lastCheckedDateMD = null; 
         const sortLabels = ["依時間+組別排序", "依時間排序"];
 
-        // 將需要全域呼叫的函數掛載到 window
+        // 將全域函數掛載到 window
         window.ensureAudioInit = ensureAudioInit;
         window.toggleSystem = toggleSystem;
         window.testSound = testSound;
@@ -265,11 +273,11 @@
         window.parseAndAdd = parseAndAdd;
         window.toggleSortMode = toggleSortMode;
         window.showIOModal = showIOModal;
-        window.confirmDeleteAll = confirmDeleteAll;
+        window.confirmBatchDelete = confirmBatchDelete; // V6 改名
         window.closeModal = closeModal;
         window.processImport = processImport;
         window.createEndAlarm = createEndAlarm;
-        window.executeDeleteAll = executeDeleteAll;
+        window.executeBatchDelete = executeBatchDelete; // V6 改名
         window.executeDeleteSingle = executeDeleteSingle;
         window.stopAlarm = stopAlarm;
         window.openNameEditPrompt = openNameEditPrompt;
@@ -278,10 +286,19 @@
         window.adjustItemTime = adjustItemTime;
         window.toggleAlarm = toggleAlarm;
         window.requestDeleteSingle = requestDeleteSingle;
+        
+        // V6 新增功能掛載
+        window.toggleSelect = toggleSelect;
+        window.selectAll = selectAll;
+        window.shareSelected = shareSelected;
 
         window.onload = function() {
-            const savedAlarms = localStorage.getItem('lineAlarmsData_v5');
-            if (savedAlarms) alarms = JSON.parse(savedAlarms);
+            const savedAlarms = localStorage.getItem('lineAlarmsData_v5'); // 沿用舊資料 key
+            if (savedAlarms) {
+                alarms = JSON.parse(savedAlarms);
+                // V6 防呆：補上預設的 selected 屬性
+                alarms.forEach(a => { if (a.selected === undefined) a.selected = false; });
+            }
             const savedSort = localStorage.getItem('lineAlarmsSortMode_v5');
             if (savedSort !== null) sortMode = parseInt(savedSort);
             
@@ -294,15 +311,14 @@
                     const latestAlarms = localStorage.getItem('lineAlarmsData_v5');
                     if (latestAlarms) {
                         alarms = JSON.parse(latestAlarms);
-                        renderAlarms(); // 瞬間重繪畫面
+                        renderAlarms(); 
                     }
                 }
             });
             // ---------------------------------
 
-            // --- ⭐【AI 自動化：攔截網址參數 (支援日期與開始/結束)】⭐ ---
+            // --- ⭐【AI 自動化：攔截網址參數】⭐ ---
             const urlParams = new URLSearchParams(window.location.search);
-            
             const alarmsToAdd = [
                 { date: urlParams.get('date1'), time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
                 { date: urlParams.get('date2'), time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
@@ -320,11 +336,8 @@
                         if (h === 24) { h = 0; dayOffset = 1; }
 
                         let formattedTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        
-                        // 處理日期：如果有傳 date 就轉格式，沒有就預設今天
                         let targetDate = item.date ? item.date.trim() : getTodayMD();
                         
-                        // 若 AI 傳入 0318，轉換成 3/18 或 03/18，統一網頁內的日期格式 M/D
                         if (targetDate.length === 4 && !targetDate.includes('/')) {
                             targetDate = `${parseInt(targetDate.substring(0,2))}/${parseInt(targetDate.substring(2,4))}`;
                         } else if (targetDate.includes('/')) {
@@ -339,18 +352,11 @@
                             targetDate = `${tmpDate.getMonth() + 1}/${tmpDate.getDate()}`;
                         }
 
-                        // 防呆檢查：連同日期與 suffix 一起檢查
                         if (!alarms.some(a => a.date === targetDate && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
                             alarms.push({
-                                date: targetDate, 
-                                title: item.title, 
-                                origTime: item.time, 
-                                alarmTime: formattedTime, 
-                                raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), 
-                                suffix: item.suffix,
-                                checked: true, 
-                                id: generateId(),
-                                hasExplicitDate: true
+                                date: targetDate, title: item.title, origTime: item.time, alarmTime: formattedTime, 
+                                raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), suffix: item.suffix,
+                                checked: true, selected: false, id: generateId(), hasExplicitDate: true // V6 新增 selected: false
                             });
                             addedCount++;
                         }
@@ -359,10 +365,9 @@
             });
 
             if (addedCount > 0) {
-                save(); // 寫入記憶體觸發其他分頁更新
+                save(); 
                 window.history.replaceState({}, document.title, window.location.pathname);
 
-                // --- ⭐【心跳偵測與自動銷毀】⭐ ---
                 const lastHeartbeat = parseInt(localStorage.getItem('sng_alarm_heartbeat') || '0');
                 const isMainTabAlive = (Date.now() - lastHeartbeat) < 3000; 
 
@@ -378,35 +383,25 @@
                     setTimeout(() => window.close(), 2000);
                     return; 
                 }
-                // ---------------------------------
             }
-            // --- 【AI 自動化結束】 ---
-
             renderAlarms();
         };
 
-        // 修改 save 函數，讓它同時儲存到 Firebase
         async function save() {
             localStorage.setItem('lineAlarmsData_v5', JSON.stringify(alarms));
             localStorage.setItem('lineAlarmsSortMode_v5', sortMode);
 
-            // 同步寫入 Firebase
-            try {
-                await setDoc(docRef, { alarmsData: alarms });
-                console.log("資料已儲存至 Firebase");
-            } catch (e) {
-                console.error("寫入 Firebase 失敗: ", e);
-                // 可以考慮加上 showMessage 提示使用者
-            }
+            try { await setDoc(docRef, { alarmsData: alarms }); } 
+            catch (e) { console.error("寫入 Firebase 失敗: ", e); }
         }
 
-        // 同步按鈕的邏輯
         document.getElementById('syncBtn').addEventListener('click', async () => {
             try {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     alarms = docSnap.data().alarmsData || [];
-                    save(); // 更新 localStorage 並觸發跨分頁同步
+                    alarms.forEach(a => { if (a.selected === undefined) a.selected = false; }); // V6 防呆
+                    save(); 
                     renderAlarms();
                     showMessage("✅ 已從雲端同步最新資料！");
                 } else {
@@ -417,6 +412,41 @@
                 showMessage("❌ 同步失敗，請檢查網路或設定。");
             }
         });
+
+        // --- V6 新增功能：勾選與批次操作 ---
+        function toggleSelect(id) {
+            const a = alarms.find(x => x.id === id);
+            if (a) a.selected = !a.selected;
+            save(); // 保存選取狀態
+        }
+
+        function selectAll(forceSelect) {
+            alarms.forEach(a => a.selected = forceSelect);
+            renderAlarms();
+        }
+
+        function shareSelected() {
+            const selectedAlarms = alarms.filter(a => a.selected);
+            if (selectedAlarms.length === 0) {
+                showMessage("⚠️ 請先勾選要分享的鬧鐘！");
+                return;
+            }
+            // 轉成純文字，App Inventor 可直接讀取解析
+            const shareText = selectedAlarms.map(a => `${a.date} ${a.title} ${a.origTime} ${a.suffix}`).join('\n');
+            
+            // 呼叫 Android 系統原生分享 (支援離網傳送到其他 App)
+            if (navigator.share) {
+                navigator.share({
+                    title: 'SNG 批次鬧鐘資料',
+                    text: shareText
+                }).catch(err => console.log('分享取消或失敗', err));
+            } else {
+                navigator.clipboard.writeText(shareText).then(() => {
+                    showMessage("✅ 已複製到剪貼簿！\n(您的設備不支援系統原生分享，可直接貼上至 App Inventor)");
+                });
+            }
+        }
+        // ---------------------------------
 
         function ensureAudioInit() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -447,9 +477,7 @@
 
             const originalLength = alarms.length;
             alarms = alarms.filter(a => {
-                if (a.hasExplicitDate) {
-                    return getDateVal(a.date) >= todayVal; 
-                }
+                if (a.hasExplicitDate) { return getDateVal(a.date) >= todayVal; }
                 return true; 
             });
 
@@ -457,17 +485,12 @@
 
             alarms.forEach(a => {
                 if (!a.hasExplicitDate && a.date !== todayMD) {
-                    a.date = todayMD;
-                    a.rang = false; 
-                    changed = true;
+                    a.date = todayMD; a.rang = false; changed = true;
                 }
             });
 
             lastCheckedDateMD = todayMD;
-            if (changed) {
-                renderAlarms();
-                save();
-            }
+            if (changed) { renderAlarms(); save(); }
             return changed;
         }
 
@@ -490,7 +513,6 @@
             const text = document.getElementById('inputText').value;
             if (!text.trim()) return;
 
-            // ⭐ 連同手動貼上的防呆處理也加上 0318 這種四位數的支援
             const regex = /(?:(\d{1,2}\/\d{1,2}|\d{4})\s*)?【([^】]+)】\s*(\d{1,2}[:：]\d{2}|\d{3,4})/;
             const match = text.match(regex);
             
@@ -540,17 +562,13 @@
                     alarms.push({
                         date, title, origTime, alarmTime, 
                         raw: encodeURIComponent(text), suffix: "開始", 
-                        checked: true, id: generateId(),
+                        checked: true, selected: false, id: generateId(), // V6 新增 selected 預設值
                         hasExplicitDate: hasExplicitDate
                     });
                     document.getElementById('inputText').value = '';
                     renderAlarms();
-                } else {
-                    showMessage("重複的鬧鐘！");
-                }
-            } else {
-                showMessage("格式辨識失敗！");
-            }
+                } else { showMessage("重複的鬧鐘！"); }
+            } else { showMessage("格式辨識失敗！"); }
         }
 
         function renderAlarms() {
@@ -571,7 +589,9 @@
                 const li = document.createElement('li');
                 li.className = 'alarm-item';
                 li.style.backgroundColor = getBgColor(a.title);
+                // V6: 在 alarm-info 左邊加入 Checkbox
                 li.innerHTML = `
+                    <input type="checkbox" class="batch-cb" ${a.selected ? 'checked' : ''} onchange="toggleSelect('${a.id}')">
                     <div class="alarm-info">
                         <div class="title-wrapper">
                             <button class="btn-edit-trigger" onclick="openNameEditPrompt('${a.id}')">✏️</button>
@@ -598,6 +618,7 @@
             save();
         }
 
+        // --- 其餘編輯與控制邏輯保持不變 ---
         function openNameEditPrompt(id) {
             ensureAudioInit();
             const a = alarms.find(x => x.id === id);
@@ -644,8 +665,7 @@
                     }
                     
                     a.alarmTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                    closeModal('promptModal');
-                    renderAlarms();
+                    closeModal('promptModal'); renderAlarms();
                 } else { showMessage("❌ 時間格式錯誤！"); }
             };
             modal.style.display = 'flex';
@@ -672,12 +692,11 @@
             if (!base) return;
             alarms.push({
                 date: base.date, title: base.title, origTime: timeVal, alarmTime: timeVal,
-                raw: base.raw, suffix: "結束", checked: true, id: generateId(),
+                raw: base.raw, suffix: "結束", checked: true, selected: false, id: generateId(),
                 hasExplicitDate: base.hasExplicitDate
             });
             showMessage(`✅ 已新增結束鬧鐘 (${timeVal})！`);
-            renderAlarms();
-            closeModal('infoModal');
+            renderAlarms(); closeModal('infoModal');
         }
 
         function requestDeleteSingle(id) {
@@ -691,13 +710,10 @@
         function executeDeleteSingle() {
             if (singleDeleteId) {
                 alarms = alarms.filter(a => a.id !== singleDeleteId);
-                renderAlarms();
-                closeModal('confirmSingleModal');
-                singleDeleteId = null;
+                renderAlarms(); closeModal('confirmSingleModal'); singleDeleteId = null;
             }
         }
 
-        // --- 系統控制 ---
         async function toggleSystem() {
             ensureAudioInit();
             const btn = document.getElementById('masterBtn'), silentAudio = document.getElementById('silentAudio');
@@ -711,19 +727,12 @@
             } else {
                 silentAudio.play().catch(e => console.log(e));
                 isSystemActive = true;
-                if ('wakeLock' in navigator) {
-                    try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
-                }
-                btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動";
-                btn.classList.add('active');
+                if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+                btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動"; btn.classList.add('active');
             }
         }
 
-        function testSound() {
-            ensureAudioInit();
-            playBeep();
-        }
-
+        function testSound() { ensureAudioInit(); playBeep(); }
         function playBeep() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -733,10 +742,7 @@
             osc.start(); setTimeout(() => osc.stop(), 250);
         }
 
-        function stopAlarm() {
-            closeModal('alarmModal');
-            if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
-        }
+        function stopAlarm() { closeModal('alarmModal'); if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; } }
 
         function adjustItemTime(id, delta) {
             const a = alarms.find(x => x.id === id);
@@ -751,8 +757,7 @@
 
         function toggleAlarm(id) {
             const a = alarms.find(x => x.id === id);
-            if (a) a.checked = !a.checked;
-            save();
+            if (a) a.checked = !a.checked; save();
         }
 
         function toggleSortMode() {
@@ -763,25 +768,19 @@
 
         function applySort() {
             const getMins = (t) => { const [h, m] = t.split(':'); return parseInt(h) * 60 + parseInt(m); };
-
             if (sortMode === 0) {
                 const groupMetadata = {};
                 alarms.forEach(a => {
                     const groupKey = a.date + "|" + a.title;
                     const mins = getMins(a.alarmTime);
-                    if (!groupMetadata[groupKey]) {
-                        groupMetadata[groupKey] = { startTime: Infinity, minTime: Infinity };
-                    }
-                    if (a.suffix === "開始") {
-                        if (mins < groupMetadata[groupKey].startTime) groupMetadata[groupKey].startTime = mins;
-                    }
+                    if (!groupMetadata[groupKey]) { groupMetadata[groupKey] = { startTime: Infinity, minTime: Infinity }; }
+                    if (a.suffix === "開始") { if (mins < groupMetadata[groupKey].startTime) groupMetadata[groupKey].startTime = mins; }
                     if (mins < groupMetadata[groupKey].minTime) groupMetadata[groupKey].minTime = mins;
                 });
 
                 alarms.sort((a, b) => {
                     const dateA = getDateVal(a.date), dateB = getDateVal(b.date);
                     if (dateA !== dateB) return dateA - dateB;
-
                     const gA = groupMetadata[a.date + "|" + a.title], gB = groupMetadata[b.date + "|" + b.title];
                     const refTimeA = gA.startTime === Infinity ? gA.minTime : gA.startTime;
                     const refTimeB = gB.startTime === Infinity ? gB.minTime : gB.startTime;
@@ -805,7 +804,8 @@
             const btn = document.getElementById('ioConfirmBtn');
             modal.style.display = 'flex';
             if (type === 'export') {
-                title.innerText = "匯出選項";
+                const selectedCount = alarms.filter(a => a.selected).length;
+                title.innerText = selectedCount > 0 ? `匯出選項 (已選 ${selectedCount} 筆)` : "匯出選項 (全部)";
                 btn.innerText = "確認匯出";
                 btn.onclick = executeExport;
             } else {
@@ -815,11 +815,15 @@
             }
         }
 
+        // V6: 匯出支援批次過濾
         function executeExport() {
             const exportFixed = document.getElementById('optFixed').checked, exportDate = document.getElementById('optDate').checked;
-            const today = getTodayMD();
+            
+            // 判斷是否有勾選。如果有，只匯出有勾選的；若無，匯出全部。
+            const targetAlarms = alarms.some(a => a.selected) ? alarms.filter(a => a.selected) : alarms;
+
             let fixedList = [], dateList = [];
-            alarms.forEach(a => {
+            targetAlarms.forEach(a => {
                 if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.origTime} ${a.suffix}`);
                 else dateList.push(`${a.date} ${a.title} ${a.origTime} ${a.suffix}`);
             });
@@ -837,70 +841,53 @@
         function processImport(event) {
             const file = event.target.files[0];
             if (!file) return;
-            const importFixed = document.getElementById('optFixed').checked;
-            const importDate = document.getElementById('optDate').checked;
-            const today = getTodayMD();
-            const todayVal = getDateVal(today);
+            const importFixed = document.getElementById('optFixed').checked, importDate = document.getElementById('optDate').checked;
+            const today = getTodayMD(), todayVal = getDateVal(today);
             const reader = new FileReader();
 
             reader.onload = function(e) {
-                // 清除檔案可能夾帶的隱藏 BOM 字元，避免比對失敗
                 const text = e.target.result.replace(/^\uFEFF/, '');
                 const lines = text.split('\n');
                 let count = 0;
 
                 lines.forEach(line => {
-                    line = line.trim(); 
-                    if (!line) return;
-
-                    // 遇到標籤直接跳過換下一行 (系統現在會自動判斷，不需要依賴標籤)
+                    line = line.trim(); if (!line) return;
                     if (line.includes("[固定鬧鐘]") || line.includes("[日期鬧鐘]")) return;
 
-                    // 正規表達式：有日期的格式 (例如: 03/18 標題 18:00 開始)
                     const matchDate = line.match(/^(\d{1,2}\/\d{1,2})\s+(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
-                    // 正規表達式：無日期的格式 (例如: 標題 18:00 開始)
                     const matchFixed = line.match(/^(.*?)\s+(\d{1,2}[:：]\d{2}|\d{3,4})\s*(.*)$/);
 
-                    // 優先判斷是否為「有日期」的格式
                     if (matchDate) {
                         if (!importDate) return; 
                         let dStr = matchDate[1];
-                        const dateParts = dStr.split('/');
-                        dStr = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
-                        
-                        if (getDateVal(dStr) < todayVal) return; // 過去的日期直接阻擋
+                        const dateParts = dStr.split('/'); dStr = parseInt(dateParts[0]) + "/" + parseInt(dateParts[1]);
+                        if (getDateVal(dStr) < todayVal) return; 
 
                         const title = matchDate[2].trim();
-                        let time = normalizeTime(matchDate[3]);
-                        let suffix = matchDate[4] || "開始";
+                        let time = normalizeTime(matchDate[3]), suffix = matchDate[4] || "開始";
 
-                        // 防呆：避免重複匯入 (加入 suffix 判斷)
                         if (!alarms.some(a => a.date === dStr && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: true });
+                            alarms.push({ date: dStr, title, origTime: time, alarmTime: time, checked: true, selected: false, id: generateId(), suffix: suffix, hasExplicitDate: true });
                             count++;
                         }
                     } 
-                    // 若沒有日期，則進入「無日期」判斷邏輯
                     else if (matchFixed) {
                         if (!importFixed) return; 
                         const title = matchFixed[1].trim();
-                        let time = normalizeTime(matchFixed[2]);
-                        let suffix = matchFixed[3] || "開始";
+                        let time = normalizeTime(matchFixed[2]), suffix = matchFixed[3] || "開始";
 
-                        // 無日期就是強制匯入成「今天」
                         if (!alarms.some(a => a.date === today && a.title === title && a.alarmTime === time && a.suffix === suffix)) {
-                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, id: generateId(), suffix: suffix, hasExplicitDate: false });
+                            alarms.push({ date: today, title, origTime: time, alarmTime: time, checked: true, selected: false, id: generateId(), suffix: suffix, hasExplicitDate: false });
                             count++;
                         }
                     }
                 });
 
                 showMessage(`✅ 匯入成功！新增了 ${count} 筆。`);
-                renderAlarms(); 
-                closeModal('ioModal');
+                renderAlarms(); closeModal('ioModal');
             };
             reader.readAsText(file);
-            event.target.value = ''; // 清空 input，確保下次選同一個檔案也能觸發
+            event.target.value = ''; 
         }
 
         function normalizeTime(t) {
@@ -916,26 +903,41 @@
             return time;
         }
 
-        function confirmDeleteAll() { document.getElementById('confirmAllModal').style.display = 'flex'; }
-        
-        // 修改 executeDeleteAll 也要清空 Firebase
-        function executeDeleteAll() { 
-            alarms = []; 
+        // V6: 批次刪除確認邏輯
+        function confirmBatchDelete() {
+            const selectedCount = alarms.filter(a => a.selected).length;
+            const titleEl = document.getElementById('batchDeleteTitle');
+            const msgEl = document.getElementById('batchDeleteMsg');
+
+            if (selectedCount > 0) {
+                titleEl.innerText = "⚠️ 批次刪除確認";
+                msgEl.innerText = `您確定要刪除打勾選取的 ${selectedCount} 個鬧鐘嗎？`;
+            } else {
+                titleEl.innerText = "⚠️ 全部刪除確認";
+                msgEl.innerText = "目前沒有勾選任何項目。\n您確定要刪除「所有」鬧鐘嗎？此動作無法復原！";
+            }
+            document.getElementById('confirmAllModal').style.display = 'flex';
+        }
+
+        // V6: 執行批次/全部刪除
+        function executeBatchDelete() { 
+            const hasSelected = alarms.some(a => a.selected);
+            if (hasSelected) {
+                alarms = alarms.filter(a => !a.selected); // 刪除有勾選的
+            } else {
+                alarms = []; // 沒勾選就清空全部
+            }
             renderAlarms(); 
             closeModal('confirmAllModal'); 
         }
         
         function closeModal(id) { document.getElementById(id).style.display = 'none'; }
 
-        // --- ⭐ 核心倒數與響鈴邏輯 ---
         setInterval(() => {
-            // 發送心跳 (讓由Gemini意外開啟的新分頁知道主畫面還活著)
             localStorage.setItem('sng_alarm_heartbeat', Date.now());
-
             checkAndHandleDayCrossing();
 
-            const now = new Date();
-            const nowMD = getTodayMD();
+            const now = new Date(), nowMD = getTodayMD();
             let ringing = [], minDiffSeconds = Infinity;
             
             alarms.forEach(a => {
@@ -961,9 +963,7 @@
                 }
 
                 let diff = Math.floor((alarmTarget - now) / 1000);
-                if (diff >= 0 && diff < minDiffSeconds) {
-                    minDiffSeconds = diff;
-                }
+                if (diff >= 0 && diff < minDiffSeconds) { minDiffSeconds = diff; }
             });
 
             if (minDiffSeconds !== Infinity) {
