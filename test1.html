@@ -3,22 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>跳轉測試</title>
+    <title>終極跳轉測試</title>
     <style>
-        body { text-align: center; padding: 50px; font-family: sans-serif; }
-        .btn { display: block; width: 100%; padding: 20px; margin-bottom: 20px; background: #3498db; color: white; text-decoration: none; font-size: 20px; font-weight: bold; border-radius: 10px; }
-        .btn-lower { background: #e67e22; }
+        body { text-align: center; padding: 30px; font-family: sans-serif; background: #f4f7f6; }
+        .btn { display: block; width: 100%; padding: 18px; margin-bottom: 15px; color: white; text-decoration: none; font-size: 18px; font-weight: bold; border-radius: 10px; box-sizing: border-box; }
+        .btn-1 { background: #3498db; }
+        .btn-2 { background: #9b59b6; }
+        .btn-3 { background: #e67e22; }
     </style>
 </head>
 <body>
-    <h2>請點擊下方按鈕測試</h2>
+    <h2>🔍 終極尋標測試</h2>
+    <p>請依序點擊，只要有一個成功跳轉，請告訴我是哪一顆！</p>
 
-    <a href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=appinventor.ai_gygy4466.LiveAlarm;end;" class="btn">
-        測試 1：大寫 LiveAlarm
+    <a href="intent://#Intent;package=appinventor.ai_gygy4466.LiveAlarm;end;" class="btn btn-1">
+        測試 1：標準 LiveAlarm
     </a>
 
-    <a href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=appinventor.ai_gygy4466.livealarm;end;" class="btn btn-lower">
-        測試 2：小寫 livealarm
+    <a href="intent://#Intent;component=appinventor.ai_gygy4466.LiveAlarm/appinventor.ai_gygy4466.LiveAlarm.Screen1;end;" class="btn btn-2">
+        測試 2：深度呼叫 LiveAlarm
+    </a>
+
+    <a href="intent://#Intent;package=edu.mit.appinventor.aicompanion3;end;" class="btn btn-3">
+        測試 3：我正在用 Companion 預覽
     </a>
 
 </body>
