@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 V6 (SNG 戰情終極版)</title>
+    <title>LINE 直播鬧鐘擷取工具 V6.4 (SNG 戰情穩定版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -30,7 +30,7 @@
         .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
         .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
         .btn-sync { background-color: #f1c40f; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
-        .btn-share { background-color: #27ae60; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+        .btn-share { background-color: #27ae60; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 15px; font-weight: bold; flex: 1; }
         .btn-sort { background-color: #3498db; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
         .btn-io { background-color: #9b59b6; color: white; border: none; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
         .btn-danger { background-color: #e74c3c; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
@@ -40,7 +40,6 @@
         .alarm-list { list-style: none; padding: 0; margin: 0; }
         .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); transition: background-color 0.3s; gap: 10px; }
         
-        /* 新增的核取方塊樣式 */
         .batch-cb { transform: scale(1.6); margin-right: 8px; cursor: pointer; flex-shrink: 0; accent-color: #3498db; }
 
         .alarm-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
@@ -82,7 +81,6 @@
         input:checked + .slider { background-color: #06C755; }
         input:checked + .slider:before { transform: translateY(-18px); }
 
-        /* 彈窗樣式 */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
         .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 85vh; overflow-y: auto; }
         .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
@@ -111,7 +109,7 @@
 
     <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
-    <h2>直播鬧鐘設定 ⏰ (V6)</h2>
+    <h2>直播鬧鐘設定 ⏰ (V6.4)</h2>
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
@@ -145,7 +143,7 @@
         <div class="button-group-row" style="background:#ecf0f1; padding:8px; border-radius:8px;">
             <button class="btn-tool" style="flex:1;" onclick="selectAll(true)">☑️ 全選</button>
             <button class="btn-tool" style="flex:1;" onclick="selectAll(false)">☐ 清除</button>
-            <button class="btn-share" style="flex:2;" onclick="shareSelected()">📲 分享(勾選)</button>
+            <button class="btn-share" style="flex:2;" onclick="shareSelected()">🚀 複製已選 (準備貼上)</button>
         </div>
         <div class="button-group-row">
             <button class="btn-sort" id="sortBtn" onclick="toggleSortMode()">依時間排序</button>
@@ -199,7 +197,7 @@
     <div id="msgModal" class="modal-overlay">
         <div class="modal-content">
             <h3 class="modal-title">提示</h3>
-            <div id="msgModalContent" class="modal-msg"></div>
+            <div id="msgModalContent" class="modal-msg" style="white-space: pre-line;"></div>
             <button class="btn-modal btn-confirm" onclick="closeModal('msgModal')">我知道了</button>
         </div>
     </div>
@@ -235,11 +233,10 @@
     </div>
 
     <script type="module">
-        // --- 引入 Firebase ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
         import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-firestore.js";
 
-        // --- Firebase 設定 (請替換為您的設定) ---
+        // --- Firebase 設定 (若要使用雲端請填入您的參數) ---
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_AUTH_DOMAIN",
@@ -263,7 +260,6 @@
         let lastCheckedDateMD = null; 
         const sortLabels = ["依時間+組別排序", "依時間排序"];
 
-        // 將全域函數掛載到 window
         window.ensureAudioInit = ensureAudioInit;
         window.toggleSystem = toggleSystem;
         window.testSound = testSound;
@@ -273,11 +269,11 @@
         window.parseAndAdd = parseAndAdd;
         window.toggleSortMode = toggleSortMode;
         window.showIOModal = showIOModal;
-        window.confirmBatchDelete = confirmBatchDelete; // V6 改名
+        window.confirmBatchDelete = confirmBatchDelete;
         window.closeModal = closeModal;
         window.processImport = processImport;
         window.createEndAlarm = createEndAlarm;
-        window.executeBatchDelete = executeBatchDelete; // V6 改名
+        window.executeBatchDelete = executeBatchDelete;
         window.executeDeleteSingle = executeDeleteSingle;
         window.stopAlarm = stopAlarm;
         window.openNameEditPrompt = openNameEditPrompt;
@@ -287,16 +283,14 @@
         window.toggleAlarm = toggleAlarm;
         window.requestDeleteSingle = requestDeleteSingle;
         
-        // V6 新增功能掛載
         window.toggleSelect = toggleSelect;
         window.selectAll = selectAll;
         window.shareSelected = shareSelected;
 
         window.onload = function() {
-            const savedAlarms = localStorage.getItem('lineAlarmsData_v5'); // 沿用舊資料 key
+            const savedAlarms = localStorage.getItem('lineAlarmsData_v5'); 
             if (savedAlarms) {
                 alarms = JSON.parse(savedAlarms);
-                // V6 防呆：補上預設的 selected 屬性
                 alarms.forEach(a => { if (a.selected === undefined) a.selected = false; });
             }
             const savedSort = localStorage.getItem('lineAlarmsSortMode_v5');
@@ -305,7 +299,6 @@
             lastCheckedDateMD = getTodayMD();
             checkAndHandleDayCrossing(); 
 
-            // --- ⭐【新增跨分頁同步機制】⭐ ---
             window.addEventListener('storage', function(e) {
                 if (e.key === 'lineAlarmsData_v5') {
                     const latestAlarms = localStorage.getItem('lineAlarmsData_v5');
@@ -315,75 +308,6 @@
                     }
                 }
             });
-            // ---------------------------------
-
-            // --- ⭐【AI 自動化：攔截網址參數】⭐ ---
-            const urlParams = new URLSearchParams(window.location.search);
-            const alarmsToAdd = [
-                { date: urlParams.get('date1'), time: urlParams.get('time1'), title: urlParams.get('title1'), suffix: urlParams.get('suffix1') || '開始' },
-                { date: urlParams.get('date2'), time: urlParams.get('time2'), title: urlParams.get('title2'), suffix: urlParams.get('suffix2') || '開始' }
-            ];
-
-            let addedCount = 0;
-
-            alarmsToAdd.forEach(item => {
-                if (item.time && item.title) {
-                    let timeStr = normalizeTime(item.time);
-                    let [h, m] = timeStr.split(':').map(Number);
-                    
-                    if ((h < 24 && m < 60) || (h === 24 && m === 0)) {
-                        let dayOffset = 0;
-                        if (h === 24) { h = 0; dayOffset = 1; }
-
-                        let formattedTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                        let targetDate = item.date ? item.date.trim() : getTodayMD();
-                        
-                        if (targetDate.length === 4 && !targetDate.includes('/')) {
-                            targetDate = `${parseInt(targetDate.substring(0,2))}/${parseInt(targetDate.substring(2,4))}`;
-                        } else if (targetDate.includes('/')) {
-                            const [month, day] = targetDate.split('/');
-                            targetDate = `${parseInt(month)}/${parseInt(day)}`;
-                        }
-
-                        if (dayOffset !== 0) {
-                            let dParts = targetDate.split('/');
-                            let tmpDate = new Date(new Date().getFullYear(), parseInt(dParts[0]) - 1, parseInt(dParts[1]));
-                            tmpDate.setDate(tmpDate.getDate() + dayOffset);
-                            targetDate = `${tmpDate.getMonth() + 1}/${tmpDate.getDate()}`;
-                        }
-
-                        if (!alarms.some(a => a.date === targetDate && a.title === item.title && a.alarmTime === formattedTime && a.suffix === item.suffix)) {
-                            alarms.push({
-                                date: targetDate, title: item.title, origTime: item.time, alarmTime: formattedTime, 
-                                raw: encodeURIComponent("來自 LINE 群組 AI 自動擷取"), suffix: item.suffix,
-                                checked: true, selected: false, id: generateId(), hasExplicitDate: true // V6 新增 selected: false
-                            });
-                            addedCount++;
-                        }
-                    }
-                }
-            });
-
-            if (addedCount > 0) {
-                save(); 
-                window.history.replaceState({}, document.title, window.location.pathname);
-
-                const lastHeartbeat = parseInt(localStorage.getItem('sng_alarm_heartbeat') || '0');
-                const isMainTabAlive = (Date.now() - lastHeartbeat) < 3000; 
-
-                if (isMainTabAlive) {
-                    document.body.innerHTML = `
-                        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#f4f7f6; font-family:sans-serif; text-align:center;">
-                            <h1 style="font-size: 80px; margin: 0; color: #27ae60;">✅</h1>
-                            <h2 style="color:#2c3e50;">鬧鐘已同步至主畫面！</h2>
-                            <p style="color:#7f8c8d;">此小幫手分頁已完成任務，請直接關閉並返回主頁籤。<br>(若瀏覽器允許，2秒後將自動關閉)</p>
-                            <button onclick="window.close()" style="margin-top:20px; padding:15px 30px; font-size:16px; background:#e74c3c; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">手動關閉此分頁</button>
-                        </div>
-                    `;
-                    setTimeout(() => window.close(), 2000);
-                    return; 
-                }
-            }
             renderAlarms();
         };
 
@@ -400,7 +324,7 @@
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     alarms = docSnap.data().alarmsData || [];
-                    alarms.forEach(a => { if (a.selected === undefined) a.selected = false; }); // V6 防呆
+                    alarms.forEach(a => { if (a.selected === undefined) a.selected = false; }); 
                     save(); 
                     renderAlarms();
                     showMessage("✅ 已從雲端同步最新資料！");
@@ -413,11 +337,10 @@
             }
         });
 
-        // --- V6 新增功能：勾選與批次操作 ---
         function toggleSelect(id) {
             const a = alarms.find(x => x.id === id);
             if (a) a.selected = !a.selected;
-            save(); // 保存選取狀態
+            save();
         }
 
         function selectAll(forceSelect) {
@@ -425,28 +348,26 @@
             renderAlarms();
         }
 
+        // ==========================================
+        // V6.4 穩定版：純剪貼簿操作，放棄不穩定的瀏覽器跳轉
+        // ==========================================
         function shareSelected() {
             const selectedAlarms = alarms.filter(a => a.selected);
             if (selectedAlarms.length === 0) {
-                showMessage("⚠️ 請先勾選要分享的鬧鐘！");
+                showMessage("⚠️ 請先勾選要處理的鬧鐘！");
                 return;
             }
-            // 轉成純文字，App Inventor 可直接讀取解析
-            const shareText = selectedAlarms.map(a => `${a.date} ${a.title} ${a.origTime} ${a.suffix}`).join('\n');
             
-            // 呼叫 Android 系統原生分享 (支援離網傳送到其他 App)
-            if (navigator.share) {
-                navigator.share({
-                    title: 'SNG 批次鬧鐘資料',
-                    text: shareText
-                }).catch(err => console.log('分享取消或失敗', err));
-            } else {
-                navigator.clipboard.writeText(shareText).then(() => {
-                    showMessage("✅ 已複製到剪貼簿！\n(您的設備不支援系統原生分享，可直接貼上至 App Inventor)");
-                });
-            }
+            // 抓取調整後的鬧鐘時間 (a.alarmTime)
+            const shareText = selectedAlarms.map(a => `${a.date} ${a.title} ${a.alarmTime} ${a.suffix}`).join('\n');
+            
+            navigator.clipboard.writeText(shareText).then(() => {
+                showMessage("✅ 已複製調整後的時間！\n\n👉 請點擊手機首頁鍵/多工鍵\n👉 切換至 LiveAlarm App\n👉 長按輸入框貼上即可！");
+            }).catch(err => {
+                console.error('複製失敗', err);
+                showMessage("❌ 複製失敗，請手動複製。");
+            });
         }
-        // ---------------------------------
 
         function ensureAudioInit() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -562,7 +483,7 @@
                     alarms.push({
                         date, title, origTime, alarmTime, 
                         raw: encodeURIComponent(text), suffix: "開始", 
-                        checked: true, selected: false, id: generateId(), // V6 新增 selected 預設值
+                        checked: true, selected: false, id: generateId(), 
                         hasExplicitDate: hasExplicitDate
                     });
                     document.getElementById('inputText').value = '';
@@ -589,7 +510,6 @@
                 const li = document.createElement('li');
                 li.className = 'alarm-item';
                 li.style.backgroundColor = getBgColor(a.title);
-                // V6: 在 alarm-info 左邊加入 Checkbox
                 li.innerHTML = `
                     <input type="checkbox" class="batch-cb" ${a.selected ? 'checked' : ''} onchange="toggleSelect('${a.id}')">
                     <div class="alarm-info">
@@ -618,7 +538,6 @@
             save();
         }
 
-        // --- 其餘編輯與控制邏輯保持不變 ---
         function openNameEditPrompt(id) {
             ensureAudioInit();
             const a = alarms.find(x => x.id === id);
@@ -815,17 +734,15 @@
             }
         }
 
-        // V6: 匯出支援批次過濾
         function executeExport() {
             const exportFixed = document.getElementById('optFixed').checked, exportDate = document.getElementById('optDate').checked;
             
-            // 判斷是否有勾選。如果有，只匯出有勾選的；若無，匯出全部。
             const targetAlarms = alarms.some(a => a.selected) ? alarms.filter(a => a.selected) : alarms;
 
             let fixedList = [], dateList = [];
             targetAlarms.forEach(a => {
-                if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.origTime} ${a.suffix}`);
-                else dateList.push(`${a.date} ${a.title} ${a.origTime} ${a.suffix}`);
+                if (!a.hasExplicitDate) fixedList.push(`${a.title} ${a.alarmTime} ${a.suffix}`);
+                else dateList.push(`${a.date} ${a.title} ${a.alarmTime} ${a.suffix}`);
             });
             let finalStr = "";
             if (exportFixed && fixedList.length > 0) finalStr += "[固定鬧鐘]\n" + fixedList.join('\n') + "\n\n";
@@ -903,7 +820,6 @@
             return time;
         }
 
-        // V6: 批次刪除確認邏輯
         function confirmBatchDelete() {
             const selectedCount = alarms.filter(a => a.selected).length;
             const titleEl = document.getElementById('batchDeleteTitle');
@@ -919,13 +835,12 @@
             document.getElementById('confirmAllModal').style.display = 'flex';
         }
 
-        // V6: 執行批次/全部刪除
         function executeBatchDelete() { 
             const hasSelected = alarms.some(a => a.selected);
             if (hasSelected) {
-                alarms = alarms.filter(a => !a.selected); // 刪除有勾選的
+                alarms = alarms.filter(a => !a.selected); 
             } else {
-                alarms = []; // 沒勾選就清空全部
+                alarms = []; 
             }
             renderAlarms(); 
             closeModal('confirmAllModal'); 
