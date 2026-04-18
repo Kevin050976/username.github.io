@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LINE 直播鬧鐘擷取工具 V6.2 (SNG 戰情終極版)</title>
+    <title>LINE 直播鬧鐘擷取工具 V6.3 (SNG 戰情終極版)</title>
     <style>
         /* 網頁基本排版與顏色 */
         body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background-color: #f4f7f6; }
@@ -109,7 +109,7 @@
 
     <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
 
-    <h2>直播鬧鐘設定 ⏰ (V6.2)</h2>
+    <h2>直播鬧鐘設定 ⏰ (V6.3)</h2>
     
     <div class="system-control">
         <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
@@ -415,7 +415,7 @@
         }
 
         // ==========================================
-        // V6.2 修正跳轉：繞過瀏覽器阻擋機制
+        // V6.3 終極跳轉版：雙管齊下防呆機制
         // ==========================================
         function shareSelected() {
             const selectedAlarms = alarms.filter(a => a.selected);
@@ -424,29 +424,30 @@
                 return;
             }
             
-            // 使用調整後的鬧鐘時間 (a.alarmTime)
+            // 1. 使用調整後的鬧鐘時間 (a.alarmTime)
             const shareText = selectedAlarms.map(a => `${a.date} ${a.title} ${a.alarmTime} ${a.suffix}`).join('\n');
             
-            // 1. 背景執行複製到剪貼簿
-            navigator.clipboard.writeText(shareText).then(() => {
-                setTimeout(() => {
-                    showMessage("✅ 已複製調整後的時間！\n(若未自動切換，請手動回到桌面開啟 LiveAlarm 貼上)");
-                }, 800);
-            }).catch(err => {
-                console.error('複製失敗', err);
-                showMessage("❌ 複製失敗，請手動複製。");
-            });
+            // 2. 複製到剪貼簿 (無論如何都先幫您複製好)
+            navigator.clipboard.writeText(shareText).catch(err => console.log('複製失敗', err));
 
-            // 2. 「同步強制跳轉」：使用 Android 底層的 LAUNCHER 意圖
-            const packageName = "appinventor.ai_gygy4466.LiveAlarm";
+            // 3. 嘗試強制跳轉 (包含大小寫相容性)
+            const packageName = "appinventor.ai_gygy4466.LiveAlarm"; 
             const intentUrl = `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${packageName};end`;
             
-            // 建立隱藏連結並模擬點擊，繞過瀏覽器阻擋
-            const a = document.createElement('a');
-            a.href = intentUrl;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            // 執行跳轉
+            window.location.href = intentUrl;
+
+            // 4. 防呆保險：0.5秒後如果還留在網頁上 (代表跳轉失敗)，直接叫出系統原生分享選單
+            setTimeout(() => {
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'SNG 行程資料',
+                        text: shareText
+                    }).catch(err => console.log('分享取消', err));
+                } else {
+                    showMessage("✅ 已複製調整後的時間！\n(系統無法自動喚醒 App，請手動回桌面開啟 LiveAlarm 貼上)");
+                }
+            }, 500);
         }
 
         function ensureAudioInit() {
