@@ -3,206 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Tasks 自動化任務排程器v2</title>
+    <title>Google Tasks 自動排程器</title>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 25px; background-color: #f8fafc; color: #334155; }
+        body { font-family: -apple-system, sans-serif; padding: 25px; background: #f8fafc; color: #334155; }
         .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-        h2 { margin-top: 0; color: #1e293b; font-size: 1.4rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
-        .auth-panel { display: block; margin-bottom: 20px; padding: 12px; background-color: #f1f5f9; border-radius: 8px; font-size: 0.9rem; }
+        h2 { margin-top: 0; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .auth-panel { margin-bottom: 20px; padding: 12px; background: #f1f5f9; border-radius: 8px; }
         .status-badge { font-weight: bold; padding: 2px 6px; border-radius: 4px; }
-        .status-disconnected { color: #dc2626; background-color: #fee2e2; }
-        .status-connected { color: #16a34a; background-color: #dcfce7; }
-        .btn-auth { background-color: #4285F4; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; margin-top: -2px; }
-        .btn-auth:hover { background-color: #3367D6; }
-        .task-list { list-style-type: none; padding: 0; margin: 0; }
-        .task-item { border: 1px solid #e2e8f0; margin-bottom: 12px; padding: 16px; border-radius: 8px; cursor: pointer; background-color: #fff; transition: all 0.2s; }
-        .task-item:hover { border-color: #cbd5e1; background-color: #f8fafc; }
-        .task-title { font-weight: 600; color: #0f172a; }
+        .status-disconnected { color: #dc2626; background: #fee2e2; }
+        .status-connected { color: #16a34a; background: #dcfce7; }
+        .btn-auth { background: #4285F4; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; float: right; }
+        .task-list { list-style: none; padding: 0; }
+        .task-item { border: 1px solid #e2e8f0; margin-bottom: 12px; padding: 16px; border-radius: 8px; cursor: pointer; }
         .timer-options { display: none; margin-top: 12px; gap: 8px; }
-        .timer-btn { padding: 6px 12px; border: 1px solid #cbd5e1; background-color: #fff; color: #475569; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: background-color 0.1s; }
-        .timer-btn:hover { background-color: #f1f5f9; border-color: #94a3b8; color: #0f172a; }
-        #status-message { margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 0.9rem; display: none; white-space: pre-line; }
-        .msg-success { background-color: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
-        .msg-info { background-color: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .msg-error { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .timer-btn { padding: 6px 12px; border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; cursor: pointer; }
+        #status-message { margin-top: 15px; padding: 10px; border-radius: 6px; display: none; white-space: pre-line; }
+        .msg-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+        .msg-error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+        .msg-info { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>任務排程列表</h2>
-    
-    <!-- 授權與狀態控制區塊 -->
     <div class="auth-panel">
-        <span>認證狀態：<span id="auth-status" class="status-badge status-disconnected">系統載入中...</span></span>
-        <button id="auth-btn" class="btn-auth" onclick="handleAuthClick()" disabled>請稍候</button>
+        <span>狀態：<span id="auth-status" class="status-badge status-disconnected">載入中...</span></span>
+        <button id="auth-btn" class="btn-auth" onclick="handleAuth()" disabled>請稍候</button>
     </div>
 
     <ul class="task-list">
         <li class="task-item" onclick="toggleOptions('item-1')">
-            <div class="task-title">韓國瑜宴客</div>
+            <strong>韓國瑜宴客</strong>
             <div id="item-1" class="timer-options">
-                <button class="timer-btn" onclick="scheduleReminder(event, '韓國瑜宴客', 3)">3分鐘</button>
-                <button class="timer-btn" onclick="scheduleReminder(event, '韓國瑜宴客', 2)">2分鐘</button>
-                <button class="timer-btn" onclick="scheduleReminder(event, '韓國瑜宴客', 1)">1分鐘</button>
+                <button class="timer-btn" onclick="schedule(event, '韓國瑜宴客', 3)">3分鐘</button>
+                <button class="timer-btn" onclick="schedule(event, '韓國瑜宴客', 2)">2分鐘</button>
+                <button class="timer-btn" onclick="schedule(event, '韓國瑜宴客', 1)">1分鐘</button>
             </div>
         </li>
     </ul>
-
     <div id="status-message"></div>
 </div>
 
 <script>
-    // ⚠️ 請在這裡填入您的真實 CLIENT_ID (保留單引號)
-    const CLIENT_ID = '886078626500-01b6l1v9d8ppgcao13e3mj9ua344aomd.apps.googleusercontent.com';
+    // 👇👇👇 請在這裡貼上您「剛剛新建立」的 CLIENT_ID 👇👇👇
+    const CLIENT_ID = '663371153098-sb2qcm64nn22mpo0jmvk86l0h1ldqob2.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/tasks';
 
     let tokenClient;
     let accessToken = null;
 
-    // 當 Google Identity Services (GSI) 腳本載入完成時會呼叫此函式
-    function gisLoaded() {
-        console.log("✅ Google GSI 腳本已成功載入！");
-        
+    function initGIS() {
         tokenClient = google.accounts.oauth2.initTokenClient({
             client_id: CLIENT_ID,
             scope: SCOPES,
-            callback: (tokenResponse) => {
-                if (tokenResponse && tokenResponse.access_token) {
-                    console.log("✅ 成功獲取 Access Token！");
-                    accessToken = tokenResponse.access_token;
-                    updateAuthUI(true);
-                    localStorage.setItem('tasks_authorized', 'true');
-                }
-            },
-            error_callback: (err) => {
-                console.error('❌ 授權發生錯誤:', err);
-                if (err.error === 'interaction_required') {
-                    updateAuthUI(false);
-                } else {
-                    showStatus(`授權錯誤: ${err.message || err.error}`, 'error');
+            callback: (resp) => {
+                if (resp && resp.access_token) {
+                    accessToken = resp.access_token;
+                    document.getElementById('auth-status').className = 'status-badge status-connected';
+                    document.getElementById('auth-status').innerText = '已連線';
+                    document.getElementById('auth-btn').innerText = '切換帳號';
+                    localStorage.setItem('has_auth', 'true');
                 }
             }
         });
+        document.getElementById('auth-btn').disabled = false;
+        document.getElementById('auth-status').innerText = '未授權';
 
-        // 系統準備完畢，解鎖按鈕
-        updateAuthUI(false);
-
-        // 檢查是否曾經授權過，嘗試靜默登入
-        if (localStorage.getItem('tasks_authorized') === 'true') {
-            console.log("🔄 偵測到過去的授權紀錄，嘗試背景重新整理 Token...");
+        if (localStorage.getItem('has_auth') === 'true') {
             tokenClient.requestAccessToken({ prompt: 'none' });
         }
     }
 
-    function handleAuthClick() {
-        console.log("👉 1. 觸發授權按鈕點擊");
+    function handleAuth() {
+        if (tokenClient) tokenClient.requestAccessToken({ prompt: 'consent' });
+    }
+
+    function toggleOptions(id) {
+        const el = document.getElementById(id);
+        el.style.display = el.style.display === "flex" ? "none" : "flex";
+    }
+
+    function showMsg(txt, type) {
+        const el = document.getElementById('status-message');
+        el.innerText = txt;
+        el.className = 'msg-' + type;
+        el.style.display = 'block';
+    }
+
+    function schedule(e, task, min) {
+        e.stopPropagation();
+        if (!accessToken) return showMsg('請先點擊 Google 授權', 'error');
         
-        if (!tokenClient) {
-            console.error("❌ 錯誤：tokenClient 尚未初始化");
-            showStatus('Google 認證系統尚未準備好，請重新整理網頁。', 'error');
-            return;
-        }
-
-        console.log("👉 2. 準備呼叫 Google 授權視窗...");
-        try {
-            // 強制彈出授權視窗，解決無聲無息失效的問題
-            tokenClient.requestAccessToken({ prompt: 'consent' });
-            console.log("👉 3. 已送出授權請求！請留意彈出視窗。");
-        } catch (error) {
-            console.error("❌ 呼叫授權時發生例外錯誤：", error);
-            showStatus(`彈窗失敗: ${error.message}`, 'error');
-        }
-    }
-
-    function updateAuthUI(isConnected) {
-        const statusEl = document.getElementById('auth-status');
-        const btnEl = document.getElementById('auth-btn');
-        btnEl.disabled = false; // 解鎖按鈕
+        const target = new Date(Date.now() + min * 60000);
+        showMsg(`⏳ 系統將在 ${min} 分鐘後自動寫入Tasks...`, 'info');
         
-        if (isConnected) {
-            statusEl.innerText = '已連線';
-            statusEl.className = 'status-badge status-connected';
-            btnEl.innerText = '切換帳號';
-        } else {
-            statusEl.innerText = '未授權';
-            statusEl.className = 'status-badge status-disconnected';
-            btnEl.innerText = 'Google 授權';
-        }
-    }
-
-    function toggleOptions(itemId) {
-        const optionsDiv = document.getElementById(itemId);
-        const isOpen = optionsDiv.style.display === "flex";
-        document.querySelectorAll('.timer-options').forEach(el => el.style.display = "none");
-        optionsDiv.style.display = isOpen ? "none" : "flex";
-    }
-
-    function showStatus(text, type) {
-        const msgEl = document.getElementById('status-message');
-        msgEl.innerText = text;
-        if (type === 'success') msgEl.className = 'msg-success';
-        else if (type === 'error') msgEl.className = 'msg-error';
-        else msgEl.className = 'msg-info';
-        msgEl.style.display = 'block';
-    }
-
-    function scheduleReminder(event, taskName, minutes) {
-        event.stopPropagation();
-        
-        if (!accessToken) {
-            showStatus('⚠️ 請先點擊右上方的「Google 授權」按鈕。', 'error');
-            return;
-        }
-
-        const targetTime = new Date(new Date().getTime() + minutes * 60000);
-        showStatus(`⏳ 已排程：系統將在 ${minutes} 分鐘後自動寫入 Google Tasks...\n(請保持此網頁開啟)`, 'info');
-        console.log(`⏳ 排程啟動：預計 ${minutes} 分鐘後觸發 (${targetTime.toLocaleTimeString()})`);
-
         setTimeout(() => {
-            writeTaskToGoogle(taskName, targetTime);
-        }, minutes * 60000); 
-    }
-
-    function writeTaskToGoogle(taskName, dueTime) {
-        const rfc3339Time = dueTime.toISOString(); 
-        console.log("🚀 開始向 Google Tasks API 發送請求...");
-
-        fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                title: taskName,
-                notes: `透過自動排程寫入。排定時間：${dueTime.toLocaleTimeString()}`,
-                due: rfc3339Time
-            })
-        })
-        .then(response => {
-            if (!response.ok) {
-                if (response.status === 401) {
-                    console.log("🔄 Token 已過期，嘗試背景刷新...");
-                    tokenClient.requestAccessToken({ prompt: 'none' });
-                    throw new Error('認證已過期，系統已嘗試刷新，請重新設定一次提醒。');
-                }
-                throw new Error(`API 發生錯誤，狀態碼: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("✅ 任務新增成功！", data);
-            showStatus(`✅ 成功寫入 Google Tasks！\n任務：${taskName}\n建立時間：${new Date().toLocaleTimeString()}`, 'success');
-        })
-        .catch(error => {
-            console.error('❌ 寫入失敗:', error);
-            showStatus(`寫入失敗: ${error.message}`, 'error');
-        });
+            fetch('https://tasks.googleapis.com/tasks/v1/lists/@default/tasks', {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: task, due: target.toISOString(), notes: `自動排程於 ${target.toLocaleTimeString()}` })
+            }).then(r => r.json()).then(() => {
+                showMsg(`✅ 成功寫入 Google Tasks！\n任務：${task}`, 'success');
+            });
+        }, min * 60000);
     }
 </script>
-
-<!-- GSI 腳本載入完畢後，透過 onload 觸發 gisLoaded 確保安全初始化 -->
-<script src="https://accounts.google.com/gsi/client" async defer onload="gisLoaded()"></script>
+<script src="https://accounts.google.com/gsi/client" async defer onload="initGIS()"></script>
 </body>
 </html>
