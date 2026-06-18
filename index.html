@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>大時鐘</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            height: 100vh;
+            height: 100dvh;
+            width: 100vw;
+            overflow: hidden;
+            background-color: black;
+            color: white;
+            /* 網頁基礎字體 */
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* 時鐘樣式 */
+        #clock {
+            /* 【關鍵修復】強制使用等寬字體 (Monospace)
+               這能確保 1 和 0 的寬度完全相同，徹底解決秒數跳動時的左右晃動問題 */
+            font-family: "Roboto Mono", "SF Mono", Consolas, "Courier New", monospace;
+            
+            /* 根據螢幕寬高自動取最小值，並微調大小以適應等寬字體的寬度 */
+            font-size: min(15vw, 28vh);
+            font-weight: bold;
+            text-align: center;
+            line-height: 1;
+            white-space: nowrap; /* 絕對不換行 */
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            letter-spacing: 2px; /* 稍微增加字距讓視覺更舒適 */
+        }
+    </style>
+</head>
+<body>
+    <div id="clock">00:00:00</div>
+
+    <script>
+        // --- 時鐘更新邏輯 ---
+        function updateClock() {
+            const now = new Date();
+            
+            // 取得時、分、秒，並使用 padStart 補零
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+
+            document.getElementById('clock').textContent = `${hours}:${minutes}:${seconds}`;
+        }
+
+        // 每秒 (1000毫秒) 更新一次
+        setInterval(updateClock, 1000); 
+        updateClock(); // 初始化時鐘顯示
+
+        // --- 自動螢幕長亮 (Wake Lock) 邏輯 ---
+        let wakeLock = null;
+        let isWakeLockActive = false;
+
+        async function requestWakeLock() {
+            if (isWakeLockActive) return;
+
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock released');
+                        isWakeLockActive = false;
+                    });
+                    
+                    isWakeLockActive = true;
+                    console.log('Wake Lock 自動啟用成功');
+                }
+            } catch (err) {
+                // 若瀏覽器嚴格限制無點擊不可長亮，則只在背景警告，不影響畫面
+                console.warn(`自動 Wake Lock 遭拒: ${err.message}`);
+            }
+        }
+
+        // 網頁一載入就自動請求長亮 (因為是從上一頁點擊跳轉過來，通常可直接獲得權限)
+        requestWakeLock();
+
+        // 若使用者切換分頁或縮小視窗再回來，嘗試重新取得長亮權限
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && wakeLock === null) {
+                requestWakeLock();
+            }
+        });
+    </script>
+</body>
+</html>
