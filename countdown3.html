@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>全螢幕倒數計時器 (同步版)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            min-height: 100dvh; 
+            width: 100vw;
+            overflow-x: hidden;
+            overflow-y: auto;
+            touch-action: manipulation;
+        }
+        
+        #app {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* 密碼解鎖按鈕 */
+        #unlock-btn {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            font-size: 2rem;
+            cursor: pointer;
+            opacity: 0.4;
+            transition: opacity 0.3s;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 60px;
+            height: 60px;
+        }
+
+        #unlock-btn:hover {
+            opacity: 1;
+        }
+
+        /* 檢視者訊息 */
+        #viewer-msg {
+            font-size: 1.5rem;
+            color: #888;
+            margin: 40px 0;
+            text-align: center;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+        
+        /* 主選單樣式 */
+        #menu-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px;
+            flex: 1;
+        }
+        
+        .menu-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .title {
+            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            margin-bottom: 25px;
+            text-align: center;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .button-grid {
+            display: none; /* 預設隱藏，解鎖後改為 grid */
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 15px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .time-btn {
+            padding: 22px 10px;
+            font-size: 2rem;
+            background: linear-gradient(135deg, #007AFF, #0062CC);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .time-btn:active {
+            transform: scale(0.96);
+            background: linear-gradient(135deg, #0062CC, #0050A3);
+        }
+        
+        .current-time {
+            font-size: 1.2rem;
+            color: #aaa;
+            padding: 10px 0;
+            text-align: center;
+            width: 100%;
+        }
+        
+        @media (orientation: landscape) {
+            .button-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+                gap: 12px;
+                max-width: 800px;
+            }
+            .title {
+                margin-bottom: 15px;
+                font-size: 2rem;
+            }
+            .time-btn {
+                padding: 15px 5px;
+                font-size: 1.6rem;
+                border-radius: 15px;
+            }
+        }
+        
+        /* 倒數畫面樣式 */
+        #countdown-screen {
+            display: none;
+            flex-direction: column;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100vh;
+            height: 100dvh;
+            background: #000;
+            z-index: 100;
+            padding-top: env(safe-area-inset-top);
+        }
+        
+        .countdown-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        
+        .countdown-display {
+            font-size: min(32vw, 45vh);
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+            width: 100%;
+            padding: 0 10px;
+            font-variant-numeric: tabular-nums;
+        }
+        
+        /* 管理員控制列 (預設隱藏) */
+        #admin-action-buttons {
+            display: none; 
+            width: 100%;
+            padding: 15px 20px;
+            padding-bottom: max(25px, env(safe-area-inset-bottom));
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .stop-btn, .pause-btn, .restart-btn {
+            padding: 15px 10px;
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.15s;
+            width: 100%;
+            max-width: 120px;
+        }
+        
+        .stop-btn { background: linear-gradient(135deg, #FF3B30, #E60000); }
+        .pause-btn { background: linear-gradient(135deg, #FF9500, #FF8800); }
+        .restart-btn { background: linear-gradient(135deg, #34C759, #2CAE4B); }
+        
+        .stop-btn:active { transform: scale(0.95); }
+        .pause-btn:active { transform: scale(0.95); }
+        .restart-btn:active { transform: scale(0.95); }
+        
+        .flashing {
+            animation: flash 1s infinite;
+        }
+        @keyframes flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- 密碼解鎖鈕 -->
+        <div id="unlock-btn" title="主控端解鎖">🔒</div>
+
+        <!-- 主選單畫面 -->
+        <div id="menu-screen">
+            <div class="menu-content">
+                <h1 class="title">全螢幕倒數計時器</h1>
+                
+                <!-- 一般檢視者看到的畫面 -->
+                <div id="viewer-msg">等待主控端操作...</div>
+                
+                <!-- 主控端才看得到的按鈕 -->
+                <div class="button-grid" id="admin-controls">
+                    <button class="time-btn" data-time="180">3:00</button>
+                    <button class="time-btn" data-time="150">2:30</button>
+                    <button class="time-btn" data-time="120">2:00</button>
+                    <button class="time-btn" data-time="90">1:30</button>
+                    <button class="time-btn" data-time="60">1:00</button>
+                    <button class="time-btn" data-time="30">0:30</button>
+                    <button class="time-btn" data-time="20">0:20</button>
+                    <button class="time-btn" data-time="1200">20:00</button>
+                </div>
+            </div>
+            
+            <div class="current-time" id="current-time"></div>
+        </div>
+        
+        <!-- 倒數畫面 -->
+        <div id="countdown-screen">
+            <div class="countdown-wrapper">
+                <div class="countdown-display" id="countdown-display">0:00</div>
+            </div>
+            <!-- 主控端才看得到的倒數控制 -->
+            <div id="admin-action-buttons">
+                <button class="restart-btn" id="restart-btn">重新</button>
+                <button class="pause-btn" id="pause-btn">暫停</button>
+                <button class="stop-btn" id="stop-btn">停止</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入 Firebase 模組 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==========================================
+        // 1. Firebase 設定區 (部署至 GitHub Pages 前請填寫這裡)
+        // ==========================================
+        const myFirebaseConfig = {
+            apiKey: "AIzaSyB1Hcda-gku8C_LKRsrzUdELV1vRmyFR_8",
+            authDomain: "my-schedule-app-c2f08.firebaseapp.com",
+            projectId: "my-schedule-app-c2f08",
+            storageBucket: "my-schedule-app-c2f08.firebasestorage.app",
+            messagingSenderId: "880586095186",
+            appId: "1:880586095186:web:5aee95b334f6ad017abd8b"
+        };
+        const myAppId = 'my-sync-timer';
+
+        const fbConfigString = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        const finalConfig = fbConfigString ? JSON.parse(fbConfigString) : myFirebaseConfig;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : myAppId;
+
+        let app, auth, db;
+        try {
+            if(finalConfig.apiKey && finalConfig.apiKey !== "你的_API_KEY_請替換這裡") {
+                app = initializeApp(finalConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } else if (fbConfigString) {
+                app = initializeApp(finalConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } else {
+                console.warn("⚠️ 尚未設定 Firebase，目前啟動【離線單機模式】。");
+            }
+        } catch (err) {
+            console.error("Firebase 初始化失敗:", err);
+        }
+
+        // --- 全域狀態變數 ---
+        let isAdmin = false;       
+        let localTimer = null;     
+        let currentStatus = 'menu';
+        let endTime = 0;           
+        let pausedRemaining = 0;   
+        let originalDuration = 0;  
+
+        // --- DOM 元素 ---
+        const ui = {
+            unlockBtn: document.getElementById('unlock-btn'),
+            viewerMsg: document.getElementById('viewer-msg'),
+            adminControls: document.getElementById('admin-controls'),
+            adminActions: document.getElementById('admin-action-buttons'),
+            menuScreen: document.getElementById('menu-screen'),
+            countdownScreen: document.getElementById('countdown-screen'),
+            display: document.getElementById('countdown-display'),
+            timeBtns: document.querySelectorAll('.time-btn'),
+            stopBtn: document.getElementById('stop-btn'),
+            pauseBtn: document.getElementById('pause-btn'),
+            restartBtn: document.getElementById('restart-btn'),
+            currentTime: document.getElementById('current-time')
+        };
+
+        // --- 1. 初始化與密碼解鎖邏輯 ---
+        function initFrontend() {
+            setInterval(() => {
+                ui.currentTime.textContent = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            }, 1000);
+
+            ui.unlockBtn.addEventListener('click', () => {
+                if (isAdmin) {
+                    alert("您已是主控端狀態。");
+                    return;
+                }
+                const pwd = prompt("請輸入主控端密碼：");
+                if (pwd === "8888") {
+                    isAdmin = true;
+                    ui.unlockBtn.textContent = '🔓';
+                    ui.viewerMsg.style.display = 'none';
+                    ui.adminControls.style.display = 'grid'; 
+                    if (currentStatus !== 'menu') {
+                        ui.adminActions.style.display = 'flex';
+                    }
+                    if(!auth || !db) {
+                        alert("主控權限已解鎖！\n⚠️ 目前無 Firebase 設定，僅能進行【本機單機倒數】，觀眾無法同步。");
+                    } else {
+                        alert("主控權限已解鎖！現在按下的任何按鈕都會同步給所有人。");
+                    }
+                } else if (pwd !== null) {
+                    alert("密碼錯誤，您目前為僅檢視模式。");
+                }
+            });
+
+            ui.timeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    if (!isAdmin) return;
+                    const seconds = parseInt(btn.dataset.time);
+                    pushStateToFirebase({
+                        status: 'running',
+                        endTime: Date.now() + (seconds * 1000),
+                        originalDuration: seconds,
+                        pausedRemaining: 0
+                    });
+                });
+            });
+
+            ui.pauseBtn.addEventListener('click', () => {
+                if (!isAdmin || currentStatus === 'menu' || currentStatus === 'finished') return;
+                
+                if (currentStatus === 'running') {
+                    const remaining = Math.max(0, endTime - Date.now());
+                    pushStateToFirebase({
+                        status: 'paused',
+                        pausedRemaining: remaining,
+                        endTime: 0,
+                        originalDuration: originalDuration
+                    });
+                } else if (currentStatus === 'paused') {
+                    pushStateToFirebase({
+                        status: 'running',
+                        endTime: Date.now() + pausedRemaining,
+                        pausedRemaining: 0,
+                        originalDuration: originalDuration
+                    });
+                }
+            });
+
+            ui.restartBtn.addEventListener('click', () => {
+                if (!isAdmin || originalDuration === 0) return;
+                pushStateToFirebase({
+                    status: 'running',
+                    endTime: Date.now() + (originalDuration * 1000),
+                    originalDuration: originalDuration,
+                    pausedRemaining: 0
+                });
+            });
+
+            ui.stopBtn.addEventListener('click', () => {
+                if (!isAdmin) return;
+                pushStateToFirebase({ status: 'menu' });
+            });
+            
+            document.addEventListener('touchmove', (e) => {
+                if (ui.countdownScreen.style.display === 'flex') {
+                    e.preventDefault();
+                }
+            }, { passive: false });
+        }
+
+        // --- 2. Firebase 資料讀寫核心 ---
+
+        async function pushStateToFirebase(newState) {
+            // 【重要修正】：如果沒有 Firebase 或者尚未登入，直接執行本地端畫面更新！
+            if (!auth || !db || !auth.currentUser) {
+                syncLocalView(newState);
+                return; 
+            }
+            
+            try {
+                // 如果有 Firebase，寫入資料庫
+                const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'timerState', 'global');
+                // 使用 merge: true，避免蓋掉沒傳入的屬性
+                await setDoc(docRef, newState, { merge: true });
+                // 本地端也同步更新，避免等待網路延遲
+                syncLocalView(newState); 
+            } catch (err) {
+                console.error("同步失敗，降級為本機模式:", err);
+                syncLocalView(newState);
+            }
+        }
+
+        function listenToCloudTimer() {
+            if (!db) return;
+            const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'timerState', 'global');
+            
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    // 當收到別人傳來的雲端資料，再更新一次畫面
+                    syncLocalView(data);
+                }
+            }, (error) => {
+                console.warn("無法即時連線資料庫，請檢查網路狀態:", error);
+            });
+        }
+
+        async function startFirebase() {
+            if (!auth) return; 
+            try {
+                await signInAnonymously(auth);
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        listenToCloudTimer();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase 登入失敗:", error);
+            }
+        }
+
+        // --- 3. 畫面渲染與本機倒數同步 ---
+        
+        function syncLocalView(data) {
+            // 避免覆蓋已經存在的數值
+            currentStatus = data.status || currentStatus;
+            if (data.endTime !== undefined) endTime = data.endTime;
+            if (data.pausedRemaining !== undefined) pausedRemaining = data.pausedRemaining;
+            if (data.originalDuration !== undefined) originalDuration = data.originalDuration;
+
+            if (localTimer) clearInterval(localTimer);
+            ui.display.classList.remove('flashing');
+
+            if (currentStatus === 'menu') {
+                ui.countdownScreen.style.display = 'none';
+                ui.menuScreen.style.display = 'flex';
+                ui.adminActions.style.display = 'none';
+            } 
+            else if (currentStatus === 'running') {
+                ui.menuScreen.style.display = 'none';
+                ui.countdownScreen.style.display = 'flex';
+                ui.pauseBtn.textContent = '暫停';
+                if (isAdmin) ui.adminActions.style.display = 'flex';
+                
+                renderTick();
+                localTimer = setInterval(renderTick, 200);
+            } 
+            else if (currentStatus === 'paused') {
+                ui.menuScreen.style.display = 'none';
+                ui.countdownScreen.style.display = 'flex';
+                ui.pauseBtn.textContent = '繼續';
+                if (isAdmin) ui.adminActions.style.display = 'flex';
+                
+                renderTimeLeft(pausedRemaining);
+            }
+            else if (currentStatus === 'finished') {
+                ui.menuScreen.style.display = 'none';
+                ui.countdownScreen.style.display = 'flex';
+                if (isAdmin) ui.adminActions.style.display = 'flex';
+                
+                ui.display.textContent = "0:00";
+                ui.display.style.color = '#FF3B30';
+                ui.display.style.textShadow = '0 0 25px rgba(255, 59, 48, 0.6)';
+                ui.display.classList.add('flashing');
+            }
+        }
+
+        function renderTick() {
+            const now = Date.now();
+            const remaining = Math.max(0, endTime - now);
+            
+            if (remaining <= 0) {
+                clearInterval(localTimer);
+                if (isAdmin) {
+                    pushStateToFirebase({ status: 'finished', originalDuration: originalDuration });
+                }
+                return;
+            }
+            renderTimeLeft(remaining);
+        }
+
+        function renderTimeLeft(ms) {
+            const totalSeconds = Math.ceil(ms / 1000);
+            const mins = Math.floor(totalSeconds / 60);
+            const secs = totalSeconds % 60;
+            
+            ui.display.textContent = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            
+            if (totalSeconds <= 10) {
+                ui.display.style.color = '#FF3B30';
+                ui.display.style.textShadow = '0 0 25px rgba(255, 59, 48, 0.6)';
+            } else if (totalSeconds <= 30) {
+                ui.display.style.color = '#FF9500';
+                ui.display.style.textShadow = '0 0 25px rgba(255, 149, 0, 0.6)';
+            } else {
+                ui.display.style.color = '#FFFFFF';
+                ui.display.style.textShadow = '0 0 20px rgba(255, 255, 255, 0.3)';
+            }
+        }
+
+        initFrontend();
+        startFirebase();
+
+    </script>
+</body>
+</html>
