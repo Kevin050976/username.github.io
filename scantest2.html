@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SNG 極速盤點 (純網頁連掃)</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { 
+            font-family: -apple-system, sans-serif; 
+            text-align: center; 
+            margin: 0; 
+            background: #f0f2f5; 
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* 填滿整個螢幕高度 */
+        }
+        
+        /* 頂部：超級醒目的最新掃描結果 */
+        #top-result {
+            background: #1a73e8;
+            color: white;
+            padding: 20px 10px;
+            font-size: 32px;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            z-index: 10;
+            transition: background-color 0.1s;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .flash-success { background: #4CAF50 !important; }
+
+        /* 中間：相機畫面區域 */
+        #camera-container {
+            flex: 1; /* 佔據剩餘空間 */
+            position: relative;
+            background: black;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+        #reader { 
+            width: 100%; 
+            border: none;
+        }
+
+        /* 底部：歷史掃描清單 */
+        #history-box {
+            height: 25vh; /* 佔螢幕下方 1/4 */
+            background: white;
+            overflow-y: auto;
+            border-top: 2px solid #ddd;
+            text-align: left;
+            padding: 10px;
+        }
+        .history-item {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 16px;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+        }
+        .time-stamp { color: #888; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+    <div id="top-result">等待掃描...</div>
+    
+    <div id="camera-container">
+        <div id="reader"></div>
+    </div>
+    
+    <div id="history-box">
+        </div>
+
+    <script>
+        const topResult = document.getElementById('top-result');
+        const historyBox = document.getElementById('history-box');
+        let lastScannedCode = "";
+        let lastScanTime = 0;
+        let scanCount = 0;
+
+        // 嗶聲產生器
+        function playBeep() {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1500, audioCtx.currentTime); // 尖銳嗶聲
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // 成功讀取邏輯
+        function onScanSuccess(decodedText, decodedResult) {
+            const currentTime = new Date().getTime();
+            
+            // 防呆：同一條碼 2 秒內不重複叫
+            if (decodedText === lastScannedCode && (currentTime - lastScanTime) < 2000) return; 
+
+            lastScannedCode = decodedText;
+            lastScanTime = currentTime;
+            scanCount++;
+
+            // 1. 播放嗶聲
+            playBeep();
+
+            // 2. 更新上方大字與綠色閃爍特效
+            topResult.innerText = decodedText;
+            topResult.classList.add('flash-success');
+            setTimeout(() => topResult.classList.remove('flash-success'), 200);
+
+            // 3. 加入下方歷史清單 (最新的在最上面)
+            const timeString = new Date().toLocaleTimeString('zh-TW', { hour12: false });
+            const newItem = document.createElement('div');
+            newItem.className = 'history-item';
+            newItem.innerHTML = `<span><strong style="color:#1a73e8;">#${scanCount}</strong> - ${decodedText}</span> <span class="time-stamp">${timeString}</span>`;
+            
+            historyBox.insertBefore(newItem, historyBox.firstChild);
+        }
+
+        // 啟動相機
+        const scanner = new Html5QrcodeScanner(
+            "reader", 
+            { 
+                fps: 15, 
+                qrbox: { width: 300, height: 100 }, 
+                aspectRatio: 1.0,
+                videoConstraints: { facingMode: "environment" } // 強制後置主鏡頭
+            }, 
+            false
+        );
+
+        scanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
