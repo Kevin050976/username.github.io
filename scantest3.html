@@ -14,13 +14,12 @@
         
         /* === 上半部：相機掃描區 === */
         #camera-section { 
-            flex: 1; /* 佔據螢幕上 50% */
+            flex: 1; 
             position: relative; overflow: hidden; background: #111; 
             display: flex; align-items: center; justify-content: center; 
         }
         #reader { width: 100%; border: none; }
         
-        /* 狀態提示浮窗 */
         #status-bar { 
             position: absolute; top: 10px; left: 10px; right: 10px; 
             background: rgba(0,0,0,0.8); color: #fff; padding: 10px; 
@@ -29,7 +28,7 @@
 
         /* === 下半部：資料顯示區 === */
         #info-section { 
-            flex: 1; /* 佔據螢幕下 50% */
+            flex: 1; 
             background: #f8f9fa; color: #333; padding: 20px; box-sizing: border-box; 
             overflow-y: auto; display: flex; flex-direction: column; 
             align-items: center; justify-content: flex-start; 
@@ -37,7 +36,6 @@
             transition: background-color 0.2s ease;
         }
         
-        /* 圖片容器 */
         .asset-img-container { 
             width: 100%; max-height: 200px; display: flex; 
             justify-content: center; margin-bottom: 15px; 
@@ -47,12 +45,10 @@
             border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); 
         }
         
-        /* 文字資訊 */
-        .asset-id { font-size: 16px; color: #666; margin-bottom: 5px; font-family: monospace; }
+        .asset-id { font-size: 18px; color: #666; margin-bottom: 8px; font-family: monospace; font-weight: bold;}
         .asset-name { font-size: 24px; font-weight: bold; color: #1a73e8; text-align: center; line-height: 1.3; }
         .error-msg { color: #d32f2f; font-size: 24px; font-weight: bold; margin-top: 30px; }
         
-        /* 成功閃爍特效 */
         .success-flash { background-color: #d4edda !important; }
     </style>
 </head>
@@ -71,14 +67,13 @@
         const statusBar = document.getElementById('status-bar');
         const infoSection = document.getElementById('info-section');
         
-        let assetDB = {}; // 本機資料庫字典
+        let assetDB = {}; 
         let lastScannedCode = "";
         let lastScanTime = 0;
 
-        // 核心技巧：將您的共用連結修改為 CSV 匯出專用連結
         const sheetUrl = "https://docs.google.com/spreadsheets/d/1xQIr30as-2eftyskMZ9lOPm7T05Pn16D3mYxxDZEx2g/export?format=csv";
 
-        // 1. 啟動時先將試算表資料全部載入記憶體
+        // 1. 載入資料庫
         Papa.parse(sheetUrl, {
             download: true,
             header: true,
@@ -87,10 +82,13 @@
                 let count = 0;
                 
                 data.forEach(row => {
-                    // 強制轉為文字字串，避免格式混淆
-                    const id = String(row["資產編號"] || "").trim();
-                    if (id) {
-                        assetDB[id] = {
+                    // 修正：用「掃描條碼」當作比對用的 Key，並強制轉為純文字字串
+                    const scanCode = String(row["掃描條碼"] || "").trim();
+                    
+                    if (scanCode) {
+                        assetDB[scanCode] = {
+                            // 將資產編號存起來供畫面顯示用，同樣強制轉為字串
+                            assetId: String(row["資產編號"] || "無編號").trim(), 
                             name: row["資產名稱"] || "未命名設備",
                             image: row["照片.http"] || ""
                         };
@@ -98,19 +96,18 @@
                     }
                 });
                 
-                statusBar.innerHTML = `✅ 資料載入完成 (共比對 ${count} 筆)`;
+                statusBar.innerHTML = `✅ 資料載入完成 (共備妥 ${count} 筆)`;
                 setTimeout(() => statusBar.style.display = 'none', 3000);
                 
-                // 資料載入完成後才啟動相機
                 startScanner(); 
             },
             error: function(err) {
-                statusBar.innerHTML = "❌ 資料載入失敗，請檢查網址或網路狀態";
+                statusBar.innerHTML = "❌ 資料載入失敗，請檢查網址或權限設定";
                 statusBar.style.background = "rgba(211, 47, 47, 0.9)";
             }
         });
 
-        // 2. 音效系統 (成功高音、失敗低音)
+        // 2. 音效回饋
         function playBeep(isSuccess) {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -132,37 +129,34 @@
         function onScanSuccess(decodedText) {
             const currentTime = new Date().getTime();
             
-            // 防呆：同一條碼 1.5 秒內不重複觸發
             if (decodedText === lastScannedCode && (currentTime - lastScanTime) < 1500) return; 
             lastScannedCode = decodedText;
             lastScanTime = currentTime;
 
-            // 確保掃描進來的資料也是純文字字串
-            const scanId = String(decodedText).trim();
-            const asset = assetDB[scanId];
+            // 確保掃描進來的資料也是純文字
+            const scanCodeStr = String(decodedText).trim();
+            const asset = assetDB[scanCodeStr];
 
-            // 觸發視覺閃爍特效
             infoSection.classList.add('success-flash');
             setTimeout(() => infoSection.classList.remove('success-flash'), 300);
 
             if (asset) {
-                playBeep(true); // 成功嗶聲
+                playBeep(true); 
                 
-                // 處理相片顯示：如果有網址就載入圖片，沒有就顯示灰底無相片
                 const imgHtml = asset.image 
-                    ? `<img src="${asset.image}" alt="資產照片">` 
+                    ? `<img src="${asset.image}" alt="設備照片">` 
                     : `<div style="width:100%; height:150px; background:#e0e0e0; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#888;">無提供照片</div>`;
                 
                 infoSection.innerHTML = `
                     <div class="asset-img-container">${imgHtml}</div>
-                    <div class="asset-id">ID: ${scanId}</div>
+                    <div class="asset-id">資產編號: ${asset.assetId}</div>
                     <div class="asset-name">${asset.name}</div>
                 `;
             } else {
-                playBeep(false); // 失敗錯誤聲
+                playBeep(false); 
                 infoSection.innerHTML = `
                     <div class="error-msg">❌ 查無此設備</div>
-                    <div class="asset-id" style="margin-top:10px;">掃描內容: ${scanId}</div>
+                    <div class="asset-id" style="margin-top:10px; font-weight:normal;">未登記的條碼: ${scanCodeStr}</div>
                 `;
             }
         }
@@ -173,7 +167,7 @@
                 "reader", 
                 { 
                     fps: 15, 
-                    qrbox: { width: 280, height: 120 }, // 針對 1D 條碼優化框線
+                    qrbox: { width: 280, height: 120 }, 
                     aspectRatio: 1.0,
                     videoConstraints: { facingMode: "environment" } 
                 }, 
