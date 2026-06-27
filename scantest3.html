@@ -12,7 +12,6 @@
             background: #000; display: flex; flex-direction: column; height: 100vh; color: white; 
         }
         
-        /* === 上半部：相機掃描區 === */
         #camera-section { 
             flex: 1; 
             position: relative; overflow: hidden; background: #111; 
@@ -26,7 +25,6 @@
             text-align: center; border-radius: 8px; z-index: 10; font-size: 14px; 
         }
 
-        /* === 下半部：資料顯示區 === */
         #info-section { 
             flex: 1; 
             background: #f8f9fa; color: #333; padding: 20px; box-sizing: border-box; 
@@ -73,22 +71,23 @@
 
         const sheetUrl = "https://docs.google.com/spreadsheets/d/1xQIr30as-2eftyskMZ9lOPm7T05Pn16D3mYxxDZEx2g/export?format=csv";
 
-        // 🌟 新增：Google Drive 圖片網址轉換器
+        // 🌟 終極破解版：利用 Google Thumbnail API 繞過防盜連機制
         function getDirectImageUrl(url) {
             if (!url) return "";
             url = String(url).trim();
-            // 找出網址中的檔案 ID，並轉換為直接顯示格式
-            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-            if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
             
-            match = url.match(/id=([a-zA-Z0-9_-]+)/);
-            if (match) return `https://drive.google.com/uc?export=view&id=${match[1]}`;
+            // 抓出網址中的唯一 ID
+            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
             
-            // 如果不是 Google 網址，就原封不動回傳
+            if (match) {
+                const fileId = match[1];
+                // 使用 Thumbnail API，sz=w800 代表請求寬度 800px 的高畫質縮圖，完美避開 CORS 阻擋
+                return `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+            }
+            
             return url;
         }
 
-        // 1. 載入資料庫
         Papa.parse(sheetUrl, {
             download: true,
             header: true,
@@ -103,7 +102,6 @@
                         assetDB[scanCode] = {
                             assetId: String(row["資產編號"] || "無編號").trim(), 
                             name: row["資產名稱"] || "未命名設備",
-                            // 在這裡套用轉換器
                             image: getDirectImageUrl(row["照片.http"]) 
                         };
                         count++;
@@ -121,7 +119,6 @@
             }
         });
 
-        // 2. 音效回饋
         function playBeep(isSuccess) {
             const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -139,7 +136,6 @@
             osc.stop(audioCtx.currentTime + (isSuccess ? 0.1 : 0.3));
         }
 
-        // 3. 掃描比對邏輯
         function onScanSuccess(decodedText) {
             const currentTime = new Date().getTime();
             
@@ -156,9 +152,8 @@
             if (asset) {
                 playBeep(true); 
                 
-                // 顯示圖片邏輯 (如果轉好的網址有東西，就顯示圖片)
                 const imgHtml = asset.image 
-                    ? `<img src="${asset.image}" alt="設備照片">` 
+                    ? `<img src="${asset.image}" alt="設備照片" loading="lazy">` 
                     : `<div style="width:100%; height:150px; background:#e0e0e0; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#888;">無提供照片</div>`;
                 
                 infoSection.innerHTML = `
@@ -175,7 +170,6 @@
             }
         }
 
-        // 4. 啟動後置相機
         function startScanner() {
             const scanner = new Html5QrcodeScanner(
                 "reader", 
