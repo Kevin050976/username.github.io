@@ -1,0 +1,2120 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0A0A0F">
+    <title>SNG 勤務終端 (v9.0)</title>
+    <style>
+        :root {
+            --bg-primary: #0A0A0F;
+            --bg-secondary: #1C1C24;
+            --bg-tertiary: #2C2C3A;
+            --bg-card: #1C1C24;
+            --text-primary: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --text-tertiary: #636366;
+            --accent-blue: #0A84FF;
+            --accent-green: #30D158;
+            --accent-red: #FF453A;
+            --accent-orange: #FF9F0A;
+            --accent-purple: #BF5AF2;
+            --accent-teal: #64D2FF;
+            --accent-indigo: #5E5CE6;
+            --border: rgba(255,255,255,0.08);
+            --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+            --shadow-md: 0 8px 24px rgba(0,0,0,0.4);
+            --radius-sm: 10px;
+            --radius-md: 14px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
+            --safe-left: env(safe-area-inset-left);
+            --safe-right: env(safe-area-inset-right);
+        }
+
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+            box-sizing: border-box;
+        }
+
+        input, textarea {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        html {
+            height: 100%;
+            background: var(--bg-primary);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            margin: 0;
+            padding: 0;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            min-height: -webkit-fill-available;
+            min-height: 100dvh;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overscroll-behavior-y: none;
+        }
+
+        /* 頂部導航欄 */
+        .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            background: rgba(10, 10, 15, 0.85);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border-bottom: 1px solid var(--border);
+            padding: calc(8px + var(--safe-top)) 16px 12px;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .app-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .version-badge {
+            font-size: 0.6em;
+            font-weight: 600;
+            background: var(--accent-blue);
+            color: white;
+            padding: 2px 7px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .icon-btn-header {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .icon-btn-header:active {
+            transform: scale(0.92);
+            opacity: 0.7;
+        }
+
+        /* 主容器 */
+        .main-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 0 16px calc(180px + var(--safe-bottom));
+        }
+
+        /* 錄音控制區 */
+        .recorder-section {
+            margin: 16px 0 20px;
+        }
+
+        .recorder-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .recorder-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .timer-select-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timer-select {
+            appearance: none;
+            -webkit-appearance: none;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--accent-green);
+            font-size: 0.9em;
+            font-weight: 600;
+            padding: 6px 28px 6px 12px;
+            border-radius: var(--radius-sm);
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238E8E93' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            font-family: inherit;
+        }
+
+        .mic-icon {
+            font-size: 1.3em;
+        }
+
+        /* 即時預覽 */
+        .live-preview {
+            text-align: center;
+            color: var(--accent-blue);
+            font-weight: 600;
+            font-size: 1.05em;
+            min-height: 1.6em;
+            margin-bottom: 16px;
+            letter-spacing: -0.2px;
+            line-height: 1.4;
+            word-break: break-word;
+        }
+
+        .live-preview.recording {
+            color: var(--accent-red);
+            animation: pulse-text 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse-text {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 大錄音按鈕 */
+        .record-btn {
+            width: 100%;
+            height: 64px;
+            border-radius: var(--radius-md);
+            border: none;
+            background: var(--accent-green);
+            color: white;
+            font-size: 1.2em;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 16px rgba(48, 209, 88, 0.3);
+            font-family: inherit;
+        }
+
+        .record-btn:active {
+            transform: scale(0.97);
+        }
+
+        .record-btn.recording {
+            background: var(--accent-red);
+            box-shadow: 0 4px 20px rgba(255, 69, 58, 0.4);
+            animation: pulse-record 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-record {
+            0%, 100% { box-shadow: 0 4px 20px rgba(255, 69, 58, 0.4); }
+            50% { box-shadow: 0 4px 30px rgba(255, 69, 58, 0.6); }
+        }
+
+        /* 列表標題 */
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 24px 0 12px;
+            padding: 0 4px;
+        }
+
+        .section-title {
+            font-size: 1.05em;
+            font-weight: 700;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-btn {
+            padding: 6px 12px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 0.8em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .section-btn:active {
+            transform: scale(0.95);
+            opacity: 0.8;
+        }
+
+        .btn-add {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .btn-select-all {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+        }
+
+        .btn-delete {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+        }
+
+        /* 紀錄列表 */
+        .log-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .log-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border);
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+
+        .log-card:active {
+            transform: scale(0.985);
+        }
+
+        .log-card.selected {
+            border-color: var(--accent-blue);
+            background: rgba(10, 132, 255, 0.08);
+        }
+
+        .log-card-inner {
+            display: flex;
+            align-items: flex-start;
+            padding: 14px 14px 14px 12px;
+            gap: 10px;
+        }
+
+        .log-checkbox-ios {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            min-width: 22px;
+            border: 2px solid var(--text-tertiary);
+            border-radius: 6px;
+            margin-top: 2px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s;
+            background: transparent;
+        }
+
+        .log-checkbox-ios:checked {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+        }
+
+        .log-checkbox-ios:checked::after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 2px;
+            width: 5px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
+
+        .log-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .log-meta {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .log-time {
+            font-size: 0.8em;
+            color: var(--text-tertiary);
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .log-date {
+            font-size: 0.75em;
+            color: var(--accent-red);
+            font-weight: 600;
+            background: rgba(255, 69, 58, 0.1);
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+
+        .log-timer {
+            font-size: 0.8em;
+            font-weight: 700;
+            color: var(--accent-orange);
+            background: rgba(255, 159, 10, 0.12);
+            padding: 2px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-variant-numeric: tabular-nums;
+            transition: all 0.2s;
+        }
+
+        .log-timer:active {
+            transform: scale(0.95);
+        }
+
+        .log-timer.expired {
+            color: var(--accent-red);
+            background: rgba(255, 69, 58, 0.12);
+        }
+
+        .log-text {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.45;
+            word-break: break-word;
+            margin-bottom: 8px;
+        }
+
+        .log-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .tag-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .tag-live { background: rgba(48, 209, 88, 0.15); color: var(--accent-green); }
+        .tag-task { background: rgba(100, 210, 255, 0.15); color: var(--accent-teal); }
+        .tag-advance { background: rgba(191, 90, 242, 0.15); color: var(--accent-purple); }
+        .tag-time { background: rgba(255, 159, 10, 0.15); color: var(--accent-orange); }
+
+        .log-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-left: 4px;
+        }
+
+        .log-action-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .log-action-btn:active {
+            transform: scale(0.9);
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .play-btn {
+            background: rgba(10, 132, 255, 0.15);
+            color: var(--accent-blue);
+        }
+
+        .play-btn:active {
+            background: var(--accent-blue);
+        }
+
+        /* 編輯模式 */
+        .log-edit-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            padding: 4px;
+        }
+
+        .log-edit-input {
+            flex: 1;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            color: var(--text-primary);
+            font-size: 1.05em;
+            font-weight: 600;
+            font-family: inherit;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .log-edit-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+        }
+
+        .log-edit-save {
+            padding: 12px 18px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: var(--accent-green);
+            color: white;
+            font-weight: 700;
+            font-size: 0.9em;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .log-edit-save:active {
+            transform: scale(0.95);
+            opacity: 0.9;
+        }
+
+        /* 底部操作欄 */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: rgba(28, 28, 36, 0.92);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
+            border-top: 1px solid var(--border);
+            padding: 12px 16px calc(12px + var(--safe-bottom));
+        }
+
+        .bottom-bar-inner {
+            max-width: 600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .bottom-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .bottom-action-btn {
+            flex: 1;
+            height: 50px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 1em;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-family: inherit;
+            letter-spacing: 0.3px;
+        }
+
+        .bottom-action-btn:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+        }
+
+        .btn-copy { background: var(--accent-teal); }
+        .btn-share { background: var(--accent-green); }
+        .btn-export { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border); }
+
+        /* Modal 基礎 */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .modal-sheet {
+            background: var(--bg-secondary);
+            width: 100%;
+            max-width: 600px;
+            max-height: 88vh;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            padding: 0 0 calc(16px + var(--safe-bottom));
+            transform: translateY(100%);
+            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-overlay.active .modal-sheet {
+            transform: translateY(0);
+        }
+
+        .modal-handle {
+            width: 40px;
+            height: 5px;
+            background: var(--text-tertiary);
+            border-radius: 3px;
+            margin: 10px auto 6px;
+            opacity: 0.5;
+        }
+
+        .modal-header {
+            padding: 8px 20px 16px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.15em;
+            font-weight: 700;
+            margin: 0;
+            letter-spacing: -0.2px;
+        }
+
+        .modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 12px 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* 標籤 Modal */
+        .dt-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .dt-btn {
+            flex: 1;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .dt-btn:active {
+            transform: scale(0.97);
+        }
+
+        .dt-btn.active {
+            background: var(--accent-blue);
+            border-color: var(--accent-blue);
+            color: white;
+        }
+
+        .dt-btn-clear {
+            flex: 0 0 48px;
+            height: 48px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .dt-btn-clear:active {
+            transform: scale(0.9);
+        }
+
+        .tag-section-label {
+            font-size: 0.75em;
+            font-weight: 700;
+            color: var(--accent-red);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin: 16px 0 10px;
+        }
+
+        .tag-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        .tag-grid-2 {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .tag-btn {
+            padding: 12px 4px;
+            font-size: 0.9em;
+            border: 1.5px solid transparent;
+            border-radius: var(--radius-sm);
+            font-weight: 700;
+            word-break: keep-all;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            font-family: inherit;
+            color: white;
+            text-align: center;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tag-btn:active {
+            transform: scale(0.95);
+        }
+
+        .tag-btn.selected {
+            border-color: rgba(255,255,255,0.6);
+            box-shadow: inset 0 0 12px rgba(0,0,0,0.3);
+            transform: scale(0.96);
+        }
+
+        .tag-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .tag-live { background: var(--accent-green); }
+        .tag-task { background: var(--accent-teal); color: #003340; }
+        .tag-advance { background: var(--accent-purple); }
+        .tag-time { background: var(--accent-orange); }
+
+        .modal-btn-primary {
+            width: 100%;
+            height: 54px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: var(--accent-green);
+            color: white;
+            font-size: 1.1em;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-primary:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        .modal-btn-secondary {
+            width: 100%;
+            height: 50px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-secondary:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+
+        .modal-btn-danger {
+            width: 100%;
+            height: 50px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+            font-size: 1em;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .modal-btn-danger:active {
+            transform: scale(0.98);
+            opacity: 0.8;
+        }
+
+        /* 數字鍵盤 Modal */
+        .numpad-overlay {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            align-items: flex-end;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+
+        .numpad-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .numpad-sheet {
+            background: var(--bg-secondary);
+            width: 100%;
+            max-width: 420px;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+            padding: 16px 16px calc(24px + var(--safe-bottom));
+            transform: translateY(100%);
+            transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+        }
+
+        .numpad-overlay.active .numpad-sheet {
+            transform: translateY(0);
+        }
+
+        .numpad-display {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 2.4em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            letter-spacing: 6px;
+            color: var(--text-primary);
+            height: 64px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-variant-numeric: tabular-nums;
+            font-family: -apple-system, monospace;
+        }
+
+        .numpad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .numpad-btn {
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1.7em;
+            padding: 16px 0;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.1s;
+            font-family: inherit;
+            min-height: 60px;
+        }
+
+        .numpad-btn:active {
+            transform: scale(0.94);
+        }
+
+        .numpad-btn.num {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .numpad-btn.num:active {
+            background: var(--accent-blue);
+        }
+
+        .numpad-btn.cancel {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-size: 1em;
+            font-weight: 700;
+        }
+
+        .numpad-btn.delete {
+            background: rgba(255, 69, 58, 0.15);
+            color: var(--accent-red);
+            font-size: 1em;
+            font-weight: 700;
+        }
+
+        .numpad-btn.confirm {
+            background: var(--accent-green);
+            color: white;
+            font-size: 1.3em;
+            grid-column: span 3;
+            padding: 18px 0;
+            margin-top: 4px;
+            font-weight: 700;
+        }
+
+        .numpad-btn.confirm:active {
+            transform: scale(0.98);
+        }
+
+        /* 設定輸入 */
+        .setting-input {
+            width: 100%;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px 16px;
+            margin-bottom: 14px;
+            font-size: 1em;
+            color: var(--text-primary);
+            outline: none;
+            font-family: inherit;
+            -webkit-appearance: none;
+        }
+
+        .setting-input::placeholder {
+            color: var(--text-tertiary);
+        }
+
+        .setting-input:focus {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+        }
+
+        .setting-hint {
+            font-size: 0.8em;
+            color: var(--text-tertiary);
+            text-align: center;
+            margin-top: 12px;
+            line-height: 1.5;
+        }
+
+        /* 詞彙庫 */
+        .vocab-textarea {
+            width: 100%;
+            height: 160px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            font-size: 1em;
+            color: var(--text-primary);
+            font-family: inherit;
+            resize: none;
+            -webkit-appearance: none;
+        }
+
+        .vocab-textarea:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+        }
+
+        .vocab-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .vocab-btn {
+            flex: 1;
+            height: 46px;
+            border-radius: var(--radius-sm);
+            border: none;
+            font-size: 0.9em;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .vocab-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* 戰情室 */
+        .radar-item {
+            padding: 14px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-sm);
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+        }
+
+        .radar-time {
+            font-size: 0.8em;
+            color: var(--text-tertiary);
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+
+        .radar-status {
+            font-weight: 700;
+            float: right;
+            font-size: 0.85em;
+        }
+
+        .radar-task {
+            font-size: 1.05em;
+            font-weight: 600;
+            color: var(--text-primary);
+            line-height: 1.4;
+        }
+
+        .loading-text {
+            color: var(--accent-blue);
+            font-weight: 700;
+            padding: 30px;
+            text-align: center;
+            font-size: 1em;
+        }
+
+        .loading-sub {
+            font-size: 0.85em;
+            color: var(--text-tertiary);
+            margin-top: 6px;
+            font-weight: 500;
+        }
+
+        /* 空狀態 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-tertiary);
+        }
+
+        .empty-state-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            opacity: 0.5;
+        }
+
+        .empty-state-text {
+            font-size: 0.95em;
+            font-weight: 500;
+        }
+
+        /* 滾動條美化 */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--text-tertiary);
+            border-radius: 2px;
+        }
+
+        /* iOS 安全區域適配 */
+        @supports (padding: max(0px)) {
+            .app-header {
+                padding-top: max(8px, var(--safe-top));
+            }
+            .main-container {
+                padding-bottom: max(180px, calc(180px + var(--safe-bottom)));
+            }
+            .bottom-bar {
+                padding-bottom: max(12px, calc(12px + var(--safe-bottom)));
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <div class="header-content">
+        <div class="app-title">
+            🎙️ SNG 勤務終端
+            <span class="version-badge">v9.0</span>
+        </div>
+        <div class="header-actions">
+            <button class="icon-btn-header" onclick="openSettingsModal()" title="設定">⚙️</button>
+            <button class="icon-btn-header" onclick="fetchCloudData()" title="戰情" style="box-shadow: 0 0 8px rgba(191,90,242,0.3);">📡</button>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <div class="recorder-section">
+        <div class="recorder-card">
+            <div class="recorder-top">
+                <div class="timer-select-wrapper">
+                    <span style="font-size:0.85em; color:var(--text-secondary); font-weight:600;">自動停止</span>
+                    <select id="recordTimerSelect" class="timer-select">
+                        <option value="0">手動</option>
+                        <option value="3000">3 秒</option>
+                        <option value="4000">4 秒</option>
+                        <option value="5000" selected>5 秒</option>
+                        <option value="6000">6 秒</option>
+                    </select>
+                </div>
+                <span class="mic-icon">🎙️</span>
+            </div>
+            <div id="livePreview" class="live-preview"></div>
+            <button id="toggleBtn" class="record-btn" onclick="toggleRecording()">
+                <span>🎤</span> 點擊開始錄音
+            </button>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <div class="section-title">📝 紀錄列表</div>
+        <div class="section-actions">
+            <button class="section-btn btn-add" onclick="addManualLog()">➕ 新增</button>
+            <button class="section-btn btn-select-all" onclick="selectAll()">全選</button>
+            <button class="section-btn btn-delete" onclick="deleteSelectedLogs()">刪除</button>
+        </div>
+    </div>
+
+    <div id="logArea" class="log-list"></div>
+
+    <div id="emptyState" class="empty-state" style="display:none;">
+        <div class="empty-state-icon">📝</div>
+        <div class="empty-state-text">尚無紀錄，點擊錄音或新增開始</div>
+    </div>
+</div>
+
+<div class="bottom-bar">
+    <div class="bottom-bar-inner">
+        <div class="bottom-actions">
+            <button onclick="copySelected()" class="bottom-action-btn btn-copy">📋 複製</button>
+            <button onclick="shareSelected()" class="bottom-action-btn btn-share">📲 分享</button>
+            <button onclick="exportSelected()" class="bottom-action-btn btn-export">💾 匯出</button>
+        </div>
+    </div>
+</div>
+
+<!-- 標籤設定 Modal -->
+<div id="tagModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'tagModal')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">🏷️ 標籤設定</div>
+        </div>
+        <div class="modal-body">
+            <div class="tag-section-label">指定日期與時間</div>
+            <div class="dt-buttons">
+                <button id="btnSetDate" class="dt-btn" onclick="openNumpad('date', 'tag')">📅 日期</button>
+                <button id="btnSetTime" class="dt-btn" onclick="openNumpad('time', 'tag')">⏰ 時間</button>
+                <button class="dt-btn-clear" onclick="clearExactTime()">✖</button>
+            </div>
+
+            <div class="tag-section-label">勤務類型</div>
+            <div class="tag-grid tag-grid-2">
+                <button class="tag-btn tag-live" onclick="toggleGroup2(this)">直播</button>
+                <button class="tag-btn tag-task" onclick="toggleGroup3(this)">側錄</button>
+                <button class="tag-btn tag-task" onclick="toggleGroup3(this)">準連</button>
+                <button class="tag-btn tag-task" onclick="toggleGroup3(this)">傳帶</button>
+            </div>
+
+            <div class="tag-section-label">提前提醒</div>
+            <div class="tag-grid">
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 60, '-1分')">-1分</button>
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 120, '-2分')">-2分</button>
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 180, '-3分')">-3分</button>
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 240, '-4分')">-4分</button>
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 300, '-5分')">-5分</button>
+                <button class="tag-btn tag-advance" onclick="toggleGroup4(this, 600, '-10分')">-10分</button>
+                <div style="grid-column: span 2;"></div>
+            </div>
+
+            <div class="tag-section-label">相對時間</div>
+            <div class="tag-grid">
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 14400)">4時</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 10800)">3時</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 7200)">2時</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 3600)">1時</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1800)">30分</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 1200)">20分</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 600)">10分</button>
+                <button class="tag-btn tag-time" onclick="toggleGroup5(this, 300)">5分</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn-primary" onclick="applyTags()">✅ 確定</button>
+            <button class="modal-btn-secondary" onclick="closeTagModal()">❌ 取消</button>
+        </div>
+    </div>
+</div>
+
+<!-- 修改確切時間 Modal -->
+<div id="timerEditModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'timerEditModal')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">⏱️ 修改確切日期與時間</div>
+        </div>
+        <div class="modal-body">
+            <div class="dt-buttons">
+                <button id="btnSetDateEdit" class="dt-btn" onclick="openNumpad('date', 'timer')">📅 日期</button>
+                <button id="btnSetTimeEdit" class="dt-btn" onclick="openNumpad('time', 'timer')">⏰ 時間</button>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn-primary" onclick="updateTimerValue()">✅ 確定修改</button>
+            <button class="modal-btn-danger" onclick="stopTimer()">⏹️ 取消警報</button>
+            <button class="modal-btn-secondary" onclick="closeTimerModal()">關閉</button>
+        </div>
+    </div>
+</div>
+
+<!-- 專屬數字鍵盤 Modal -->
+<div id="numpadModal" class="numpad-overlay" onclick="closeNumpad()">
+    <div class="numpad-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="numpad-display" id="numpadDisplay">_ _ / _ _</div>
+        <div class="numpad-grid">
+            <button class="numpad-btn num" onclick="numpadPress('7')">7</button>
+            <button class="numpad-btn num" onclick="numpadPress('8')">8</button>
+            <button class="numpad-btn num" onclick="numpadPress('9')">9</button>
+            <button class="numpad-btn num" onclick="numpadPress('4')">4</button>
+            <button class="numpad-btn num" onclick="numpadPress('5')">5</button>
+            <button class="numpad-btn num" onclick="numpadPress('6')">6</button>
+            <button class="numpad-btn num" onclick="numpadPress('1')">1</button>
+            <button class="numpad-btn num" onclick="numpadPress('2')">2</button>
+            <button class="numpad-btn num" onclick="numpadPress('3')">3</button>
+            <button class="numpad-btn cancel" onclick="closeNumpad()">取消</button>
+            <button class="numpad-btn num" onclick="numpadPress('0')">0</button>
+            <button class="numpad-btn delete" onclick="numpadDelete()">刪除</button>
+            <button class="numpad-btn confirm" onclick="numpadConfirm()">確 定</button>
+        </div>
+    </div>
+</div>
+
+<!-- 戰情室 Modal -->
+<div id="cloudModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'cloudModal')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">📡 戰情室</div>
+        </div>
+        <div class="modal-body">
+            <div id="cloudLoading" class="loading-text">
+                ⏳ 正在呼叫雲端大腦...
+                <div class="loading-sub">請稍候約 1~3 秒</div>
+            </div>
+            <div id="cloudDataArea"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn-secondary" onclick="closeCloudModal()">關閉雷達</button>
+        </div>
+    </div>
+</div>
+
+<!-- 詞彙庫 Modal -->
+<div id="vocabModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'vocabModal')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">📚 詞彙庫</div>
+        </div>
+        <div class="modal-body">
+            <textarea id="vocab" class="vocab-textarea" placeholder="輸入詞彙對照，格式：關鍵字=替換詞&#10;例：SNG=衛星新聞轉播車"></textarea>
+        </div>
+        <div class="modal-footer">
+            <div class="vocab-actions">
+                <button class="vocab-btn" style="background:var(--bg-tertiary); color:var(--text-secondary);" onclick="document.getElementById('fileInput').click()">📥 匯入</button>
+                <input type="file" id="fileInput" accept=".txt" style="display:none">
+                <button class="vocab-btn" style="background:var(--bg-tertiary); color:var(--text-secondary);" onclick="exportVocab()">📤 匯出</button>
+                <button class="vocab-btn" style="background:var(--accent-green); color:white;" onclick="saveVocab()">💾 儲存</button>
+            </div>
+            <button class="modal-btn-secondary" onclick="closeVocabModal()" style="margin-top:8px;">關閉視窗</button>
+        </div>
+    </div>
+</div>
+
+<!-- 系統設定 Modal -->
+<div id="settingsModal" class="modal-overlay" onclick="closeModalOnBackdrop(event, 'settingsModal')">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+        <div class="modal-handle"></div>
+        <div class="modal-header">
+            <div class="modal-title">⚙️ 系統與排程設定</div>
+        </div>
+        <div class="modal-body">
+            <input type="text" id="qstashToken" class="setting-input" placeholder="請輸入 QStash Token">
+            <input type="text" id="tgBotToken" class="setting-input" placeholder="請輸入 TG Bot Token">
+            <input type="text" id="tgChatId" class="setting-input" placeholder="請輸入 TG Chat ID">
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn-primary" onclick="saveSettings()">✅ 儲存設定</button>
+            <button class="modal-btn-secondary" style="background:var(--accent-teal); color:#003340;" onclick="openVocabModalFromSettings()">📚 開啟詞彙庫</button>
+            <button class="modal-btn-secondary" onclick="closeSettingsModal()">關閉視窗</button>
+            <p class="setting-hint">提示：輸入完整上方三項將優先啟用 QStash 排程，留空則自動退回使用 GAS。</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    const GAS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbz4uOd2-F1fa1xTV3ss9skL9QrWasMQRjD6ZSt6nMwmfN2QSI4D7WbqnnXbzklFxCf8/exec';
+    // ==========================================
+
+    // Safari SpeechRecognition 兼容性
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedTimer = localStorage.getItem('sng_record_timer');
+        const timerSelect = document.getElementById('recordTimerSelect');
+        if (savedTimer) { timerSelect.value = savedTimer; }
+        timerSelect.addEventListener('change', function(e) { localStorage.setItem('sng_record_timer', e.target.value); });
+
+        // iOS 鍵盤彈出時隱藏底部欄
+        const inputs = document.querySelectorAll('input, textarea');
+        inputs.forEach(input => {
+            input.addEventListener('focus', () => {
+                document.querySelector('.bottom-bar').style.transform = 'translateY(100%)';
+                document.querySelector('.bottom-bar').style.transition = 'transform 0.3s ease';
+            });
+            input.addEventListener('blur', () => {
+                setTimeout(() => {
+                    document.querySelector('.bottom-bar').style.transform = 'translateY(0)';
+                }, 100);
+            });
+        });
+    });
+
+    // Modal 管理
+    function openModal(id) {
+        const el = document.getElementById(id);
+        el.style.display = 'flex';
+        // 強制重繪以觸發 transition
+        el.offsetHeight;
+        el.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        el.classList.remove('active');
+        setTimeout(() => {
+            el.style.display = 'none';
+            document.body.style.overflow = '';
+        }, 300);
+    }
+
+    function closeModalOnBackdrop(e, id) {
+        if (e.target === e.currentTarget) closeModal(id);
+    }
+
+    // --- 設定檔與傳送邏輯 ---
+    function openSettingsModal() {
+        document.getElementById('qstashToken').value = localStorage.getItem('sng_qs_token') || '';
+        document.getElementById('tgBotToken').value = localStorage.getItem('sng_tg_token') || '';
+        document.getElementById('tgChatId').value = localStorage.getItem('sng_tg_chat') || '';
+        openModal('settingsModal');
+    }
+    function closeSettingsModal() { closeModal('settingsModal'); }
+    function saveSettings() {
+        localStorage.setItem('sng_qs_token', document.getElementById('qstashToken').value.trim());
+        localStorage.setItem('sng_tg_token', document.getElementById('tgBotToken').value.trim());
+        localStorage.setItem('sng_tg_chat', document.getElementById('tgChatId').value.trim());
+        showToast('設定已儲存！');
+        closeSettingsModal();
+    }
+
+    function openVocabModalFromSettings() {
+        closeModal('settingsModal');
+        setTimeout(() => openVocabModal(), 350);
+    }
+
+    // 輕量提示（替代 alert）
+    function showToast(msg) {
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(40,40,50,0.95); color:white; padding:14px 24px; border-radius:14px; font-weight:600; z-index:99999; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,0.1); font-size:0.95em; white-space:nowrap;';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(() => toast.remove(), 300);
+        }, 1800);
+    }
+
+    function originalSendToGAS(action, taskId, pureText, fullTitle, triggersData) {
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) return;
+        const payload = { action: action, taskId: taskId };
+        if (action === 'set') { payload.text = pureText; payload.title = fullTitle; payload.triggersData = triggersData || []; }
+        fetch(GAS_WEBHOOK_URL, {
+            method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+        }).catch(e => console.error('傳送失敗:', e));
+    }
+
+    async function sendToGAS(action, taskId, pureText, fullTitle, triggersData) {
+        const qToken = localStorage.getItem('sng_qs_token'); const tBot = localStorage.getItem('sng_tg_token'); const tChat = localStorage.getItem('sng_tg_chat');
+        if (qToken && tBot && tChat) {
+            const tgUrl = `https://api.telegram.org/bot${tBot}/sendMessage`;
+            let targetLogIdx = logs.findIndex(l => l.taskId === taskId);
+
+            if (action === 'set') {
+                let newMsgIds = [];
+                if (targetLogIdx !== -1 && logs[targetLogIdx].qstashMsgIds && logs[targetLogIdx].qstashMsgIds.length > 0) {
+                    for (let msgId of logs[targetLogIdx].qstashMsgIds) {
+                        try { await fetch(`https://qstash.upstash.io/v2/messages/${msgId}`, { method: 'DELETE', headers: { "Authorization": `Bearer ${qToken}` } }); } catch(e) {}
+                    }
+                    logs[targetLogIdx].qstashMsgIds = []; 
+                }
+
+                if (triggersData && triggersData.length > 0) {
+                    try {
+                        let confirmText = `✅ 【排程設定成功】\n${fullTitle}`;
+                        await fetch(tgUrl, {
+                            method: 'POST',
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ chat_id: tChat, text: confirmText })
+                        });
+                    } catch (e) { console.error("立即通知發送失敗", e); }
+
+                    for (let trigger of triggersData) {
+                        let delaySec = Math.max(0, Math.floor(trigger.delayMs / 1000));
+                        let msgText = trigger.label ? `${trigger.label} ${fullTitle}`.trim() : fullTitle;
+                        try {
+                            let res = await fetch(`https://qstash.upstash.io/v2/publish/${tgUrl}`, {
+                                method: 'POST',
+                                headers: { "Authorization": `Bearer ${qToken}`, "Content-Type": "application/json", "Upstash-Delay": `${delaySec}s` },
+                                body: JSON.stringify({ chat_id: tChat, text: msgText })
+                            });
+                            let data = await res.json();
+                            if (data.messageId) newMsgIds.push(data.messageId);
+                        } catch (e) {}
+                    }
+                } else {
+                    try {
+                        let res = await fetch(`https://qstash.upstash.io/v2/publish/${tgUrl}`, {
+                            method: 'POST', headers: { "Authorization": `Bearer ${qToken}`, "Content-Type": "application/json" },
+                            body: JSON.stringify({ chat_id: tChat, text: fullTitle })
+                        });
+                        let data = await res.json();
+                        if (data.messageId) newMsgIds.push(data.messageId);
+                    } catch (e) {}
+                }
+
+                if (targetLogIdx !== -1) { logs[targetLogIdx].qstashMsgIds = newMsgIds; saveLogs(); }
+            } else if (action === 'cancel_timer' || action === 'delete_task') {
+                if (targetLogIdx !== -1 && logs[targetLogIdx].qstashMsgIds) {
+                    for (let msgId of logs[targetLogIdx].qstashMsgIds) {
+                        try { await fetch(`https://qstash.upstash.io/v2/messages/${msgId}`, { method: 'DELETE', headers: { "Authorization": `Bearer ${qToken}` } }); } catch(e) {}
+                    }
+                    logs[targetLogIdx].qstashMsgIds = []; saveLogs();
+                }
+                originalSendToGAS(action, taskId, pureText, fullTitle, triggersData);
+            }
+        } else {
+            originalSendToGAS(action, taskId, pureText, fullTitle, triggersData);
+        }
+    }
+
+    // --- 音效與IndexedDB ---
+    const dbName = "sng_audio_db"; let db; const request = indexedDB.open(dbName, 1);
+    request.onupgradeneeded = (event) => { db = event.target.result; if (!db.objectStoreNames.contains("recordings")) { db.createObjectStore("recordings"); } };
+    request.onsuccess = (event) => { db = event.target.result; };
+    function saveAudioToDB(id, blob) { if (!db) return; const tx = db.transaction("recordings", "readwrite"); tx.objectStore("recordings").put(blob, id); }
+    let audioCtx = null;
+    function playAudioFromDB(id, event) {
+        if (event) event.stopPropagation(); 
+        if (!db) { showToast("資料庫尚未準備好！"); return; }
+        if (!audioCtx) { const AudioContext = window.AudioContext || window.webkitAudioContext; audioCtx = new AudioContext(); }
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+
+        const tx = db.transaction("recordings", "readonly"); const req = tx.objectStore("recordings").get(id);
+        req.onsuccess = () => {
+            if (req.result) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    audioCtx.decodeAudioData(reader.result, function(buffer) {
+                        const source = audioCtx.createBufferSource(); source.buffer = buffer;
+                        const gainNode = audioCtx.createGain(); gainNode.gain.value = 5.0; 
+                        source.connect(gainNode); gainNode.connect(audioCtx.destination);
+                        source.onended = () => { source.disconnect(); gainNode.disconnect(); };
+                        source.start(0);
+                    }, (e) => { showToast("音檔格式不支援"); });
+                };
+                reader.readAsArrayBuffer(req.result);
+            } else { showToast("找不到音檔"); }
+        };
+    }
+    function deleteAudioFromDB(id) { if (!db) return; const tx = db.transaction("recordings", "readwrite"); tx.objectStore("recordings").delete(id); }
+
+    let logs = JSON.parse(localStorage.getItem('sng_logs')) || [];
+    const logArea = document.getElementById('logArea');
+    const vocabBox = document.getElementById('vocab');
+
+    let currentIdx = null;
+    let selGroup2 = null; let selGroup3 = []; let selGroup4 = []; let selGroup5 = null; 
+    let tempEnd = null; let globalSyncLock = false; 
+
+    // --- Numpad 變數與邏輯 ---
+    let dtActive = false;
+    let dtDate = ''; 
+    let dtTime = ''; 
+    let numpadMode = ''; 
+    let numpadSource = ''; 
+    let numpadBuf = '';
+
+    function openNumpad(mode, source) {
+        numpadMode = mode;
+        numpadSource = source;
+        numpadBuf = '';
+        updateNumpadDisplay();
+        openModal('numpadModal');
+    }
+
+    function closeNumpad() { closeModal('numpadModal'); }
+
+    function numpadPress(val) {
+        if (numpadBuf.length < 4) {
+            numpadBuf += val;
+            updateNumpadDisplay();
+        }
+    }
+
+    function numpadDelete() {
+        if (numpadBuf.length > 0) {
+            numpadBuf = numpadBuf.slice(0, -1);
+            updateNumpadDisplay();
+        }
+    }
+
+    function updateNumpadDisplay() {
+        let display = document.getElementById('numpadDisplay');
+        let formatted = '';
+        if (numpadMode === 'date') {
+            let padded = (numpadBuf + 'MMDD').substring(0, 4);
+            formatted = `${padded.substring(0,2)} / ${padded.substring(2,4)}`;
+            formatted = formatted.replace(/M/g, '_').replace(/D/g, '_');
+        } else {
+            let padded = (numpadBuf + 'HHMM').substring(0, 4);
+            formatted = `${padded.substring(0,2)} : ${padded.substring(2,4)}`;
+            formatted = formatted.replace(/H/g, '_').replace(/M/g, '_');
+        }
+        display.innerText = formatted;
+    }
+
+    function isValidDateStr(str) {
+        if (str.length !== 4) return false;
+        let m = parseInt(str.substring(0,2)); let d = parseInt(str.substring(2,4));
+        if (m < 1 || m > 12) return false;
+        let daysInMonth = new Date(new Date().getFullYear(), m, 0).getDate();
+        if (d < 1 || d > daysInMonth) return false;
+        return true;
+    }
+
+    function isValidTimeStr(str) {
+        if (str.length !== 4) return false;
+        let h = parseInt(str.substring(0,2)); let m = parseInt(str.substring(2,4));
+        if (h < 0 || h > 23) return false;
+        if (m < 0 || m > 59) return false;
+        return true;
+    }
+
+    function numpadConfirm() {
+        if (numpadBuf.length !== 4) { showToast('請輸入完整的4位數字！'); return; }
+        if (numpadMode === 'date') {
+            if (!isValidDateStr(numpadBuf)) { showToast('無效的日期！'); return; }
+            dtDate = numpadBuf;
+        } else {
+            if (!isValidTimeStr(numpadBuf)) { showToast('無效的時間！'); return; }
+            dtTime = numpadBuf;
+        }
+
+        dtActive = true;
+        updateTempEndFromDt();
+
+        if (numpadSource === 'tag') {
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected'));
+            selGroup5 = null;
+            refreshDtUI('tag');
+        } else {
+            refreshDtUI('timer');
+        }
+        closeNumpad();
+    }
+
+    function updateTempEndFromDt() {
+        if (!dtActive) { tempEnd = null; return; }
+        let yyyy = new Date().getFullYear();
+        let mm = parseInt(dtDate.substring(0,2)) - 1;
+        let dd = parseInt(dtDate.substring(2,4));
+        let h = parseInt(dtTime.substring(0,2));
+        let m = parseInt(dtTime.substring(2,4));
+        tempEnd = new Date(yyyy, mm, dd, h, m, 0).getTime();
+    }
+
+    function refreshDtUI(source) {
+        let btnDate = document.getElementById(source === 'tag' ? 'btnSetDate' : 'btnSetDateEdit');
+        let btnTime = document.getElementById(source === 'tag' ? 'btnSetTime' : 'btnSetTimeEdit');
+
+        btnDate.innerText = `📅 ${dtDate.substring(0,2)}/${dtDate.substring(2,4)}`;
+        btnTime.innerText = `⏰ ${dtTime.substring(0,2)}:${dtTime.substring(2,4)}`;
+
+        if (dtActive) {
+            btnDate.classList.add('active');
+            btnTime.classList.add('active');
+        } else {
+            btnDate.classList.remove('active');
+            btnTime.classList.remove('active');
+        }
+    }
+
+    function clearExactTime() { dtActive = false; tempEnd = null; refreshDtUI('tag'); }
+
+    function checkSyncLock() { if (globalSyncLock) { showToast('📡 雲端大腦正在處理中...'); return true; } return false; }
+    function setSyncLock() { globalSyncLock = true; setTimeout(() => { globalSyncLock = false; }, 3000); }
+
+    if(localStorage.getItem('sng_vocab')) vocabBox.value = localStorage.getItem('sng_vocab');
+    function generateTaskId() { return 'T_' + Date.now() + '_' + Math.floor(Math.random() * 1000); }
+    function getCreatedAt(log) {
+        if (log.createdAt) return log.createdAt;
+        if (log.taskId) { const match = log.taskId.match(/^T_(\d+)_/); if (match) return parseInt(match[1]); }
+        return Date.now();
+    }
+
+    function updateDisplayTimer(log) {
+        if (!log.timerEnd) { log.displayTimer = null; return; }
+        const diff = Math.floor((log.timerEnd - Date.now()) / 1000);
+        if (diff > 0) {
+            const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60;
+            log.displayTimer = `⏳ ${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+        } else {
+            log.displayTimer = `❌ 時間到`;
+        }
+    }
+
+    function getReadableTagText(ms) {
+        const d = new Date(ms); const today = new Date();
+        const hh = String(d.getHours()).padStart(2, '0'); const mm = String(d.getMinutes()).padStart(2, '0');
+        if (d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear()) {
+            return `${hh}:${mm}`; 
+        } else { return `${d.getMonth()+1}/${d.getDate()} ${hh}:${mm}`; }
+    }
+
+    function fetchCloudData() {
+        if (!GAS_WEBHOOK_URL || GAS_WEBHOOK_URL.includes('請把你的')) { showToast("請先設定好 GAS 網址！"); return; }
+        openModal('cloudModal');
+        document.getElementById('cloudLoading').style.display = 'block'; 
+        document.getElementById('cloudDataArea').innerHTML = '';
+        fetch(GAS_WEBHOOK_URL)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('cloudLoading').style.display = 'none';
+                if(data.error) { document.getElementById('cloudDataArea').innerHTML = `<p style="color:var(--accent-red); text-align:center; padding:20px;">讀取失敗: ${data.error}</p>`; return; }
+                const now = new Date(); now.setHours(0,0,0,0); 
+                const futureTasks = data.filter(item => { const itemDate = new Date(item.timestamp); return itemDate >= now && !item.status.includes('刪除') && !item.status.includes('取消'); });
+                if(futureTasks.length === 0) { document.getElementById('cloudDataArea').innerHTML = `<p style="color:var(--text-tertiary); text-align:center; padding:20px;">✅ 雲端目前沒有近期的勤務紀錄。</p>`; return; }
+                let html = '';
+                futureTasks.forEach(item => {
+                    let sc = item.status.includes('倒數中') ? 'var(--accent-green)' : (item.status.includes('引爆') ? 'var(--accent-red)' : 'var(--text-tertiary)');
+                    html += `<div class="radar-item"><span class="radar-time">${item.timestamp} <span class="radar-status" style="color:${sc};">${item.status}</span></span><div class="radar-task">${item.task}</div></div>`;
+                });
+                document.getElementById('cloudDataArea').innerHTML = html;
+            })
+            .catch(err => {
+                document.getElementById('cloudLoading').style.display = 'none'; 
+                document.getElementById('cloudDataArea').innerHTML = `<p style="color:var(--accent-red); text-align:center; padding:20px;">⚠️ 網路連線錯誤或跨域設定未開放。</p>`;
+            });
+    }
+    function closeCloudModal() { closeModal('cloudModal'); }
+
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function(e) { vocabBox.value = e.target.result; showToast("✅ 詞彙匯入成功！"); };
+        if(e.target.files[0]) reader.readAsText(e.target.files[0]); fileInput.value = ''; 
+    });
+    function exportVocab() { const blob = new Blob([vocabBox.value], {type:"text/plain"}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download="SNG_詞彙庫.txt"; a.click(); }
+    function saveVocab() { localStorage.setItem('sng_vocab', vocabBox.value); showToast("✅ 詞彙已儲存！"); closeVocabModal(); }
+    function openVocabModal() { openModal('vocabModal'); }
+    function closeVocabModal() { closeModal('vocabModal'); }
+
+    setInterval(() => {
+        const now = Date.now();
+        logs.forEach((log, index) => {
+            if (log.timerEnd) {
+                const diff = Math.floor((log.timerEnd - now) / 1000); 
+                let newTimerStr = "❌ 時間到";
+                if (diff > 0) { 
+                    const h = Math.floor(diff / 3600), m = Math.floor((diff % 3600) / 60), s = diff % 60; 
+                    newTimerStr = `⏳ ${h > 0 ? h + ':' : ''}${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`; 
+                }
+                if (log.displayTimer !== newTimerStr) { 
+                    log.displayTimer = newTimerStr; 
+                    const spanElement = document.getElementById(`timer-span-${index}`); 
+                    if (spanElement) {
+                        spanElement.innerText = newTimerStr;
+                        if (diff <= 0) spanElement.classList.add('expired');
+                        else spanElement.classList.remove('expired');
+                    }
+                }
+            }
+        });
+    }, 1000);
+
+    function toggleGroup2(btn) {
+        const txt = btn.innerText;
+        if (selGroup2 === txt) { selGroup2 = null; btn.classList.remove('selected'); } 
+        else { selGroup2 = txt; document.querySelectorAll('.tag-live').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); }
+    }
+    function toggleGroup3(btn) {
+        const txt = btn.innerText;
+        if (selGroup3.includes(txt)) { selGroup3 = selGroup3.filter(t => t !== txt); btn.classList.remove('selected'); } 
+        else { selGroup3.push(txt); btn.classList.add('selected'); }
+    }
+    function toggleGroup4(btn, sec, text) {
+        if (selGroup4.some(a => a.text === text)) { selGroup4 = selGroup4.filter(a => a.text !== text); btn.classList.remove('selected'); } 
+        else { selGroup4.push({ sec: sec, text: text }); btn.classList.add('selected'); }
+    }
+    function toggleGroup5(btn, sec) {
+        const txt = btn.innerText;
+        clearExactTime(); 
+        if (selGroup5 === txt) { selGroup5 = null; tempEnd = null; btn.classList.remove('selected'); } 
+        else { 
+            selGroup5 = txt; const baseTime = getCreatedAt(logs[currentIdx]); tempEnd = baseTime + (sec * 1000); 
+            document.querySelectorAll('.tag-time').forEach(b => b.classList.remove('selected')); btn.classList.add('selected'); 
+        }
+    }
+
+    function openTagModal(i) {
+        currentIdx = i; const logTags = logs[i].tags || [];
+        selGroup2 = logTags.find(t => t === '直播') || null;
+        selGroup3 = logTags.filter(t => ['側錄','準連','傳帶'].includes(t));
+        selGroup4 = [];
+        logTags.filter(t => t.startsWith('-')).forEach(t => {
+            let s = 0; if (t==='-1分') s=60; else if (t==='-2分') s=120; else if (t==='-3分') s=180; else if (t==='-4分') s=240; else if (t==='-5分') s=300; else if (t==='-10分') s=600;
+            if (s>0) selGroup4.push({ sec: s, text: t });
+        });
+        selGroup5 = logTags.find(t => !t.startsWith('-') && !t.includes(':') && !t.includes('/') && (t.includes('時') || t.includes('分'))) || null;
+
+        tempEnd = logs[i].timerEnd;
+
+        let d;
+        if (tempEnd && !selGroup5) { 
+            d = new Date(tempEnd); dtActive = true; 
+        } else { 
+            d = new Date(); dtActive = false; 
+        }
+        let pad = (n) => String(n).padStart(2, '0');
+        dtDate = pad(d.getMonth()+1) + pad(d.getDate());
+        dtTime = pad(d.getHours()) + pad(d.getMinutes());
+        refreshDtUI('tag');
+
+        const isExpired = tempEnd && tempEnd < Date.now();
+        document.querySelectorAll('.tag-btn').forEach(btn => {
+            const txt = btn.innerText;
+            if (txt === '直播') { btn.classList.toggle('selected', txt === selGroup2); } 
+            else if (['側錄','準連','傳帶'].includes(txt)) { btn.classList.toggle('selected', selGroup3.includes(txt)); btn.disabled = isExpired; } 
+            else if (txt.startsWith('-')) { btn.classList.toggle('selected', selGroup4.some(a => a.text === txt)); btn.disabled = isExpired; } 
+            else { btn.classList.toggle('selected', txt === selGroup5); }
+        });
+        openModal('tagModal');
+    }
+
+    function closeTagModal() { closeModal('tagModal'); }
+
+    function applyTags() {
+        if (checkSyncLock()) return;
+        const wasTicking = !!logs[currentIdx].timerEnd;
+
+        if (dtActive) { updateTempEndFromDt(); }
+
+        let timeTag = selGroup5;
+        if (tempEnd && !selGroup5) { timeTag = getReadableTagText(tempEnd); }
+
+        selGroup4.sort((a,b) => b.sec - a.sec);
+        const advTexts = selGroup4.map(a => a.text);
+
+        logs[currentIdx].tags = [selGroup2, ...selGroup3, timeTag, ...advTexts].filter(t => t);
+        logs[currentIdx].timerEnd = tempEnd;
+        logs[currentIdx].advances = [...selGroup4]; 
+
+        updateDisplayTimer(logs[currentIdx]);
+        closeTagModal();
+        saveLogs();
+
+        const taskName = logs[currentIdx].tags.join(' ');
+        const pureText = logs[currentIdx].text;
+        const fullTitle = `[${taskName}] ${pureText}`;
+
+        setSyncLock();
+
+        if (tempEnd) {
+            let baseDelay = tempEnd - Date.now(); 
+            if (baseDelay > 0) {
+                let triggersData = [];
+                selGroup4.forEach(adv => {
+                    let advDelay = baseDelay - (adv.sec * 1000);
+                    if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
+                });
+                triggersData.push({ delayMs: baseDelay, label: "" });
+                sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
+            }
+        } else if (!tempEnd && logs[currentIdx].tags.length > 0) {
+            sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, []);
+        } else if (wasTicking && !tempEnd) {
+            sendToGAS('cancel_timer', logs[currentIdx].taskId);
+        }
+    }
+
+    function openTimerEdit(i) { 
+        currentIdx = i; 
+        tempEnd = logs[i].timerEnd || Date.now();
+        let d = new Date(tempEnd);
+        let pad = (n) => String(n).padStart(2, '0');
+        dtDate = pad(d.getMonth()+1) + pad(d.getDate());
+        dtTime = pad(d.getHours()) + pad(d.getMinutes());
+        dtActive = true;
+        refreshDtUI('timer');
+        openModal('timerEditModal'); 
+    }
+
+    function updateTimerValue() {
+        if (checkSyncLock()) return;
+        updateTempEndFromDt();
+        if (tempEnd) {
+            logs[currentIdx].timerEnd = tempEnd;
+            const newTimeTag = getReadableTagText(tempEnd);
+
+            logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t) || t.startsWith('-'));
+            logs[currentIdx].tags.push(newTimeTag);
+
+            updateDisplayTimer(logs[currentIdx]);
+            saveLogs();
+            setSyncLock();
+
+            let baseDelay = tempEnd - Date.now();
+            if(baseDelay > 0) {
+                let triggersData = []; let currentAdvances = logs[currentIdx].advances || [];
+                currentAdvances.forEach(adv => {
+                    let advDelay = baseDelay - (adv.sec * 1000);
+                    if (advDelay > 0) triggersData.push({ delayMs: advDelay, label: `[${adv.text}]` });
+                });
+                triggersData.push({ delayMs: baseDelay, label: "" });
+                const taskName = logs[currentIdx].tags.join(' ');
+                const pureText = logs[currentIdx].text;
+                const fullTitle = `[${taskName}] ${pureText}`;
+                sendToGAS('set', logs[currentIdx].taskId, pureText, fullTitle, triggersData);
+            }
+        }
+        closeTimerModal();
+    }
+
+    function stopTimer() { 
+        if (checkSyncLock()) return;
+        if (logs[currentIdx].timerEnd) sendToGAS('cancel_timer', logs[currentIdx].taskId); 
+        logs[currentIdx].timerEnd = null; logs[currentIdx].displayTimer = null; 
+        logs[currentIdx].tags = logs[currentIdx].tags.filter(t => t === '直播' || ['側錄','準連','傳帶'].includes(t));
+        logs[currentIdx].advances = [];
+        saveLogs(); setSyncLock(); closeTimerModal(); 
+    }
+    function closeTimerModal() { closeModal('timerEditModal'); }
+
+    function addManualLog() {
+        logs.push({ taskId: generateTaskId(), time: new Date().toLocaleTimeString('zh-TW', {hour12:false}), createdAt: Date.now(), text: "", tags: [], timerEnd: null, advances: [], checked: false, isEditing: true, hasAudio: false, qstashMsgIds: [] });
+        saveLogs();
+        setTimeout(() => { const inputField = document.getElementById(`edit-${logs.length - 1}`); if(inputField) { inputField.focus(); inputField.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }, 150);
+    }
+
+    function deleteSelectedLogs() {
+        if (checkSyncLock()) return;
+        const hasSelected = logs.some(l => l.checked);
+        if (!hasSelected) { showToast('請先勾選要刪除的紀錄！'); return; }
+        if (confirm('確定要刪除勾選紀錄嗎？ (排程與語音檔將同步清除)')) { 
+            setSyncLock();
+            logs.forEach(l => {
+                if (l.checked) {
+                    if (l.timerEnd || (l.qstashMsgIds && l.qstashMsgIds.length > 0)) { sendToGAS('delete_task', l.taskId); }
+                    if (l.hasAudio) deleteAudioFromDB(l.taskId); 
+                }
+            });
+            logs = logs.filter(l => !l.checked); saveLogs(); 
+        }
+    }
+
+    function renderLogs() {
+        logArea.innerHTML = '';
+        const emptyState = document.getElementById('emptyState');
+        if (logs.length === 0) {
+            emptyState.style.display = 'block';
+            return;
+        }
+        emptyState.style.display = 'none';
+
+        [...logs].reverse().forEach((log, revIdx) => {
+            const i = logs.length - 1 - revIdx;
+            const item = document.createElement('div');
+            item.className = `log-card ${log.checked ? 'selected' : ''}`;
+
+            const tags = (log.tags || []).map(t => {
+                let cls = 'tag-time';
+                if (t === '直播') cls = 'tag-live';
+                else if (['側錄','準連','傳帶'].includes(t)) cls = 'tag-task';
+                else if (t.startsWith('-')) cls = 'tag-advance';
+                return `<span class="tag-chip ${cls}">${t}</span>`;
+            }).join('');
+
+            const timer = log.timerEnd ? `<span class="log-timer ${log.displayTimer && log.displayTimer.includes('❌') ? 'expired' : ''}" id="timer-span-${i}" onclick="openTimerEdit(${i})">${log.displayTimer || '⏳ 計算中...'}</span>` : '';
+            const playBtn = log.hasAudio ? `<button class="log-action-btn play-btn" onclick="playAudioFromDB('${log.taskId}', event)">▶️</button>` : '';
+
+            const createdAt = new Date(log.createdAt || Date.now());
+            const dateStr = `${createdAt.getMonth()+1}/${createdAt.getDate()}`;
+
+            if (log.isEditing) {
+                item.innerHTML = `<div class="log-card-inner"><div style="width:100%;"><div class="log-edit-row">
+                    <input type="text" id="edit-${i}" class="log-edit-input" value="${log.text}" placeholder="輸入紀錄內容...">
+                    <button class="log-edit-save" onclick="saveEdit(${i})">儲存</button>
+                </div></div></div>`;
+            } else {
+                item.innerHTML = `
+                    <div class="log-card-inner">
+                        <input type="checkbox" class="log-checkbox-ios" onchange="toggleCheck(${i})" ${log.checked ? 'checked' : ''}>
+                        <div class="log-body">
+                            <div class="log-meta">
+                                <span class="log-time">${log.time}</span>
+                                <span class="log-date">${dateStr}</span>
+                                ${timer}
+                            </div>
+                            <div class="log-text" onclick="toggleCheck(${i})">${log.text}${tags ? '<div class="log-tags" style="margin-top:6px;">' + tags + '</div>' : ''}</div>
+                        </div>
+                        <div class="log-actions">
+                            ${playBtn}
+                            <button class="log-action-btn" onclick="openTagModal(${i})">🏷️</button>
+                            <button class="log-action-btn" onclick="editLog(${i})">✏️</button>
+                        </div>
+                    </div>`;
+            }
+            logArea.appendChild(item);
+        });
+    }
+
+    function saveLogs() { localStorage.setItem('sng_logs', JSON.stringify(logs)); renderLogs(); }
+    function toggleCheck(i) { logs[i].checked = !logs[i].checked; saveLogs(); }
+    function selectAll() { const all = logs.every(l => l.checked); logs.forEach(l => l.checked = !all); saveLogs(); }
+    function editLog(i) { logs[i].isEditing = true; renderLogs(); setTimeout(() => { const el = document.getElementById(`edit-${i}`); if(el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 50); }
+    function saveEdit(i) { logs[i].text = document.getElementById(`edit-${i}`).value; logs[i].isEditing = false; saveLogs(); }
+
+    function copySelected() { 
+        const sel = logs.filter(l => l.checked); 
+        if(sel.length) {
+            navigator.clipboard.writeText(sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')).then(()=>showToast("複製成功")); 
+        } else { showToast('請先勾選紀錄'); }
+    }
+    function shareSelected() { 
+        const sel = logs.filter(l => l.checked); 
+        if(sel.length && navigator.share) {
+            navigator.share({text: sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n')}); 
+        } else if (!navigator.share) { showToast('裝置不支援分享功能'); }
+        else { showToast('請先勾選紀錄'); }
+    }
+    function exportSelected() { 
+        const sel = logs.filter(l => l.checked); 
+        if(!sel.length) { showToast('請先勾選紀錄'); return; }
+        const text = sel.map(l => `${l.text} ${(l.tags||[]).join(' ')}`).join('\n'); 
+        const blob = new Blob([text], {type:"text/plain"}); 
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download=`SNG_${Date.now()}.txt`; 
+        a.click(); 
+    }
+
+    let isRec = false; 
+    let timerObj = null; 
+    let currentSession = null; 
+
+    async function toggleRecording() {
+        if (!isRec) { 
+            // Safari 語音辨識檢查
+            if (!SpeechRecognition) {
+                showToast("您的瀏覽器不支援語音辨識功能！");
+                return;
+            }
+
+            isRec = true; 
+            let session = { recorder: null, stream: null, rec: null, chunks: [], taskId: generateTaskId(), curTxt: "" };
+            currentSession = session;
+            const btn = document.getElementById('toggleBtn');
+            const preview = document.getElementById('livePreview');
+
+            try {
+                session.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                // Safari MediaRecorder 兼容性
+                let mimeType = 'audio/mp4';
+                if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+
+                try {
+                    session.recorder = new MediaRecorder(session.stream, { mimeType: mimeType });
+                } catch(e) {
+                    session.recorder = new MediaRecorder(session.stream);
+                }
+
+                session.recorder.ondataavailable = e => { if (e.data.size > 0) session.chunks.push(e.data); };
+                session.recorder.onstop = () => {
+                    const finalMime = session.recorder.mimeType || mimeType;
+                    const audioBlob = new Blob(session.chunks, { type: finalMime });
+                    if (audioBlob.size === 0) {
+                        let targetLog = logs.find(l => l.taskId === session.taskId);
+                        if (targetLog) { targetLog.hasAudio = false; saveLogs(); }
+                    } else { saveAudioToDB(session.taskId, audioBlob); }
+                    session.stream.getTracks().forEach(track => track.stop());
+                };
+                session.recorder.start();
+
+                session.rec = new SpeechRecognition();
+                session.rec.continuous = true; 
+                session.rec.interimResults = true; 
+                session.rec.lang = 'zh-TW';
+                session.rec.onresult = (e) => {
+                    let finalTranscript = ''; 
+                    let interimTranscript = '';
+                    for (let i = 0; i < e.results.length; ++i) { 
+                        if (e.results[i].isFinal) finalTranscript += e.results[i][0].transcript; 
+                        else interimTranscript += e.results[i][0].transcript; 
+                    }
+                    session.curTxt = finalTranscript;
+                    preview.innerText = (finalTranscript + interimTranscript || "聽寫中...");
+                };
+
+                session.rec.onend = () => {
+                    isRec = false; 
+                    clearTimeout(timerObj); 
+                    btn.classList.remove('recording'); 
+                    btn.innerHTML = '<span>🎤</span> 點擊開始錄音';
+                    preview.classList.remove('recording');
+                    preview.innerText = "";
+                    if (session.recorder && session.recorder.state !== 'inactive') { session.recorder.stop(); } 
+                    else if (session.stream) { session.stream.getTracks().forEach(t => t.stop()); }
+                    if (session.curTxt.trim()) {
+                        logs.push({ 
+                            taskId: session.taskId, 
+                            time: new Date().toLocaleTimeString('zh-TW',{hour12:false}), 
+                            createdAt: Date.now(), 
+                            text: applyDict(session.curTxt.trim()), 
+                            tags: [], timerEnd: null, advances: [], checked: false, isEditing: false, hasAudio: true, qstashMsgIds: [] 
+                        });
+                        saveLogs();
+                        // 滾動到頂部顯示新紀錄
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                };
+
+                session.rec.onerror = (e) => {
+                    console.error('Speech recognition error:', e.error);
+                    if (e.error === 'not-allowed') showToast('請允許麥克風權限');
+                };
+
+                session.rec.start(); 
+
+                btn.classList.add('recording'); 
+                preview.classList.add('recording');
+                const sec = parseInt(document.getElementById('recordTimerSelect').value);
+                if (sec > 0) { 
+                    btn.innerHTML = `<span>🔴</span> 錄音中 (${sec/1000}秒)`; 
+                    timerObj = setTimeout(() => { if(session.rec) session.rec.stop(); }, sec); 
+                } else { 
+                    btn.innerHTML = `<span>🔴</span> 錄音中`; 
+                }
+            } catch (err) { 
+                isRec = false; 
+                btn.classList.remove('recording');
+                btn.innerHTML = '<span>🎤</span> 點擊開始錄音';
+                preview.classList.remove('recording');
+                showToast("⚠️ 無法取得麥克風權限"); 
+                console.error(err);
+            }
+        } else { 
+            clearTimeout(timerObj); 
+            if(currentSession && currentSession.rec) currentSession.rec.stop(); 
+        }
+    }
+
+    function applyDict(txt) {
+        let dict = {};
+        vocabBox.value.split(/[,，\n]+/).forEach(v => {
+            if(v.includes('=')) { let [keys, val] = v.split('='); keys.split('/').forEach(k => { if(k.trim()) dict[k.trim()] = val.trim(); }); } 
+            else if(v.trim()) dict[v.trim()] = v.trim();
+        });
+        Object.keys(dict).sort((a,b) => b.length - a.length).forEach(k => { txt = txt.split(k).join(dict[k]); });
+        return txt;
+    }
+
+    renderLogs();
+</script>
+</body>
+</html>
