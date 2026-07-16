@@ -87,7 +87,6 @@
         <div style="display: flex; gap: 5px; white-space: nowrap;">
             <button class="btn-primary" onclick="addManualLog()" style="font-size:0.9em;">➕ 增加</button>
             <button class="btn-secondary" onclick="openSettingsModal()" style="font-size:0.9em;">⚙️ 設定</button>
-            <button class="btn-secondary" onclick="openVocabModal()" style="font-size:0.9em;">📚 詞彙</button>
             <button class="btn-purple" onclick="fetchCloudData()" style="font-size:0.9em; box-shadow: 0 0 5px rgba(111,66,193,0.5);">📅 戰情</button>
         </div>
     </div>
@@ -163,7 +162,10 @@
             <button class="tag-btn tag-time" onclick="toggleGroup5(this, 600)">10分</button>
             <button class="tag-btn tag-time" onclick="toggleGroup5(this, 300)">5分</button>
         </div>
-        <button class="btn-success confirm-btn" onclick="applyTags()">✅ 確定</button>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <button class="btn-secondary confirm-btn" style="flex: 1; margin-top: 0; background: #6c757d;" onclick="closeTagModal()">❌ 取消</button>
+            <button class="btn-success confirm-btn" style="flex: 1; margin-top: 0;" onclick="applyTags()">✅ 確定</button>
+        </div>
     </div>
 </div>
 
@@ -221,6 +223,11 @@
         <input type="text" id="tgBotToken" class="setting-input" placeholder="請輸入 TG Bot Token">
         <input type="text" id="tgChatId" class="setting-input" placeholder="請輸入 TG Chat ID">
         
+        <div style="margin-top: 15px; border-top: 1px solid #eee; padding-top: 15px; text-align: center;">
+            <h5 style="margin: 0 0 10px 0; color: #555;">📚 詞彙庫設定</h5>
+            <button class="btn-secondary" style="width: 100%; padding: 10px;" onclick="openVocabModalFromSettings()">開啟詞彙庫</button>
+        </div>
+
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
             <button class="btn-success confirm-btn" style="margin-top:0;" onclick="saveSettings()">✅ 儲存設定</button>
             <button class="btn-secondary" style="padding:12px;" onclick="closeSettingsModal()">關閉視窗</button>
@@ -544,6 +551,8 @@
     function saveVocab() { localStorage.setItem('sng_vocab', vocabBox.value); alert("✅ 詞彙已儲存！"); document.getElementById('vocabModal').style.display='none'; }
     function openVocabModal() { document.getElementById('vocabModal').style.display='block'; }
     function closeVocabModal() { document.getElementById('vocabModal').style.display='none'; }
+    function openVocabModalFromSettings() { closeSettingsModal(); openVocabModal(); }
+    function closeTagModal() { document.getElementById('tagModal').style.display = 'none'; }
 
     setInterval(() => {
         const now = Date.now();
