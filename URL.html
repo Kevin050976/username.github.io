@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 針對手機螢幕最佳化，防止使用者不小心縮放網頁 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>YouTube 連續播放控制台</title>
     <style>
@@ -13,8 +12,8 @@
             color: white; 
             display: flex; 
             flex-direction: column; 
-            height: 100vh; /* 填滿螢幕高度 */
-            overflow: hidden; /* 防止整個網頁上下滑動 */
+            height: 100vh; 
+            overflow: hidden; 
         }
         #player-container { 
             flex-grow: 1; 
@@ -28,7 +27,6 @@
             height: 100%; 
             border: none; 
         }
-        /* 針對 iPhone 底部優化的控制列 */
         #controls { 
             display: flex; 
             justify-content: space-between; 
@@ -36,10 +34,9 @@
             height: 90px; 
             background: #1c1c1e; 
             padding: 0 15px;
-            padding-bottom: env(safe-area-inset-bottom); /* 適應 iPhone 底部的橫條 */
+            padding-bottom: env(safe-area-inset-bottom); 
             gap: 15px; 
         }
-        /* 巨大化的觸控按鈕 */
         button { 
             flex: 1; 
             height: 55px; 
@@ -48,13 +45,11 @@
             cursor: pointer; 
             border: none; 
             border-radius: 12px; 
-            background: #0a84ff; /* iOS 預設藍色 */
+            background: #0a84ff; 
             color: white; 
-            touch-action: manipulation; /* 提升觸控反應速度 */
+            touch-action: manipulation; 
         }
-        button:active {
-            background: #0060d1; 
-        }
+        button:active { background: #0060d1; }
         button:disabled { 
             background: #3a3a3c; 
             color: #8e8e93;
@@ -72,7 +67,6 @@
 </head>
 <body>
     <div id="player-container">
-        <!-- 播放器區塊，加上 playsinline 讓影片在 iPhone 上可以在網頁內播放，而不會強制全螢幕 -->
         <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
     </div>
     <div id="controls">
@@ -85,28 +79,26 @@
         let videoIds = [];
         let currentIndex = 0;
 
-        // 利用 Regex 精準提取「各種」YouTube 網址中的 Video ID
-        function extractVideoID(url) {
-            // 強化版的正則表達式，支援一般影片、youtu.be 短網址、直播 (live) 與短影音 (shorts)
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            // 確保抓出來的 ID 是標準的 11 碼
-            return (match && match[2].length === 11) ? match[2] : null;
-        }
-
         function init() {
-            // 讀取網址結尾 ?urls= 後面的參數
             const urlParams = new URLSearchParams(window.location.search);
-            const urlsParam = urlParams.get('urls');
+            // 抓取捷徑傳過來的「整段原始文字」
+            const rawText = urlParams.get('text') || urlParams.get('urls');
 
-            if (urlsParam) {
-                // 將逗號分隔的網址解碼並轉換為陣列
-                const urls = decodeURIComponent(urlsParam).split(',');
-                // 過濾並轉換為純 Video ID 陣列
-                videoIds = urls.map(extractVideoID).filter(id => id !== null);
+            if (rawText) {
+                const decodedText = decodeURIComponent(rawText);
+                
+                // 強制全域搜尋 (g)，直接掃描文字中所有符合特徵的 11 碼影片 ID
+                const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
+                
+                // 將所有符合的結果提取出來
+                const matches = [...decodedText.matchAll(regExp)];
+                videoIds = matches.map(match => match[1]);
+                
+                // 去除重複的影片 ID (避免同一網址出現兩次)
+                videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
-                    loadVideo(0); // 載入第一部影片
+                    loadVideo(0); 
                 } else {
                     document.getElementById('status').innerText = '無效網址';
                 }
@@ -120,10 +112,8 @@
             currentIndex = index;
             
             const player = document.getElementById('yt-player');
-            // 轉換為 embed 格式並啟用自動播放
             player.src = `https://www.youtube.com/embed/${videoIds[currentIndex]}?autoplay=1&playsinline=1`;
             
-            // 更新底部按鈕與狀態文字
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
@@ -133,7 +123,6 @@
             loadVideo(currentIndex + direction);
         }
 
-        // 啟動程式
         init();
     </script>
 </body>
