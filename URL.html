@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>連續播放控制台</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #000; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; /* 填滿螢幕高度 */
+            overflow: hidden; /* 防止整個網頁上下滑動 */
+        }
+        #player-container { 
+            flex-grow: 1; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            background: #111;
+        }
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+        }
+        /* 針對手機優化的底部控制列 */
+        #controls { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            height: 90px; /* 加高控制列 */
+            background: #1c1c1e; 
+            padding: 0 15px;
+            padding-bottom: env(safe-area-inset-bottom); /* 適應 iPhone 底部的橫條 */
+            gap: 15px; /* 按鈕之間的間距 */
+        }
+        /* 巨大化的觸控按鈕 */
+        button { 
+            flex: 1; /* 讓按鈕填滿剩餘空間 */
+            height: 55px; 
+            font-size: 18px; 
+            font-weight: bold;
+            cursor: pointer; 
+            border: none; 
+            border-radius: 12px; /* 圓角設計 */
+            background: #0a84ff; /* iOS 藍色 */
+            color: white; 
+            touch-action: manipulation; /* 停用點擊兩下放大的干擾 */
+        }
+        button:active {
+            background: #0060d1; /* 按下時的顏色變化 */
+        }
+        button:disabled { 
+            background: #3a3a3c; 
+            color: #8e8e93;
+            cursor: not-allowed; 
+        }
+        #status { 
+            font-size: 15px; 
+            font-weight: 500;
+            color: #ebebf5;
+            white-space: nowrap; /* 防止文字換行 */
+            text-align: center;
+            min-width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    </div>
+    <div id="controls">
+        <button id="prev-btn" onclick="changeVideo(-1)">◄ 上一部</button>
+        <div id="status">等待中</div>
+        <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
+    </div>
+
+    <script>
+        let videoIds = [];
+        let currentIndex = 0;
+
+        function extractVideoID(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlsParam = urlParams.get('urls');
+
+            if (urlsParam) {
+                const urls = decodeURIComponent(urlsParam).split(',');
+                videoIds = urls.map(extractVideoID).filter(id => id !== null);
+
+                if (videoIds.length > 0) {
+                    loadVideo(0);
+                } else {
+                    document.getElementById('status').innerText = '無效網址';
+                }
+            } else {
+                document.getElementById('status').innerText = '無輸入';
+            }
+        }
+
+        function loadVideo(index) {
+            if (index < 0 || index >= videoIds.length) return;
+            currentIndex = index;
+            
+            const player = document.getElementById('yt-player');
+            player.src = `https://www.youtube.com/embed/${videoIds[currentIndex]}?autoplay=1&playsinline=1`;
+            
+            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
+            document.getElementById('prev-btn').disabled = (currentIndex === 0);
+            document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
+        }
+
+        function changeVideo(direction) {
+            loadVideo(currentIndex + direction);
+        }
+
+        init();
+    </script>
+</body>
+</html>
