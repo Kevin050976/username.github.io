@@ -12,7 +12,7 @@
             color: white; 
             display: flex; 
             flex-direction: column; 
-            /* 使用 dvh (動態視口高度) 解決 iOS Safari 底端導航列遮擋問題 */
+            /* 使用 dvh 解決 iOS Safari 底端導航列遮擋問題 */
             height: 100dvh; 
             overflow: hidden; 
         }
@@ -33,7 +33,7 @@
         #info-section {
             flex-grow: 1;
             padding: 15px;
-            /* 關鍵：預留底部按鈕的高度，確保滑到底時文字不會被按鈕蓋住 */
+            /* 預留底部按鈕的高度，確保滑到底時文字不會被按鈕蓋住 */
             padding-bottom: 110px;
             background: #111;
             overflow-y: auto;
@@ -53,11 +53,11 @@
             padding: 12px;
             border-radius: 8px;
             font-size: 14px;
-            color: #888;
+            color: #ccc;
             line-height: 1.5;
-            white-space: pre-wrap;
+            white-space: pre-wrap; /* 保留 YouTube 內文的換行格式 */
         }
-        /* 底部控制列：強制固定 (Fixed) 在畫面最下方 */
+        /* 底部控制列：強制固定在畫面最下方 */
         #controls { 
             position: fixed;
             bottom: 0;
@@ -68,12 +68,12 @@
             align-items: center;
             height: 90px; 
             background: #1c1c1e; 
-            box-sizing: border-box; /* 確保 padding 不會撐破 100% 寬度 */
+            box-sizing: border-box; 
             padding: 0 15px;
             padding-bottom: env(safe-area-inset-bottom); 
             gap: 15px; 
             z-index: 100;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); /* 加上陰影增加層次感 */
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); 
         }
         button { 
             flex: 1; 
@@ -111,7 +111,7 @@
     <div id="info-section">
         <h3 id="vid-title">載入影片資訊中...</h3>
         <p id="vid-channel">頻道名稱</p>
-        <div id="vid-desc">【系統提示】受到跨網域 (CORS) 限制與免授權 API 限制，純前端靜態網頁無法直接抓取 YouTube 影片內文。如需顯示內文，需另外串接 YouTube Data API v3。</div>
+        <div id="vid-desc">載入內文中...</div>
     </div>
 
     <div id="controls">
@@ -121,6 +121,9 @@
     </div>
 
     <script>
+        // ★★★ 請在這裡貼上你在 Google Cloud 申請到的 API 金鑰 ★★★
+        const API_KEY = 'AIzaSyCD8fnx7T0aEpPG2Co5p4QDqshIgB_ix1Y'; 
+
         let videoIds = [];
         let currentIndex = 0;
 
@@ -131,9 +134,12 @@
             if (rawText) {
                 const rawTextDecoded = decodeURIComponent(rawText);
                 
+                // 精準提取各種 YouTube 網址中的 Video ID
                 const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
                 const matches = [...rawTextDecoded.matchAll(regExp)];
                 videoIds = matches.map(match => match[1]);
+                
+                // 去除重複的影片 ID
                 videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
@@ -141,9 +147,12 @@
                 } else {
                     document.getElementById('status').innerText = '無效網址';
                     document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
+                    document.getElementById('vid-desc').innerText = '請確認複製的文字中是否包含有效的 YouTube 連結。';
                 }
             } else {
                 document.getElementById('status').innerText = '無輸入';
+                document.getElementById('vid-title').innerText = '請透過捷徑傳入網址';
+                document.getElementById('vid-desc').innerText = '';
             }
         }
 
@@ -152,24 +161,43 @@
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
             
+            // 載入 YouTube iframe
             const player = document.getElementById('yt-player');
             player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
             
+            // 更新狀態與按鈕
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
 
+            // 清空舊資訊，顯示載入中
             document.getElementById('vid-title').innerText = '載入影片資訊中...';
             document.getElementById('vid-channel').innerText = '';
+            document.getElementById('vid-desc').innerText = '抓取內文中...';
 
-            fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${currentVideoId}&format=json`)
+            // 呼叫 YouTube Data API v3 抓取標題、頻道與內文
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`;
+
+            fetch(apiUrl)
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById('vid-title').innerText = data.title;
-                    document.getElementById('vid-channel').innerText = data.author_name;
+                    if (data.items && data.items.length > 0) {
+                        const snippet = data.items[0].snippet;
+                        document.getElementById('vid-title').innerText = snippet.title;
+                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
+                        
+                        // 寫入內文，若無內文則顯示提示
+                        const description = snippet.description;
+                        document.getElementById('vid-desc').innerText = description ? description : '（此影片無提供內文）';
+                    } else {
+                        document.getElementById('vid-title').innerText = '無法取得資訊';
+                        document.getElementById('vid-desc').innerText = '可能影片已設為私人或遭移除。';
+                    }
                 })
                 .catch(error => {
-                    document.getElementById('vid-title').innerText = '無法取得標題 (可能是私人或直播限制)';
+                    console.error("API 請求錯誤: ", error);
+                    document.getElementById('vid-title').innerText = 'API 請求失敗';
+                    document.getElementById('vid-desc').innerText = '請檢查 API 金鑰是否正確，或是否超過使用額度。';
                 });
         }
 
