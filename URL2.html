@@ -12,7 +12,8 @@
             color: white; 
             display: flex; 
             flex-direction: column; 
-            height: 100vh; 
+            /* 使用 dvh (動態視口高度) 解決 iOS Safari 底端導航列遮擋問題 */
+            height: 100dvh; 
             overflow: hidden; 
         }
         /* 影片播放區塊，鎖定 16:9 比例 */
@@ -20,7 +21,8 @@
             width: 100%;
             aspect-ratio: 16 / 9;
             background: #000;
-            flex-shrink: 0; /* 確保影片不會被壓縮 */
+            flex-shrink: 0;
+            z-index: 10;
         }
         iframe { 
             width: 100%; 
@@ -31,6 +33,8 @@
         #info-section {
             flex-grow: 1;
             padding: 15px;
+            /* 關鍵：預留底部按鈕的高度，確保滑到底時文字不會被按鈕蓋住 */
+            padding-bottom: 110px;
             background: #111;
             overflow-y: auto;
         }
@@ -44,27 +48,32 @@
             font-size: 14px;
             color: #aaa;
         }
-        /* 顯示複製的原始內文，保留換行格式 */
-        #original-text {
+        #vid-desc {
             background: #222;
             padding: 12px;
             border-radius: 8px;
             font-size: 14px;
-            color: #ddd;
+            color: #888;
             line-height: 1.5;
-            white-space: pre-wrap; /* 這是保留 LINE 換行的關鍵 */
+            white-space: pre-wrap;
         }
-        /* 底部控制列 */
+        /* 底部控制列：強制固定 (Fixed) 在畫面最下方 */
         #controls { 
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
             display: flex; 
             justify-content: space-between; 
             align-items: center;
             height: 90px; 
             background: #1c1c1e; 
+            box-sizing: border-box; /* 確保 padding 不會撐破 100% 寬度 */
             padding: 0 15px;
             padding-bottom: env(safe-area-inset-bottom); 
             gap: 15px; 
-            flex-shrink: 0;
+            z-index: 100;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); /* 加上陰影增加層次感 */
         }
         button { 
             flex: 1; 
@@ -99,11 +108,10 @@
         <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
     </div>
     
-    <!-- 新增的資訊區塊 -->
     <div id="info-section">
         <h3 id="vid-title">載入影片資訊中...</h3>
         <p id="vid-channel">頻道名稱</p>
-        <div id="original-text">（此處將顯示您從 LINE 複製的原始文字）</div>
+        <div id="vid-desc">【系統提示】受到跨網域 (CORS) 限制與免授權 API 限制，純前端靜態網頁無法直接抓取 YouTube 影片內文。如需顯示內文，需另外串接 YouTube Data API v3。</div>
     </div>
 
     <div id="controls">
@@ -115,16 +123,13 @@
     <script>
         let videoIds = [];
         let currentIndex = 0;
-        let rawTextDecoded = "";
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
             const rawText = urlParams.get('text');
 
             if (rawText) {
-                rawTextDecoded = decodeURIComponent(rawText);
-                // 將原始文字顯示在下方區塊
-                document.getElementById('original-text').innerText = rawTextDecoded;
+                const rawTextDecoded = decodeURIComponent(rawText);
                 
                 const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
                 const matches = [...rawTextDecoded.matchAll(regExp)];
@@ -147,20 +152,16 @@
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
             
-            // 載入影片
             const player = document.getElementById('yt-player');
             player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
             
-            // 更新狀態文字與按鈕
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
 
-            // 重置標題顯示，準備抓取新資料
             document.getElementById('vid-title').innerText = '載入影片資訊中...';
             document.getElementById('vid-channel').innerText = '';
 
-            // 使用 YouTube oEmbed API 抓取標題與頻道名稱
             fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${currentVideoId}&format=json`)
                 .then(response => response.json())
                 .then(data => {
