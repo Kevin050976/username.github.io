@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>YouTube 連續播放控制台</title>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background-color: #000; 
+            color: white; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+        /* 影片播放區塊，鎖定 16:9 比例 */
+        #video-wrapper {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            flex-shrink: 0; /* 確保影片不會被壓縮 */
+        }
+        iframe { 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+        }
+        /* 資訊顯示區塊，可上下捲動 */
+        #info-section {
+            flex-grow: 1;
+            padding: 15px;
+            background: #111;
+            overflow-y: auto;
+        }
+        #vid-title {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+            line-height: 1.3;
+        }
+        #vid-channel {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            color: #aaa;
+        }
+        /* 顯示複製的原始內文，保留換行格式 */
+        #original-text {
+            background: #222;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #ddd;
+            line-height: 1.5;
+            white-space: pre-wrap; /* 這是保留 LINE 換行的關鍵 */
+        }
+        /* 底部控制列 */
+        #controls { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            height: 90px; 
+            background: #1c1c1e; 
+            padding: 0 15px;
+            padding-bottom: env(safe-area-inset-bottom); 
+            gap: 15px; 
+            flex-shrink: 0;
+        }
+        button { 
+            flex: 1; 
+            height: 55px; 
+            font-size: 18px; 
+            font-weight: bold;
+            cursor: pointer; 
+            border: none; 
+            border-radius: 12px; 
+            background: #0a84ff; 
+            color: white; 
+            touch-action: manipulation; 
+        }
+        button:active { background: #0060d1; }
+        button:disabled { 
+            background: #3a3a3c; 
+            color: #8e8e93;
+            cursor: not-allowed; 
+        }
+        #status { 
+            font-size: 15px; 
+            font-weight: 500;
+            color: #ebebf5;
+            white-space: nowrap; 
+            text-align: center;
+            min-width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div id="video-wrapper">
+        <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    </div>
+    
+    <!-- 新增的資訊區塊 -->
+    <div id="info-section">
+        <h3 id="vid-title">載入影片資訊中...</h3>
+        <p id="vid-channel">頻道名稱</p>
+        <div id="original-text">（此處將顯示您從 LINE 複製的原始文字）</div>
+    </div>
+
+    <div id="controls">
+        <button id="prev-btn" onclick="changeVideo(-1)">◄ 上一部</button>
+        <div id="status">等待中</div>
+        <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
+    </div>
+
+    <script>
+        let videoIds = [];
+        let currentIndex = 0;
+        let rawTextDecoded = "";
+
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawText = urlParams.get('text');
+
+            if (rawText) {
+                rawTextDecoded = decodeURIComponent(rawText);
+                // 將原始文字顯示在下方區塊
+                document.getElementById('original-text').innerText = rawTextDecoded;
+                
+                const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
+                const matches = [...rawTextDecoded.matchAll(regExp)];
+                videoIds = matches.map(match => match[1]);
+                videoIds = [...new Set(videoIds)];
+
+                if (videoIds.length > 0) {
+                    loadVideo(0); 
+                } else {
+                    document.getElementById('status').innerText = '無效網址';
+                    document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
+                }
+            } else {
+                document.getElementById('status').innerText = '無輸入';
+            }
+        }
+
+        function loadVideo(index) {
+            if (index < 0 || index >= videoIds.length) return;
+            currentIndex = index;
+            const currentVideoId = videoIds[currentIndex];
+            
+            // 載入影片
+            const player = document.getElementById('yt-player');
+            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
+            
+            // 更新狀態文字與按鈕
+            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
+            document.getElementById('prev-btn').disabled = (currentIndex === 0);
+            document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
+
+            // 重置標題顯示，準備抓取新資料
+            document.getElementById('vid-title').innerText = '載入影片資訊中...';
+            document.getElementById('vid-channel').innerText = '';
+
+            // 使用 YouTube oEmbed API 抓取標題與頻道名稱
+            fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${currentVideoId}&format=json`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('vid-title').innerText = data.title;
+                    document.getElementById('vid-channel').innerText = data.author_name;
+                })
+                .catch(error => {
+                    document.getElementById('vid-title').innerText = '無法取得標題 (可能是私人或直播限制)';
+                });
+        }
+
+        function changeVideo(direction) {
+            loadVideo(currentIndex + direction);
+        }
+
+        init();
+    </script>
+</body>
+</html>
