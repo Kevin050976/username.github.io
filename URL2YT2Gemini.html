@@ -14,7 +14,6 @@
             flex-direction: column; 
             height: 100dvh; 
             overflow: hidden; 
-            position: relative;
         }
         #video-wrapper {
             width: 100%;
@@ -34,7 +33,7 @@
             padding-bottom: 110px;
             background: #111;
             overflow-y: auto;
-            touch-action: pan-y; 
+            touch-action: pan-y; /* 確保手勢順暢 */
         }
         #vid-title {
             margin: 0 0 5px 0;
@@ -54,7 +53,6 @@
             color: #ccc;
             line-height: 1.5;
             white-space: pre-wrap; 
-            word-wrap: break-word;
         }
         #controls { 
             position: fixed;
@@ -100,6 +98,7 @@
             min-width: 80px;
         }
 
+        /* --- 滑動面板與拉環樣式 --- */
         #prompt-panel {
             position: fixed;
             top: 0;
@@ -159,7 +158,6 @@
             transition: background 0.2s;
         }
         #copy-prompt-btn:active { background: #28a745; }
-
         #swipe-hint {
             position: fixed;
             right: 0;
@@ -185,9 +183,9 @@
     <div id="swipe-hint" onclick="togglePanel(true)">◀ 品管</div>
 
     <div id="info-section">
-        <h3 id="vid-title">載入影片畫面中...</h3>
-        <p id="vid-channel"></p>
-        <div id="vid-desc">準備抓取資料...</div>
+        <h3 id="vid-title">載入影片資訊中...</h3>
+        <p id="vid-channel">頻道名稱</p>
+        <div id="vid-desc">載入內文中...</div>
     </div>
 
     <div id="controls">
@@ -196,12 +194,13 @@
         <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
     </div>
 
+    <!-- 品管設定面板 -->
     <div id="prompt-panel">
         <div class="panel-header">
             <h3>📝 發稿比對設定</h3>
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
-        <textarea id="requirement-input" placeholder="請貼上您的發稿需求單..."></textarea>
+        <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
         <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製發稿比對內容</button>
     </div>
 
@@ -210,7 +209,11 @@
 
         let videoIds = [];
         let currentIndex = 0;
-        let globalVideoData = []; 
+        
+        // 專門為複製功能準備的隱藏資料庫，絕不影響畫面播放
+        let allChannelNames = [];
+        let sampleTitle = '（無標題）';
+        let sampleDesc = '（無內文）';
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -224,21 +227,9 @@
                 videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
-                    // 先幫所有影片建立好預設空資料
-                    for (let i = 0; i < videoIds.length; i++) {
-                        globalVideoData.push({
-                            id: videoIds[i],
-                            channel: '',
-                            title: '',
-                            desc: ''
-                        });
-                    }
-                    
-                    // 核心修正 1：絕對優先讓影片先播，不要等 API！
-                    loadVideo(0); 
-                    
-                    // 核心修正 2：背景去抓所有頻道資料
-                    fetchAllVideoData();
+                    loadVideo(0); // 你原本穩定運作的播放邏輯
+                    silentFetchAllData(); // 隱形背景抓取所有頻道名稱
+                    setupSwipeGestures(); // 啟動左滑面板
                 } else {
                     document.getElementById('status').innerText = '無效網址';
                     document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
@@ -249,83 +240,54 @@
                 document.getElementById('vid-title').innerText = '請透過捷徑傳入網址';
                 document.getElementById('vid-desc').innerText = '';
             }
-            
-            setupSwipeGestures();
         }
 
+        // --- 你原本 100% 完整的播放與顯示邏輯，完全沒動 ---
         function loadVideo(index) {
             if (index < 0 || index >= videoIds.length) return;
             currentIndex = index;
+            const currentVideoId = videoIds[currentIndex];
             
-            const currentId = videoIds[currentIndex];
-            
-            // 讓影片毫無阻礙地播放
             const player = document.getElementById('yt-player');
-            player.src = `https://www.youtube.com/embed/${currentId}?autoplay=1&playsinline=1`;
+            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
             
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
 
-            // 更新下方文字（如果有抓到就顯示，沒抓到就顯示載入中）
-            const currentData = globalVideoData[currentIndex];
-            if (currentData && currentData.title) {
-                document.getElementById('vid-title').innerText = currentData.title;
-                document.getElementById('vid-channel').innerText = currentData.channel;
-                document.getElementById('vid-desc').innerText = currentData.desc ? currentData.desc : '（此影片無提供內文）';
-            } else {
-                document.getElementById('vid-title').innerText = '載入影片資訊中...';
-                document.getElementById('vid-channel').innerText = '';
-                document.getElementById('vid-desc').innerText = '抓取內文中...';
-            }
-        }
+            document.getElementById('vid-title').innerText = '載入影片資訊中...';
+            document.getElementById('vid-channel').innerText = '';
+            document.getElementById('vid-desc').innerText = '抓取內文中...';
 
-        async function fetchAllVideoData() {
-            const idsString = videoIds.join(',');
-            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`;
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`;
 
-            try {
-                const response = await fetch(apiUrl);
-                const data = await response.json();
-                
-                if (data.items && data.items.length > 0) {
-                    const infoMap = {};
-                    for (let i = 0; i < data.items.length; i++) {
-                        const item = data.items[i];
-                        infoMap[item.id] = {
-                            channel: item.snippet.channelTitle,
-                            title: item.snippet.title,
-                            desc: item.snippet.description
-                        };
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.items && data.items.length > 0) {
+                        const snippet = data.items[0].snippet;
+                        document.getElementById('vid-title').innerText = snippet.title;
+                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
+                        
+                        const description = snippet.description;
+                        document.getElementById('vid-desc').innerText = description ? description : '（此影片無提供內文）';
+                    } else {
+                        document.getElementById('vid-title').innerText = '無法取得資訊';
+                        document.getElementById('vid-desc').innerText = '可能影片已設為私人或遭移除。';
                     }
-
-                    // 把抓回來的資料填入陣列
-                    for (let i = 0; i < globalVideoData.length; i++) {
-                        const vid = globalVideoData[i];
-                        if (infoMap[vid.id]) {
-                            vid.channel = infoMap[vid.id].channel;
-                            vid.title = infoMap[vid.id].title;
-                            vid.desc = infoMap[vid.id].desc;
-                        } else {
-                            vid.channel = '未知頻道';
-                            vid.title = '（無標題）';
-                            vid.desc = '（無內文）';
-                        }
-                    }
-                    
-                    // 資料填齊後，刷新一次當前畫面的文字
-                    loadVideo(currentIndex);
-                }
-            } catch (error) {
-                console.error("API 請求錯誤: ", error);
-                document.getElementById('vid-title').innerText = 'API 請求失敗，請檢查金鑰';
-            }
+                })
+                .catch(error => {
+                    console.error("API 請求錯誤: ", error);
+                    document.getElementById('vid-title').innerText = 'API 請求失敗';
+                    document.getElementById('vid-desc').innerText = '請檢查 API 金鑰是否正確，或是否超過使用額度。';
+                });
         }
 
         function changeVideo(direction) {
             loadVideo(currentIndex + direction);
         }
 
+        // --- 以下為新增的面板控制與複製邏輯 ---
         function togglePanel(show) {
             const panel = document.getElementById('prompt-panel');
             if (show) {
@@ -338,14 +300,13 @@
         function setupSwipeGestures() {
             let touchStartX = 0;
             let touchEndX = 0;
-            
             const swipeArea = document.getElementById('info-section');
             
-            swipeArea.addEventListener('touchstart', function(e) {
+            swipeArea.addEventListener('touchstart', e => {
                 touchStartX = e.changedTouches[0].screenX;
             }, false);
             
-            swipeArea.addEventListener('touchend', function(e) {
+            swipeArea.addEventListener('touchend', e => {
                 touchEndX = e.changedTouches[0].screenX;
                 const swipeDistance = touchStartX - touchEndX;
                 if (swipeDistance > 50) togglePanel(true);
@@ -353,31 +314,36 @@
             }, false);
         }
 
+        // 背景靜默抓取所有頻道的名稱，為複製功能做準備
+        async function silentFetchAllData() {
+            const idsString = videoIds.join(',');
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`;
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                if (data.items && data.items.length > 0) {
+                    allChannelNames = data.items.map(item => item.snippet.channelTitle);
+                    sampleTitle = data.items[0].snippet.title;
+                    sampleDesc = data.items[0].snippet.description;
+                }
+            } catch (error) {
+                console.error("背景抓取失敗", error);
+            }
+        }
+
         function copyToGemini() {
-            const requirement = document.getElementById('requirement-input').value;
+            const requirement = document.getElementById('requirement-input').value.trim();
             const reqText = requirement ? requirement : '（未輸入發稿需求）';
 
-            // 抓出所有有名字的頻道
-            let channelsArray = [];
-            for (let i = 0; i < globalVideoData.length; i++) {
-                if (globalVideoData[i].channel) {
-                    channelsArray.push(globalVideoData[i].channel);
-                }
-            }
-            const channels = channelsArray.join('，');
+            // 若背景抓取成功就用背景資料，若失敗（極低機率）就直接抓畫面上目前顯示的字
+            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : document.getElementById('vid-channel').innerText;
+            const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : document.getElementById('vid-title').innerText;
+            const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : document.getElementById('vid-desc').innerText;
 
-            // 拿第一支影片當代表
-            let sampleTitle = '（無標題）';
-            let sampleDesc = '（無內文）';
-            if (globalVideoData.length > 0) {
-                sampleTitle = globalVideoData[0].title ? globalVideoData[0].title : '（無標題）';
-                sampleDesc = globalVideoData[0].desc ? globalVideoData[0].desc : '（無內文）';
-            }
+            // 組裝你要求的乾淨格式
+            const finalPrompt = `${reqText}\n\n====================\n【頻道】：${channelsString}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
 
-            // 組裝出精簡、不重複的比對格式
-            const finalPrompt = `${reqText}\n\n====================\n【頻道】：${channels}\n\n【標題】：${sampleTitle}\n\n【內文】：\n${sampleDesc}`;
-
-            navigator.clipboard.writeText(finalPrompt).then(function() {
+            navigator.clipboard.writeText(finalPrompt).then(() => {
                 const btn = document.getElementById('copy-prompt-btn');
                 const originalText = btn.innerText;
                 const originalBg = btn.style.background;
@@ -385,15 +351,17 @@
                 btn.innerText = '✅ 已複製！請貼給 Gemini';
                 btn.style.background = '#0a84ff';
                 
-                setTimeout(function() {
+                setTimeout(() => {
                     btn.innerText = originalText;
                     btn.style.background = originalBg;
                 }, 2000);
-            }).catch(function(err) {
+            }).catch(err => {
                 console.error('複製失敗', err);
                 alert('剪貼簿權限遭阻擋，請手動全選文字複製。');
             });
         }
+
+        init();
     </script>
 </body>
 </html>
