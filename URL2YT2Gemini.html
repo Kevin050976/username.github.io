@@ -34,7 +34,6 @@
             padding-bottom: 110px;
             background: #111;
             overflow-y: auto;
-            /* 讓這個區塊能更滑順地接收手勢 */
             touch-action: pan-y; 
         }
         #vid-title {
@@ -101,11 +100,10 @@
             min-width: 80px;
         }
 
-        /* --- 新增：滑動側邊面板樣式 --- */
         #prompt-panel {
             position: fixed;
             top: 0;
-            right: -100%; /* 預設隱藏在右側畫面外 */
+            right: -100%; 
             width: 85%;
             height: 100dvh;
             background: rgba(28, 28, 30, 0.98);
@@ -162,7 +160,6 @@
         }
         #copy-prompt-btn:active { background: #28a745; }
 
-        /* 視覺提示：右側的小拉環 */
         #swipe-hint {
             position: fixed;
             right: 0;
@@ -185,7 +182,6 @@
         <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
     </div>
     
-    <!-- 加入手勢提示拉環 -->
     <div id="swipe-hint" onclick="togglePanel(true)">◀ 品管</div>
 
     <div id="info-section">
@@ -200,14 +196,13 @@
         <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
     </div>
 
-    <!-- 新增：品管需求與提示詞面板 -->
     <div id="prompt-panel">
         <div class="panel-header">
-            <h3>📝 發稿品管設定</h3>
+            <h3>📝 發稿比對設定</h3>
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
-        <textarea id="requirement-input" placeholder="請在此輸入您的品管需求、預設內文或任何前置指令..."></textarea>
-        <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製完整提示詞</button>
+        <textarea id="requirement-input" placeholder="請貼上您的發稿需求單..."></textarea>
+        <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製發稿比對內容</button>
     </div>
 
     <script>
@@ -215,6 +210,7 @@
 
         let videoIds = [];
         let currentIndex = 0;
+        let globalVideoData = []; 
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -222,15 +218,15 @@
 
             if (rawText) {
                 const rawTextDecoded = decodeURIComponent(rawText);
-                
                 const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
                 const matches = [...rawTextDecoded.matchAll(regExp)];
                 videoIds = matches.map(match => match[1]);
-                
                 videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
-                    loadVideo(0); 
+                    fetchAllVideoData().then(() => {
+                        loadVideo(0); 
+                    });
                 } else {
                     document.getElementById('status').innerText = '無效網址';
                     document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
@@ -242,55 +238,65 @@
                 document.getElementById('vid-desc').innerText = '';
             }
             
-            // 初始化滑動偵測
             setupSwipeGestures();
+        }
+
+        async function fetchAllVideoData() {
+            document.getElementById('vid-title').innerText = '批次抓取資料中...';
+            const idsString = videoIds.join(',');
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const data = await response.json();
+                
+                const infoMap = {};
+                if (data.items) {
+                    data.items.forEach(item => {
+                        infoMap[item.id] = {
+                            channel: item.snippet.channelTitle,
+                            title: item.snippet.title,
+                            desc: item.snippet.description
+                        };
+                    });
+                }
+
+                globalVideoData = videoIds.map(id => ({
+                    id: id,
+                    channel: infoMap[id]?.channel || '未知頻道',
+                    title: infoMap[id]?.title || '（無標題）',
+                    desc: infoMap[id]?.desc || '（無內文）'
+                }));
+
+            } catch (error) {
+                console.error("API 請求錯誤: ", error);
+                document.getElementById('vid-title').innerText = 'API 請求失敗，請檢查金鑰';
+            }
         }
 
         function loadVideo(index) {
             if (index < 0 || index >= videoIds.length) return;
             currentIndex = index;
-            const currentVideoId = videoIds[currentIndex];
             
+            const currentData = globalVideoData[currentIndex];
+            if (!currentData) return;
+
             const player = document.getElementById('yt-player');
-            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
+            player.src = `https://www.youtube.com/embed/${currentData.id}?autoplay=1&playsinline=1`;
             
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
 
-            document.getElementById('vid-title').innerText = '載入影片資訊中...';
-            document.getElementById('vid-channel').innerText = '';
-            document.getElementById('vid-desc').innerText = '抓取內文中...';
-
-            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`;
-
-            fetch(apiUrl)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.items && data.items.length > 0) {
-                        const snippet = data.items[0].snippet;
-                        document.getElementById('vid-title').innerText = snippet.title;
-                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
-                        
-                        const description = snippet.description;
-                        document.getElementById('vid-desc').innerText = description ? description : '（此影片無提供內文）';
-                    } else {
-                        document.getElementById('vid-title').innerText = '無法取得資訊';
-                        document.getElementById('vid-desc').innerText = '可能影片已設為私人或遭移除。';
-                    }
-                })
-                .catch(error => {
-                    console.error("API 請求錯誤: ", error);
-                    document.getElementById('vid-title').innerText = 'API 請求失敗';
-                    document.getElementById('vid-desc').innerText = '請檢查 API 金鑰是否正確，或是否超過使用額度。';
-                });
+            document.getElementById('vid-title').innerText = currentData.title;
+            document.getElementById('vid-channel').innerText = currentData.channel;
+            document.getElementById('vid-desc').innerText = currentData.desc;
         }
 
         function changeVideo(direction) {
             loadVideo(currentIndex + direction);
         }
 
-        /* --- 新增：控制面板開關 --- */
         function togglePanel(show) {
             const panel = document.getElementById('prompt-panel');
             if (show) {
@@ -300,12 +306,10 @@
             }
         }
 
-        /* --- 新增：手勢滑動偵測 --- */
         function setupSwipeGestures() {
             let touchStartX = 0;
             let touchEndX = 0;
             
-            // 綁定在 info-section 避免被 iframe 吃掉手勢
             const swipeArea = document.getElementById('info-section');
             
             swipeArea.addEventListener('touchstart', e => {
@@ -319,37 +323,33 @@
             
             function handleSwipe() {
                 const swipeDistance = touchStartX - touchEndX;
-                // 向左滑動超過 50px，打開面板
-                if (swipeDistance > 50) {
-                    togglePanel(true);
-                }
-                // 向右滑動超過 50px，關閉面板
-                if (swipeDistance < -50) {
-                    togglePanel(false);
-                }
+                if (swipeDistance > 50) togglePanel(true);
+                if (swipeDistance < -50) togglePanel(false);
             }
         }
 
-        /* --- 新增：組合並複製提示詞給 Gemini --- */
         function copyToGemini() {
-            const requirement = document.getElementById('requirement-input').value;
-            const title = document.getElementById('vid-title').innerText;
-            const desc = document.getElementById('vid-desc').innerText;
+            const requirement = document.getElementById('requirement-input').value.trim();
+            const reqText = requirement ? requirement : '（未輸入發稿需求）';
 
-            // 組裝準備送給 AI 的完整文字
-            const finalPrompt = `${requirement}\n\n==========\n【YouTube 標題】\n${title}\n\n【YouTube 內文】\n${desc}`;
+            // 1. 把所有 5 個頻道名稱一次性用逗號串在一起
+            const channels = globalVideoData.map(vid => vid.channel).filter(Boolean).join('，');
 
-            // 使用瀏覽器剪貼簿 API
+            // 2. 只取第一個頻道的「標題」與「內文」作為代表比對
+            const sampleTitle = globalVideoData[0]?.title || '（無標題）';
+            const sampleDesc = globalVideoData[0]?.desc || '（無內文）';
+
+            // 3. 組裝出精簡、不重複的比對格式
+            const finalPrompt = `${reqText}\n\n====================\n【頻道】：${channels}\n\n【標題】：${sampleTitle}\n\n【內文】：\n${sampleDesc}`;
+
             navigator.clipboard.writeText(finalPrompt).then(() => {
                 const btn = document.getElementById('copy-prompt-btn');
                 const originalText = btn.innerText;
                 const originalBg = btn.style.background;
                 
-                // 提供成功的視覺回饋
-                btn.innerText = '✅ 已複製！請切換至 Gemini';
+                btn.innerText = '✅ 已複製！請貼給 Gemini';
                 btn.style.background = '#0a84ff';
                 
-                // 2秒後恢復原狀
                 setTimeout(() => {
                     btn.innerText = originalText;
                     btn.style.background = originalBg;
@@ -359,8 +359,6 @@
                 alert('剪貼簿權限遭阻擋，請手動全選文字複製。');
             });
         }
-
-        init();
     </script>
 </body>
 </html>
