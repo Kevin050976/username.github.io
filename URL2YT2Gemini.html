@@ -33,7 +33,7 @@
             padding-bottom: 110px;
             background: #111;
             overflow-y: auto;
-            touch-action: pan-y; /* 確保手勢順暢 */
+            touch-action: pan-y; 
         }
         #vid-title {
             margin: 0 0 5px 0;
@@ -97,8 +97,6 @@
             text-align: center;
             min-width: 80px;
         }
-
-        /* --- 滑動面板與拉環樣式 --- */
         #prompt-panel {
             position: fixed;
             top: 0;
@@ -210,7 +208,6 @@
         let videoIds = [];
         let currentIndex = 0;
         
-        // 專門為複製功能準備的隱藏資料庫，絕不影響畫面播放
         let allChannelNames = [];
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
@@ -227,9 +224,9 @@
                 videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
-                    loadVideo(0); // 你原本穩定運作的播放邏輯
-                    silentFetchAllData(); // 隱形背景抓取所有頻道名稱
-                    setupSwipeGestures(); // 啟動左滑面板
+                    loadVideo(0); 
+                    silentFetchAllData(); 
+                    setupSwipeGestures(); 
                 } else {
                     document.getElementById('status').innerText = '無效網址';
                     document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
@@ -242,7 +239,6 @@
             }
         }
 
-        // --- 你原本 100% 完整的播放與顯示邏輯，完全沒動 ---
         function loadVideo(index) {
             if (index < 0 || index >= videoIds.length) return;
             currentIndex = index;
@@ -287,7 +283,6 @@
             loadVideo(currentIndex + direction);
         }
 
-        // --- 以下為新增的面板控制與複製邏輯 ---
         function togglePanel(show) {
             const panel = document.getElementById('prompt-panel');
             if (show) {
@@ -314,7 +309,6 @@
             }, false);
         }
 
-        // 背景靜默抓取所有頻道的名稱，為複製功能做準備
         async function silentFetchAllData() {
             const idsString = videoIds.join(',');
             const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`;
@@ -331,17 +325,38 @@
             }
         }
 
+        // ==========================================
+        // 核心修正：加回強制比對的系統咒語，不再被當成總結
+        // ==========================================
         function copyToGemini() {
             const requirement = document.getElementById('requirement-input').value.trim();
             const reqText = requirement ? requirement : '（未輸入發稿需求）';
 
-            // 若背景抓取成功就用背景資料，若失敗（極低機率）就直接抓畫面上目前顯示的字
             const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : document.getElementById('vid-channel').innerText;
             const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : document.getElementById('vid-title').innerText;
             const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : document.getElementById('vid-desc').innerText;
 
-            // 組裝你要求的乾淨格式
-            const finalPrompt = `${reqText}\n\n====================\n【頻道】：${channelsString}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
+            const finalPrompt = `你現在是一位嚴格的發稿與轉播品管編輯。
+
+請根據下方的【發稿需求單】，嚴格比對這場直播的【標題】與【內文】。
+你的唯一任務是：檢查是否有遺漏需求中的關鍵字、格式錯誤，或不合邏輯的地方。
+
+⚠️ 絕對禁止：
+1. 不要對新聞內容做任何總結或摘要！
+2. 如果完全符合規範，請直接回覆「符合規範，無須修改」，不用廢話。
+3. 如果有錯，請直接明確指出哪裡不符合需求。
+
+====================
+【發稿需求單】：
+${reqText}
+
+====================
+【頻道】：${channelsString}
+
+【標題】：${finalTitle}
+
+【內文】：
+${finalDesc}`;
 
             navigator.clipboard.writeText(finalPrompt).then(() => {
                 const btn = document.getElementById('copy-prompt-btn');
