@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SNG 直播連續播放控制台</title>
-    <!-- 換回完美支援中文的 qrcode.js 套件 -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
@@ -39,8 +38,6 @@
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
         #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; } 
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
-        
-        /* 核心修正：加入 flex: none 防止按鈕暴走變長 */
         #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
     </style>
 </head>
@@ -77,7 +74,6 @@
     </div>
 
     <div id="qr-modal">
-        <!-- 改回用 div 讓 qrcode.js 自己塞畫布進去 -->
         <div id="qrcode-container"></div>
         <div id="qr-text-display"></div>
         <button id="close-qr-btn" onclick="closeQRCode()">關閉</button>
@@ -94,6 +90,26 @@
         let sampleDesc = '（無內文）';
         
         let formattedLiveEventInfo = ""; 
+
+        // 🟢 核心修正：加入中文轉譯器，防止套件遇到中文當機變白畫面
+        function toUtf8(str) {
+            let out = "", i, len, c;
+            len = str.length;
+            for(i = 0; i < len; i++) {
+                c = str.charCodeAt(i);
+                if ((c >= 0x0001) && (c <= 0x007F)) {
+                    out += str.charAt(i);
+                } else if (c > 0x07FF) {
+                    out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F));
+                    out += String.fromCharCode(0x80 | ((c >>  6) & 0x3F));
+                    out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+                } else {
+                    out += String.fromCharCode(0xC0 | ((c >>  6) & 0x1F));
+                    out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
+                }
+            }
+            return out;
+        }
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
@@ -141,15 +157,14 @@
         function showQRCode() {
             if (!formattedLiveEventInfo) return;
 
-            // 1. 先把顯示遮罩打開
             document.getElementById('qr-modal').style.display = 'flex';
-            
-            // 2. 清空舊的內容，避免重複生成一堆圖
             document.getElementById('qrcode-container').innerHTML = '';
 
-            // 3. 呼叫支援中文的 qrcode.js 產生圖片
+            // 🟢 將中文標題通過轉譯器，安全餵給 QRCode 引擎
+            const safeText = toUtf8(formattedLiveEventInfo);
+
             new QRCode(document.getElementById('qrcode-container'), {
-                text: formattedLiveEventInfo,
+                text: safeText,
                 width: 250,
                 height: 250,
                 colorDark : "#000000",
