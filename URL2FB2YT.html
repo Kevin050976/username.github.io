@@ -19,7 +19,6 @@
         button:disabled { background: #3a3a3c; color: #8e8e93; cursor: not-allowed; }
         #status { font-size: 15px; font-weight: 500; color: #ebebf5; white-space: nowrap; text-align: center; min-width: 80px; }
         
-        /* 面板與按鈕樣式 */
         #prompt-panel { position: fixed; top: 0; right: -100%; width: 85%; height: 100dvh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: -5px 0 20px rgba(0,0,0,0.7); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 200; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; padding-top: env(safe-area-inset-top, 20px); padding-bottom: env(safe-area-inset-bottom, 20px); }
         #prompt-panel.open { right: 0; }
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
@@ -34,7 +33,6 @@
         #qr-btn:active { background: #d08107; }
         #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
         
-        /* QR Code 全螢幕顯示遮罩 */
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
         #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; } 
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
@@ -91,26 +89,6 @@
         
         let formattedLiveEventInfo = ""; 
 
-        // 🟢 核心修正：加入中文轉譯器，防止套件遇到中文當機變白畫面
-        function toUtf8(str) {
-            let out = "", i, len, c;
-            len = str.length;
-            for(i = 0; i < len; i++) {
-                c = str.charCodeAt(i);
-                if ((c >= 0x0001) && (c <= 0x007F)) {
-                    out += str.charAt(i);
-                } else if (c > 0x07FF) {
-                    out += String.fromCharCode(0xE0 | ((c >> 12) & 0x0F));
-                    out += String.fromCharCode(0x80 | ((c >>  6) & 0x3F));
-                    out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
-                } else {
-                    out += String.fromCharCode(0xC0 | ((c >>  6) & 0x1F));
-                    out += String.fromCharCode(0x80 | ((c >>  0) & 0x3F));
-                }
-            }
-            return out;
-        }
-
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
             const rawText = urlParams.get('text');    
@@ -124,7 +102,6 @@
                     const datePart = parts.shift(); 
                     const timePart = parts.pop();   
                     const titlePart = parts.join(' '); 
-                    
                     formattedLiveEventInfo = `${datePart} 【${titlePart}】 ${timePart}`;
                 } else {
                     formattedLiveEventInfo = decodedTitle; 
@@ -160,8 +137,8 @@
             document.getElementById('qr-modal').style.display = 'flex';
             document.getElementById('qrcode-container').innerHTML = '';
 
-            // 🟢 將中文標題通過轉譯器，安全餵給 QRCode 引擎
-            const safeText = toUtf8(formattedLiveEventInfo);
+            // 🟢 真正的終極解法：利用原生 JS 處理 UTF-8，完美支援中文且不膨脹
+            const safeText = unescape(encodeURIComponent(formattedLiveEventInfo));
 
             new QRCode(document.getElementById('qrcode-container'), {
                 text: safeText,
@@ -169,7 +146,8 @@
                 height: 250,
                 colorDark : "#000000",
                 colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+                // 🟢 降級容錯率為 M (Medium)，讓 QR Code 圖案變得更稀疏、更容易被鏡頭對焦掃描
+                correctLevel : QRCode.CorrectLevel.M 
             });
 
             document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
