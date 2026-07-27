@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SNG 直播連續播放控制台</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- 換成更穩定、完美支援中文與隱藏畫布的 QRious 套件 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
         #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
@@ -36,7 +37,7 @@
         
         /* QR Code 全螢幕顯示遮罩 */
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
-        #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; }
+        #qr-canvas { background: #fff; padding: 15px; border-radius: 12px; } /* 改用 canvas */
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
         #close-qr-btn { margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
     </style>
@@ -74,7 +75,8 @@
     </div>
 
     <div id="qr-modal">
-        <div id="qrcode-container"></div>
+        <!-- 核心修正：改用原生 canvas 標籤供新套件繪圖 -->
+        <canvas id="qr-canvas"></canvas>
         <div id="qr-text-display"></div>
         <button id="close-qr-btn" onclick="closeQRCode()">關閉</button>
     </div>
@@ -89,34 +91,30 @@
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
         
-        let formattedLiveEventInfo = ""; // 存放給 QR Code 用的格式化標題
+        let formattedLiveEventInfo = ""; 
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
-            const rawText = urlParams.get('text');    // 負責接收純網址
-            const rawTitle = urlParams.get('title');  // 負責接收第一行標題
+            const rawText = urlParams.get('text');    
+            const rawTitle = urlParams.get('title');  
 
-            // 處理標題邏輯
             if (rawTitle) {
                 const decodedTitle = decodeURIComponent(rawTitle).trim();
                 const parts = decodedTitle.split(/\s+/);
                 
-                // 如果格式符合 "日期 主題 時間" (至少3個片段)
                 if (parts.length >= 3) {
                     const datePart = parts.shift(); 
                     const timePart = parts.pop();   
                     const titlePart = parts.join(' '); 
                     
-                    // 重組並加上【 】
                     formattedLiveEventInfo = `${datePart} 【${titlePart}】 ${timePart}`;
                 } else {
-                    formattedLiveEventInfo = decodedTitle; // 格式不符就直出
+                    formattedLiveEventInfo = decodedTitle; 
                 }
             } else {
                 formattedLiveEventInfo = "未提供標題資訊";
             }
 
-            // 處理影片網址邏輯
             if (rawText) {
                 const rawTextDecoded = decodeURIComponent(rawText);
                 const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
@@ -138,20 +136,24 @@
             }
         }
 
+        // 核心修正：更換 QR Code 引擎與顯示邏輯
         function showQRCode() {
-            document.getElementById('qrcode-container').innerHTML = '';
+            if (!formattedLiveEventInfo) return;
+
+            // 1. 先把 display:none 的遮罩打開，這樣套件才能抓到真實大小來畫圖
+            document.getElementById('qr-modal').style.display = 'flex';
             
-            new QRCode(document.getElementById('qrcode-container'), {
-                text: formattedLiveEventInfo,
-                width: 250,
-                height: 250,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
+            // 2. 呼叫 QRious 產生圖片，完美支援中文
+            new QRious({
+                element: document.getElementById('qr-canvas'),
+                value: formattedLiveEventInfo,
+                size: 250,
+                background: '#ffffff',
+                foreground: '#000000'
             });
 
+            // 3. 顯示重組過後的標題文字
             document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
-            document.getElementById('qr-modal').style.display = 'flex';
         }
 
         function closeQRCode() {
