@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SNG 直播連續播放控制台</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- 🔥 拔掉舊套件，改用現代最強、完美支援中文的 qrcode 引擎 -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
         #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
@@ -34,7 +35,7 @@
         #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
         
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
-        #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; } 
+        #qr-canvas { border-radius: 12px; } 
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
         #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
     </style>
@@ -72,7 +73,8 @@
     </div>
 
     <div id="qr-modal">
-        <div id="qrcode-container"></div>
+        <!-- 畫布元素，供新引擎使用 -->
+        <canvas id="qr-canvas"></canvas>
         <div id="qr-text-display"></div>
         <button id="close-qr-btn" onclick="closeQRCode()">關閉</button>
     </div>
@@ -135,19 +137,19 @@
             if (!formattedLiveEventInfo) return;
 
             document.getElementById('qr-modal').style.display = 'flex';
-            document.getElementById('qrcode-container').innerHTML = '';
-
-            // 🟢 真正的終極解法：利用原生 JS 處理 UTF-8，完美支援中文且不膨脹
-            const safeText = unescape(encodeURIComponent(formattedLiveEventInfo));
-
-            new QRCode(document.getElementById('qrcode-container'), {
-                text: safeText,
+            
+            const canvas = document.getElementById('qr-canvas');
+            
+            // 🔥 新引擎繪圖邏輯：原生支援中文，畫面極度清晰
+            QRCode.toCanvas(canvas, formattedLiveEventInfo, {
                 width: 250,
-                height: 250,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                // 🟢 降級容錯率為 M (Medium)，讓 QR Code 圖案變得更稀疏、更容易被鏡頭對焦掃描
-                correctLevel : QRCode.CorrectLevel.M 
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#ffffff'
+                }
+            }, function (error) {
+                if (error) console.error('QR Code 生成錯誤:', error);
             });
 
             document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
