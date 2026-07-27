@@ -4,211 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SNG 直播連續播放控制台</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { 
-            margin: 0; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
-            background-color: #000; 
-            color: white; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100dvh; 
-            overflow: hidden; 
-        }
-        #video-wrapper {
-            width: 100%;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            flex-shrink: 0;
-            z-index: 10;
-        }
-        iframe { 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-        }
-        #info-section {
-            flex-grow: 1;
-            padding: 15px;
-            padding-bottom: 110px;
-            background: #111;
-            overflow-y: auto;
-            touch-action: pan-y; 
-        }
-        #vid-title {
-            margin: 0 0 5px 0;
-            font-size: 18px;
-            line-height: 1.3;
-        }
-        #vid-channel {
-            margin: 0 0 15px 0;
-            font-size: 14px;
-            color: #aaa;
-        }
-        .tag-fb {
-            display: inline-block;
-            background: #1877f2;
-            color: white;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
-        .tag-yt {
-            display: inline-block;
-            background: #ff0000;
-            color: white;
-            font-size: 12px;
-            padding: 2px 6px;
-            border-radius: 4px;
-            margin-right: 5px;
-            vertical-align: middle;
-        }
-        #vid-desc {
-            background: #222;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #ccc;
-            line-height: 1.5;
-            white-space: pre-wrap; 
-            word-wrap: break-word;
-        }
-        .app-jump-btn {
-            display: inline-block;
-            margin-top: 10px;
-            padding: 10px 15px;
-            background-color: #1877f2;
-            color: white;
-            text-decoration: none;
-            font-weight: bold;
-            border-radius: 8px;
-            font-size: 14px;
-        }
-        #controls { 
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            height: 90px; 
-            background: #1c1c1e; 
-            box-sizing: border-box; 
-            padding: 0 15px;
-            padding-bottom: env(safe-area-inset-bottom); 
-            gap: 15px; 
-            z-index: 100;
-            box-shadow: 0 -5px 15px rgba(0,0,0,0.5); 
-        }
-        button { 
-            flex: 1; 
-            height: 55px; 
-            font-size: 18px; 
-            font-weight: bold;
-            cursor: pointer; 
-            border: none; 
-            border-radius: 12px; 
-            background: #0a84ff; 
-            color: white; 
-            touch-action: manipulation; 
-        }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
+        #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
+        #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; }
+        #vid-desc { background: #222; padding: 12px; border-radius: 8px; font-size: 14px; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
+        #controls { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; height: 90px; background: #1c1c1e; box-sizing: border-box; padding: 0 15px; padding-bottom: env(safe-area-inset-bottom); gap: 15px; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        button { flex: 1; height: 55px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 12px; background: #0a84ff; color: white; touch-action: manipulation; }
         button:active { background: #0060d1; }
-        button:disabled { 
-            background: #3a3a3c; 
-            color: #8e8e93;
-            cursor: not-allowed; 
-        }
-        #status { 
-            font-size: 15px; 
-            font-weight: 500;
-            color: #ebebf5;
-            white-space: nowrap; 
-            text-align: center;
-            min-width: 80px;
-        }
-        #prompt-panel {
-            position: fixed;
-            top: 0;
-            right: -100%; 
-            width: 85%;
-            height: 100dvh;
-            background: rgba(28, 28, 30, 0.98);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            box-shadow: -5px 0 20px rgba(0,0,0,0.7);
-            transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            z-index: 200; 
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            box-sizing: border-box;
-            padding-top: env(safe-area-inset-top, 20px);
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-        }
-        #prompt-panel.open {
-            right: 0;
-        }
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .panel-header h3 {
-            margin: 0;
-            font-size: 20px;
-        }
-        .close-btn {
-            background: #3a3a3c;
-            height: 40px;
-            flex: 0 0 80px;
-            font-size: 16px;
-        }
-        #requirement-input {
-            flex-grow: 1;
-            margin-bottom: 15px;
-            background: #000;
-            color: #fff;
-            border: 1px solid #3a3a3c;
-            border-radius: 12px;
-            padding: 15px;
-            font-size: 16px;
-            line-height: 1.5;
-            resize: none;
-            outline: none;
-            font-family: inherit;
-        }
-        #copy-prompt-btn {
-            background: #32d74b;
-            flex: 0 0 60px;
-            font-size: 18px;
-            transition: background 0.2s;
-        }
+        button:disabled { background: #3a3a3c; color: #8e8e93; cursor: not-allowed; }
+        #status { font-size: 15px; font-weight: 500; color: #ebebf5; white-space: nowrap; text-align: center; min-width: 80px; }
+        
+        /* 面板與按鈕樣式 */
+        #prompt-panel { position: fixed; top: 0; right: -100%; width: 85%; height: 100dvh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: -5px 0 20px rgba(0,0,0,0.7); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 200; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; padding-top: env(safe-area-inset-top, 20px); padding-bottom: env(safe-area-inset-bottom, 20px); }
+        #prompt-panel.open { right: 0; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .panel-header h3 { margin: 0; font-size: 20px; }
+        .close-btn { background: #3a3a3c; height: 40px; flex: 0 0 80px; font-size: 16px; }
+        #requirement-input { flex-grow: 1; margin-bottom: 15px; background: #000; color: #fff; border: 1px solid #3a3a3c; border-radius: 12px; padding: 15px; font-size: 16px; line-height: 1.5; resize: none; outline: none; font-family: inherit; }
+        
+        .btn-group { display: flex; gap: 10px; }
+        #copy-prompt-btn { background: #32d74b; flex: 2; }
         #copy-prompt-btn:active { background: #28a745; }
-        #swipe-hint {
-            position: fixed;
-            right: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            background: rgba(50, 50, 50, 0.7);
-            color: #fff;
-            padding: 15px 5px;
-            border-radius: 8px 0 0 8px;
-            z-index: 50;
-            font-size: 12px;
-            writing-mode: vertical-rl;
-            text-orientation: upright;
-            letter-spacing: 2px;
-        }
+        #qr-btn { background: #ff9f0a; flex: 1; }
+        #qr-btn:active { background: #d08107; }
+        #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
+        
+        /* QR Code 全螢幕顯示遮罩 */
+        #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
+        #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; }
+        #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; }
+        #close-qr-btn { margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
     </style>
 </head>
 <body>
     <div id="video-wrapper">
-        <!-- 核心修正：補齊 FB 要求的安全解碼與分享權限，防止直播當機 -->
-        <iframe id="media-player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write; web-share" allowfullscreen="true" scrolling="no"></iframe>
+        <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
     </div>
     
     <div id="swipe-hint" onclick="togglePanel(true)">◀ 品管</div>
@@ -231,104 +66,127 @@
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
         <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
-        <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製發稿比對內容</button>
+        
+        <div class="btn-group">
+            <button id="qr-btn" onclick="showQRCode()">🔲 QR Code</button>
+            <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製發稿比對內容</button>
+        </div>
+    </div>
+
+    <div id="qr-modal">
+        <div id="qrcode-container"></div>
+        <div id="qr-text-display"></div>
+        <button id="close-qr-btn" onclick="closeQRCode()">關閉</button>
     </div>
 
     <script>
         const API_KEY = 'AIzaSyCD8fnx7T0aEpPG2Co5p4QDqshIgB_ix1Y'; 
 
-        let mediaList = [];
+        let videoIds = [];
         let currentIndex = 0;
         
         let allChannelNames = [];
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
+        
+        let formattedLiveEventInfo = ""; // 存放給 QR Code 用的格式化標題
 
         function init() {
             const urlParams = new URLSearchParams(window.location.search);
-            const rawText = urlParams.get('text');
+            const rawText = urlParams.get('text');    // 負責接收純網址
+            const rawTitle = urlParams.get('title');  // 負責接收第一行標題
 
+            // 處理標題邏輯
+            if (rawTitle) {
+                const decodedTitle = decodeURIComponent(rawTitle).trim();
+                const parts = decodedTitle.split(/\s+/);
+                
+                // 如果格式符合 "日期 主題 時間" (至少3個片段)
+                if (parts.length >= 3) {
+                    const datePart = parts.shift(); 
+                    const timePart = parts.pop();   
+                    const titlePart = parts.join(' '); 
+                    
+                    // 重組並加上【 】
+                    formattedLiveEventInfo = `${datePart} 【${titlePart}】 ${timePart}`;
+                } else {
+                    formattedLiveEventInfo = decodedTitle; // 格式不符就直出
+                }
+            } else {
+                formattedLiveEventInfo = "未提供標題資訊";
+            }
+
+            // 處理影片網址邏輯
             if (rawText) {
                 const rawTextDecoded = decodeURIComponent(rawText);
-                
-                // 1. YouTube 網址
-                const ytRegExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
-                const ytMatches = [...rawTextDecoded.matchAll(ytRegExp)];
-                ytMatches.forEach(match => {
-                    if (!mediaList.some(item => item.id === match[1])) {
-                        mediaList.push({ type: 'youtube', id: match[1] });
-                    }
-                });
+                const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
+                const matches = [...rawTextDecoded.matchAll(regExp)];
+                videoIds = matches.map(match => match[1]);
+                videoIds = [...new Set(videoIds)];
 
-                // 2. Facebook 網址
-                const fbRegExp = /https:\/\/(?:www\.)?facebook\.com\/[^\s/]+\/videos\/\d+\/?/g;
-                const fbMatches = [...rawTextDecoded.matchAll(fbRegExp)];
-                fbMatches.forEach(match => {
-                    if (!mediaList.some(item => item.url === match[0])) {
-                        mediaList.push({ type: 'facebook', url: match[0] });
-                    }
-                });
-
-                if (mediaList.length > 0) {
+                if (videoIds.length > 0) {
                     loadVideo(0); 
                     silentFetchAllData(); 
                     setupSwipeGestures(); 
                 } else {
                     document.getElementById('status').innerText = '無效網址';
-                    document.getElementById('vid-title').innerText = '找不到支援的影片';
-                    document.getElementById('vid-desc').innerText = '請確認複製的文字中是否包含 YouTube 或 Facebook 影片連結。';
+                    document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
                 }
             } else {
                 document.getElementById('status').innerText = '無輸入';
                 document.getElementById('vid-title').innerText = '請透過捷徑傳入網址';
-                document.getElementById('vid-desc').innerText = '';
             }
         }
 
+        function showQRCode() {
+            document.getElementById('qrcode-container').innerHTML = '';
+            
+            new QRCode(document.getElementById('qrcode-container'), {
+                text: formattedLiveEventInfo,
+                width: 250,
+                height: 250,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
+            document.getElementById('qr-modal').style.display = 'flex';
+        }
+
+        function closeQRCode() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+
         function loadVideo(index) {
-            if (index < 0 || index >= mediaList.length) return;
+            if (index < 0 || index >= videoIds.length) return;
             currentIndex = index;
-            const currentMedia = mediaList[currentIndex];
+            const currentVideoId = videoIds[currentIndex];
             
-            const player = document.getElementById('media-player');
+            const player = document.getElementById('yt-player');
+            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
             
-            document.getElementById('status').innerText = `${currentIndex + 1} / ${mediaList.length}`;
+            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
-            document.getElementById('next-btn').disabled = (currentIndex === mediaList.length - 1);
+            document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
 
-            if (currentMedia.type === 'youtube') {
-                player.src = `https://www.youtube.com/embed/${currentMedia.id}?autoplay=1&playsinline=1`;
-                
-                document.getElementById('vid-title').innerHTML = '<span class="tag-yt">YouTube</span>載入影片資訊中...';
-                document.getElementById('vid-channel').innerText = '';
-                document.getElementById('vid-desc').innerText = '抓取內文中...';
+            document.getElementById('vid-title').innerText = '載入影片資訊中...';
+            document.getElementById('vid-channel').innerText = '';
+            document.getElementById('vid-desc').innerText = '抓取內文中...';
 
-                const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentMedia.id}&key=${API_KEY}`;
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`;
 
-                fetch(apiUrl)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.items && data.items.length > 0) {
-                            const snippet = data.items[0].snippet;
-                            document.getElementById('vid-title').innerHTML = `<span class="tag-yt">YouTube</span>${snippet.title}`;
-                            document.getElementById('vid-channel').innerText = snippet.channelTitle;
-                            const description = snippet.description;
-                            document.getElementById('vid-desc').innerText = description ? description : '（此影片無提供內文）';
-                        }
-                    })
-                    .catch(error => console.error("YT API 錯誤: ", error));
-
-            } else if (currentMedia.type === 'facebook') {
-                // 核心修正：移除會干擾版面的 width=auto，加入 autoplay=1
-                const fbEmbedUrl = `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(currentMedia.url)}&show_text=false&autoplay=1`;
-                player.src = fbEmbedUrl;
-                
-                document.getElementById('vid-title').innerHTML = '<span class="tag-fb">Facebook</span>Facebook 直播畫面';
-                document.getElementById('vid-channel').innerText = '（受限 FB 政策，無法抓取頻道名稱）';
-                
-                // 核心修正：加入超明顯的原生 App 備援跳轉按鈕
-                document.getElementById('vid-desc').innerHTML = `⚠️ 注意：<br>因 Facebook 行動版網頁播放器非常不穩定，若直播畫面出現「定格」或「僅有聲音」，這是瀏覽器引擎遭到 FB 阻擋。<br><br><a href="${currentMedia.url}" target="_blank" class="app-jump-btn">🚀 畫面卡頓？點此直接喚醒 Facebook App 觀看</a>`;
-            }
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.items && data.items.length > 0) {
+                        const snippet = data.items[0].snippet;
+                        document.getElementById('vid-title').innerText = snippet.title;
+                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
+                        document.getElementById('vid-desc').innerText = snippet.description ? snippet.description : '（此影片無提供內文）';
+                    }
+                })
+                .catch(error => console.error("API 請求錯誤: ", error));
         }
 
         function changeVideo(direction) {
@@ -337,11 +195,8 @@
 
         function togglePanel(show) {
             const panel = document.getElementById('prompt-panel');
-            if (show) {
-                panel.classList.add('open');
-            } else {
-                panel.classList.remove('open');
-            }
+            if (show) panel.classList.add('open');
+            else panel.classList.remove('open');
         }
 
         function setupSwipeGestures() {
@@ -349,10 +204,7 @@
             let touchEndX = 0;
             const swipeArea = document.getElementById('info-section');
             
-            swipeArea.addEventListener('touchstart', e => {
-                touchStartX = e.changedTouches[0].screenX;
-            }, false);
-            
+            swipeArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, false);
             swipeArea.addEventListener('touchend', e => {
                 touchEndX = e.changedTouches[0].screenX;
                 const swipeDistance = touchStartX - touchEndX;
@@ -362,10 +214,7 @@
         }
 
         async function silentFetchAllData() {
-            const ytIds = mediaList.filter(m => m.type === 'youtube').map(m => m.id);
-            if (ytIds.length === 0) return; 
-
-            const idsString = ytIds.join(',');
+            const idsString = videoIds.join(',');
             const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`;
             try {
                 const response = await fetch(apiUrl);
@@ -375,57 +224,26 @@
                     sampleTitle = data.items[0].snippet.title;
                     sampleDesc = data.items[0].snippet.description;
                 }
-            } catch (error) {
-                console.error("背景抓取失敗", error);
-            }
+            } catch (error) { console.error("背景抓取失敗", error); }
         }
 
         function copyToGemini() {
             const requirement = document.getElementById('requirement-input').value.trim();
             const reqText = requirement ? requirement : '（未輸入發稿需求）';
+            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : document.getElementById('vid-channel').innerText;
+            const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : document.getElementById('vid-title').innerText;
+            const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : document.getElementById('vid-desc').innerText;
 
-            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : '（未偵測到 YT 頻道，請參照原發稿文字）';
-            const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : '（無法自動抓取 FB 標題，請參照原發稿文字）';
-            const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : '（無法自動抓取 FB 內文，請參照原發稿文字）';
-
-            const finalPrompt = `你現在是一位嚴格的發稿與轉播品管編輯。
-
-請根據下方的【發稿需求單】，嚴格比對這場直播的【標題】與【內文】。
-你的唯一任務是：檢查是否有遺漏需求中的關鍵字、格式錯誤，或不合邏輯的地方。
-
-⚠️ 絕對禁止：
-1. 不要對新聞內容做任何總結或摘要！
-2. 如果完全符合規範，請直接回覆「符合規範，無須修改」，不用廢話。
-3. 如果有錯，請直接明確指出哪裡不符合需求。
-
-====================
-【發稿需求單】：
-${reqText}
-
-====================
-【頻道】：${channelsString}
-
-【標題】：${finalTitle}
-
-【內文】：
-${finalDesc}`;
+            const finalPrompt = `你現在是一位嚴格的發稿與轉播品管編輯。\n\n請根據下方的【發稿需求單】，嚴格比對這場直播的【標題】與【內文】。\n你的唯一任務是：檢查是否有遺漏需求中的關鍵字、格式錯誤，或不合邏輯的地方。\n\n⚠️ 絕對禁止：\n1. 不要對新聞內容做任何總結或摘要！\n2. 如果完全符合規範，請直接回覆「符合規範，無須修改」，不用廢話。\n3. 如果有錯，請直接明確指出哪裡不符合需求。\n\n====================\n【發稿需求單】：\n${reqText}\n\n====================\n【頻道】：${channelsString}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
 
             navigator.clipboard.writeText(finalPrompt).then(() => {
                 const btn = document.getElementById('copy-prompt-btn');
                 const originalText = btn.innerText;
                 const originalBg = btn.style.background;
-                
                 btn.innerText = '✅ 已複製！請貼給 Gemini';
                 btn.style.background = '#0a84ff';
-                
-                setTimeout(() => {
-                    btn.innerText = originalText;
-                    btn.style.background = originalBg;
-                }, 2000);
-            }).catch(err => {
-                console.error('複製失敗', err);
-                alert('剪貼簿權限遭阻擋，請手動全選文字複製。');
-            });
+                setTimeout(() => { btn.innerText = originalText; btn.style.background = originalBg; }, 2000);
+            }).catch(err => { alert('剪貼簿權限遭阻擋，請手動全選文字複製。'); });
         }
 
         init();
