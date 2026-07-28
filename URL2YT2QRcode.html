@@ -35,13 +35,6 @@
         .close-btn { background: #3a3a3c; height: 40px; flex: 0 0 80px; font-size: 16px; }
         #requirement-input { flex-grow: 1; margin-bottom: 15px; background: #000; color: #fff; border: 1px solid #3a3a3c; border-radius: 12px; padding: 15px; font-size: 16px; line-height: 1.5; resize: none; outline: none; font-family: inherit; }
         
-        .setting-group { margin-bottom: 15px; }
-        .setting-group .title { display: block; font-size: 14px; color: #aaa; margin-bottom: 8px; }
-        .radio-group { display: flex; gap: 8px; }
-        .radio-group label { background: #3a3a3c; padding: 10px 0; border-radius: 8px; font-size: 15px; cursor: pointer; flex: 1; text-align: center; border: 2px solid transparent; transition: all 0.2s; }
-        .radio-group input[type="radio"] { display: none; }
-        .radio-group input[type="radio"]:checked + label { background: #0a84ff; color: white; font-weight: bold; }
-        
         .btn-group { display: flex; gap: 10px; }
         #copy-prompt-btn { background: #32d74b; flex: 2; }
         #copy-prompt-btn:active { background: #28a745; }
@@ -86,20 +79,6 @@
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
 
-        <div class="setting-group">
-            <span class="title">影片載入畫質建議 (YouTube可能依網速微調)</span>
-            <div class="radio-group">
-                <input type="radio" id="q-480" name="quality" value="large" checked onchange="changeQuality('large')">
-                <label for="q-480">480p (省流)</label>
-                
-                <input type="radio" id="q-720" name="quality" value="hd720" onchange="changeQuality('hd720')">
-                <label for="q-720">720p (高畫質)</label>
-
-                <input type="radio" id="q-auto" name="quality" value="auto" onchange="changeQuality('auto')">
-                <label for="q-auto">自動</label>
-            </div>
-        </div>
-
         <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
         
         <div class="btn-group">
@@ -126,7 +105,6 @@
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
         let formattedLiveEventInfo = ""; 
-        let currentQuality = 'large'; 
 
         function parseSNGTitle(rawTitle) {
             let decodedTitle = decodeURIComponent(rawTitle).trim();
@@ -147,13 +125,11 @@
                     timePart = timePart.substring(0, 2) + ':' + timePart.substring(2, 4);
                 }
                 
-                // 🎯 替換網頁分頁名稱（不包含時間）
                 document.title = `${datePart} 【${titlePart}】`;
                 
                 return `${datePart} 【${titlePart}】 ${timePart}`;
             }
             
-            // 格式不符時的備案
             document.title = decodedTitle;
             return decodedTitle;
         }
@@ -190,13 +166,6 @@
             }
         }
 
-        function changeQuality(val) {
-            currentQuality = val;
-            if (videoIds.length > 0) {
-                loadVideo(currentIndex); 
-            }
-        }
-
         function showQRCode() {
             if (!formattedLiveEventInfo) return;
             document.getElementById('qr-modal').style.display = 'flex';
@@ -215,10 +184,8 @@
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
             
+            // 恢復純淨的網址，不再加無效的 vq 參數
             let ytUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
-            if (currentQuality !== 'auto') {
-                ytUrl += `&vq=${currentQuality}`;
-            }
             
             document.getElementById('yt-player').src = ytUrl;
             
