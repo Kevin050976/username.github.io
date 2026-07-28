@@ -7,25 +7,16 @@
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
         
-        /* 💡 祖傳防彈寫法：放棄有 Bug 的 aspect-ratio，改用 padding-bottom 鎖死 16:9 比例 */
         #video-wrapper { 
             position: relative; 
             width: 100%; 
-            height: 0; /* 高度交給 padding 撐開 */
-            padding-bottom: 56.25%; /* 9 / 16 = 56.25% */
+            height: 0; 
+            padding-bottom: 56.25%; 
             background: #000; 
             flex-shrink: 0; 
             z-index: 10; 
         }
-        /* 影片改用絕對定位，完美貼合外框 */
-        iframe { 
-            position: absolute; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            border: none; 
-        }
+        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         
         #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
         #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
@@ -44,6 +35,15 @@
         .close-btn { background: #3a3a3c; height: 40px; flex: 0 0 80px; font-size: 16px; }
         #requirement-input { flex-grow: 1; margin-bottom: 15px; background: #000; color: #fff; border: 1px solid #3a3a3c; border-radius: 12px; padding: 15px; font-size: 16px; line-height: 1.5; resize: none; outline: none; font-family: inherit; }
         
+        /* 🎨 畫質設定區塊樣式 */
+        .setting-group { margin-bottom: 15px; }
+        .setting-group .title { display: block; font-size: 14px; color: #aaa; margin-bottom: 8px; }
+        .radio-group { display: flex; gap: 8px; }
+        .radio-group label { background: #3a3a3c; padding: 10px 0; border-radius: 8px; font-size: 15px; cursor: pointer; flex: 1; text-align: center; border: 2px solid transparent; transition: all 0.2s; }
+        .radio-group input[type="radio"] { display: none; }
+        /* 點選後的按鈕外觀 */
+        .radio-group input[type="radio"]:checked + label { background: #0a84ff; color: white; font-weight: bold; }
+        
         .btn-group { display: flex; gap: 10px; }
         #copy-prompt-btn { background: #32d74b; flex: 2; }
         #copy-prompt-btn:active { background: #28a745; }
@@ -57,15 +57,9 @@
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; line-height: 1.4; }
         #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
 
-        /* 📱 手機橫向模式 (Landscape) 自動優化設定 */
         @media (orientation: landscape) {
-            #controls, #info-section, #swipe-hint {
-                display: none !important;
-            }
-            #video-wrapper {
-                padding-bottom: 0 !important; /* 橫向時解除 16:9 的鎖定 */
-                height: 100dvh !important; /* 強制影片外框撐滿整個螢幕高度 */
-            }
+            #controls, #info-section, #swipe-hint { display: none !important; }
+            #video-wrapper { padding-bottom: 0 !important; height: 100dvh !important; }
         }
     </style>
 </head>
@@ -93,6 +87,23 @@
             <h3>📝 發稿比對設定</h3>
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
+
+        <!-- 🔧 新增畫質設定選項 -->
+        <div class="setting-group">
+            <span class="title">影片載入畫質建議 (YouTube可能依網速微調)</span>
+            <div class="radio-group">
+                <!-- 預設選擇 480p (large) -->
+                <input type="radio" id="q-480" name="quality" value="large" checked onchange="changeQuality('large')">
+                <label for="q-480">480p (省流)</label>
+                
+                <input type="radio" id="q-720" name="quality" value="hd720" onchange="changeQuality('hd720')">
+                <label for="q-720">720p (高畫質)</label>
+
+                <input type="radio" id="q-auto" name="quality" value="auto" onchange="changeQuality('auto')">
+                <label for="q-auto">自動</label>
+            </div>
+        </div>
+
         <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
         
         <div class="btn-group">
@@ -118,8 +129,10 @@
         let allChannelNames = [];
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
-        
         let formattedLiveEventInfo = ""; 
+
+        // 🧠 預設畫質參數：'large' 代表 480p
+        let currentQuality = 'large'; 
 
         function parseSNGTitle(rawTitle) {
             let decodedTitle = decodeURIComponent(rawTitle).trim();
@@ -177,14 +190,19 @@
             }
         }
 
+        // 🔧 改變畫質的函式
+        function changeQuality(val) {
+            currentQuality = val;
+            if (videoIds.length > 0) {
+                loadVideo(currentIndex); // 切換後重新載入目前影片套用新畫質
+            }
+        }
+
         function showQRCode() {
             if (!formattedLiveEventInfo) return;
-
             document.getElementById('qr-modal').style.display = 'flex';
-            
             const encodedText = encodeURIComponent(formattedLiveEventInfo);
             const qrUrl = `https://quickchart.io/qr?text=${encodedText}&size=250&margin=2&ecLevel=M`;
-            
             document.getElementById('qr-image').src = qrUrl;
             document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
         }
@@ -198,8 +216,13 @@
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
             
-            const player = document.getElementById('yt-player');
-            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
+            // 🎯 在載入影片時，把畫質參數 (vq) 塞進網址裡
+            let ytUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
+            if (currentQuality !== 'auto') {
+                ytUrl += `&vq=${currentQuality}`;
+            }
+            
+            document.getElementById('yt-player').src = ytUrl;
             
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
