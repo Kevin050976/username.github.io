@@ -7,9 +7,25 @@
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
         
-        /* 🔧 修正轉向 BUG：明確補上 height: auto; 強制 iOS 重算高度 */
-        #video-wrapper { width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; transition: height 0.2s; }
-        iframe { width: 100%; height: 100%; border: none; }
+        /* 💡 祖傳防彈寫法：放棄有 Bug 的 aspect-ratio，改用 padding-bottom 鎖死 16:9 比例 */
+        #video-wrapper { 
+            position: relative; 
+            width: 100%; 
+            height: 0; /* 高度交給 padding 撐開 */
+            padding-bottom: 56.25%; /* 9 / 16 = 56.25% */
+            background: #000; 
+            flex-shrink: 0; 
+            z-index: 10; 
+        }
+        /* 影片改用絕對定位，完美貼合外框 */
+        iframe { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            border: none; 
+        }
         
         #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
         #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
@@ -47,8 +63,8 @@
                 display: none !important;
             }
             #video-wrapper {
-                height: 100dvh !important; /* 確保橫向撐滿 */
-                aspect-ratio: unset !important; /* 拔除橫向時的比例限制 */
+                padding-bottom: 0 !important; /* 橫向時解除 16:9 的鎖定 */
+                height: 100dvh !important; /* 強制影片外框撐滿整個螢幕高度 */
             }
         }
     </style>
