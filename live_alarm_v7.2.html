@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LINE 直播鬧鐘擷取工具 V7.2 (SNG 暴力解碼版)</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", "微軟正黑體", sans-serif; margin: 0; padding: 15px; background-color: #f4f7f6; }
+        h2 { text-align: center; color: #333; margin-bottom: 10px; }
+        
+        .app-container { display: flex; flex-direction: column; gap: 20px; max-width: 100%; margin: 0 auto; }
+        .left-panel { flex: 1; width: 100%; max-width: 500px; margin: 0 auto; }
+        .right-panel { flex: 1.5; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); display: none; flex-direction: column; }
+        
+        @media (min-width: 768px) {
+            .app-container { flex-direction: row; align-items: flex-start; justify-content: center; max-width: 1400px; }
+            .left-panel { flex: 0 0 450px; margin: 0; }
+            .right-panel { flex: 1; display: flex; } 
+        }
+
+        .system-control { background-color: #fff3cd; border: 2px solid #ffeeba; padding: 12px; border-radius: 8px; margin-bottom: 20px; text-align: center; }
+        .btn-master { background-color: #e67e22; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.3s; margin-bottom: 8px; }
+        .btn-master.active { background-color: #27ae60; }
+        .btn-test-sound { background-color: #34495e; color: white; border: none; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; font-weight: bold; }
+        .system-hint { font-size: 12px; color: #666; margin-top: 8px; line-height: 1.4; }
+
+        .input-group { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .toolbar { display: flex; justify-content: space-between; align-items: center; background: white; padding: 8px 10px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .early-box { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: bold; color: #2c3e50; }
+        .early-val { color: #e74c3c; font-size: 16px; width: 20px; text-align: center; display: inline-block; }
+        .btn-early { background-color: #ecf0f1; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px; }
+        
+        textarea { width: 100%; height: 90px; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 15px; box-sizing: border-box; }
+        .button-group-row { display: flex; gap: 8px; margin-bottom: 5px; }
+        .btn-add { background-color: #06C755; color: white; border: none; cursor: pointer; padding: 12px; border-radius: 8px; font-size: 16px; font-weight: bold; flex: 1.5; }
+        .btn-danger { background-color: #e74c3c; color: white; border: none; cursor: pointer; padding: 10px; border-radius: 8px; font-size: 14px; font-weight: bold; flex: 1; }
+
+        .alarm-list { list-style: none; padding: 0; margin: 0; }
+        .alarm-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background-color: #fff; gap: 10px; }
+        .alarm-info { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 0; }
+        .alarm-title { font-size: 15px; font-weight: bold; color: #2c3e50; line-height: 1.3; word-break: break-all; }
+        .time-text { color: #e74c3c; font-size: 18px; font-weight: bold; width: 45px; }
+        
+        /* Modals */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; text-align: center; width: 85%; max-width: 350px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; margin-top: 0; }
+        .btn-modal { padding: 12px; border-radius: 8px; border: none; font-weight: bold; flex: 1; cursor: pointer; }
+        .btn-confirm { background: #3498db; color: white; }
+
+        /* 右側監看面板專用樣式 */
+        .mv-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+        .mv-title { font-size: 18px; font-weight: bold; color: #2980b9; margin: 0; display: flex; align-items: center; gap: 10px;}
+        .mv-status-info { font-size: 13px; color: #7f8c8d; background: #ecf0f1; padding: 4px 8px; border-radius: 6px; }
+        
+        .mv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; width: 100%; }
+        .channel-card { background: #fafafa; border: 1px solid #ddd; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .card-header { padding: 8px 12px; background: #2c3e50; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .card-name { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 60%; }
+        .status-badge { padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .status-waiting { background-color: #f1c40f; color: #333; }
+        .status-live { background-color: #e74c3c; color: white; animation: blink 2s infinite; }
+        .status-none { background-color: #95a5a6; color: white; }
+        .card-body { padding: 15px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 120px; background: #eee; }
+        
+        .btn-watch { background-color: #e74c3c; color: white; text-decoration: none; padding: 8px 15px; border-radius: 6px; font-size: 14px; font-weight: bold; display: inline-block; margin-top: 10px; }
+        .yt-thumb { width: 100%; height: auto; border-radius: 6px; display: block; margin-bottom: 10px; }
+        
+        #debugPanel { display: none; background: #ecf0f1; padding: 10px; border-radius: 8px; font-size: 12px; margin-bottom: 15px; color: #7f8c8d; word-break: break-all; border: 1px dashed #bdc3c7; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body onclick="ensureAudioInit()">
+
+    <!-- 隱藏音頻用於防熄屏 -->
+    <audio id="silentAudio" loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA"></audio>
+
+    <h2>直播鬧鐘與監看面板 ⏰ (V7.2 暴力解碼版)</h2>
+    
+    <div class="app-container">
+        <!-- 左側：原始鬧鐘功能 -->
+        <div class="left-panel">
+            <div class="system-control">
+                <button id="masterBtn" class="btn-master" onclick="toggleSystem()">
+                    1. 點擊啟動防熄屏與背景鬧鐘
+                </button><br>
+                <button class="btn-test-sound" onclick="testSound()">🎵 測試鈴聲</button>
+                <p class="system-hint">💡 已內建專屬 YouTube API Key。</p>
+            </div>
+            
+            <div class="input-group">
+                <div class="toolbar">
+                    <div class="early-box">
+                        提早 
+                        <button class="btn-early" onclick="adjustEarly(-1)">-</button>
+                        <span class="early-val" id="earlyMinsText">0</span> 分
+                        <button class="btn-early" onclick="adjustEarly(1)">+</button>
+                    </div>
+                </div>
+                <textarea id="inputText" placeholder="2. 請在此貼上內容..."></textarea>
+                
+                <div class="button-group-row">
+                    <button class="btn-add" onclick="parseAndAdd()">擷取並新增</button>
+                    <button class="btn-danger" onclick="alarms=[]; renderAlarms();">🗑️ 清空鬧鐘</button>
+                </div>
+            </div>
+            <div id="alarmListContainer"></div>
+        </div>
+
+        <!-- 右側：多視角監看面板 -->
+        <div class="right-panel" id="rightPanel">
+            <div class="mv-header">
+                <h3 class="mv-title">
+                    <span id="mvTitle">載入任務中...</span>
+                    <button onclick="toggleDebug()" style="background:none; border:none; cursor:pointer; font-size:16px;">🐞</button>
+                </h3>
+                <div class="mv-status-info" id="mvStatusInfo">API 等待連線...</div>
+            </div>
+            <div id="debugPanel"></div>
+            <div class="mv-grid" id="mvGrid">
+                <!-- 頻道卡片動態生成 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="msgModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" style="color:red;">⚠️ 系統提示</h3>
+            <div id="msgModalContent" style="white-space: pre-line; margin-bottom: 20px; line-height: 1.5; font-size:14px;"></div>
+            <button class="btn-modal btn-confirm" onclick="closeModal('msgModal')">我知道了</button>
+        </div>
+    </div>
+    
+    <div id="alarmModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="modal-title" style="color: #e74c3c;">⏰ 鬧鐘響了！</h3>
+            <div id="alarmModalText" style="margin-bottom:20px; line-height:1.5;"></div>
+            <button class="btn-modal btn-confirm" style="background: #e74c3c;" onclick="stopAlarm()">關閉鬧鐘</button>
+        </div>
+    </div>
+
+    <script>
+        // --- API Key ---
+        const ytApiKey = 'AIzaSyCD8fnx7T0aEpPG2Co5p4QDqshIgB_ix1Y';
+
+        let audioCtx, wakeLock = null, alarmInterval;
+        let isSystemActive = false; 
+        let alarms = [];
+        let multiviewTask = { active: false, targetDate: null, channels: [], lastCheckedTime: 0 };
+
+        window.onload = function() {
+            initMultiviewFromURL();
+        };
+
+        // ==========================================
+        // V7.2 超強防護解碼與擷取模組
+        // ==========================================
+        
+        // 1. 暴力手動擷取網址參數 (避免 iOS URLSearchParams 當機)
+        function getRawParam(name) {
+            const search = window.location.search || window.location.hash.replace('#', '?');
+            const regex = new RegExp(`[?&]${name}=([^&]*)`);
+            const match = search.match(regex);
+            return match ? match[1] : null;
+        }
+
+        // 2. 剝洋蔥式層層解碼 (應付捷徑雙重甚至三重編碼)
+        function deepDecode(str) {
+            if (!str) return '';
+            let res = str.replace(/\+/g, ' '); // 將加號轉為空白
+            let last = '';
+            for (let i = 0; i < 5; i++) {
+                try {
+                    last = res;
+                    res = decodeURIComponent(res);
+                    if (last === res) break; // 若解碼後沒有變化代表解乾淨了
+                } catch(e) {
+                    break;
+                }
+            }
+            return res;
+        }
+
+        function toggleDebug() {
+            const dp = document.getElementById('debugPanel');
+            dp.style.display = dp.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function showMessage(msg) { 
+            document.getElementById('msgModalContent').innerText = msg; 
+            document.getElementById('msgModal').style.display = 'flex'; 
+        }
+
+        // ==========================================
+        // 核心解析邏輯
+        // ==========================================
+        function initMultiviewFromURL() {
+            try {
+                const rawTitle = getRawParam('title');
+                const rawText = getRawParam('text');
+
+                // 若完全沒有參數，不顯示右側面板，直接結束
+                if (!rawTitle && !rawText) return; 
+
+                const titleParam = deepDecode(rawTitle);
+                const textParam = deepDecode(rawText);
+
+                document.getElementById('rightPanel').style.display = 'flex';
+                document.getElementById('mvTitle').innerText = titleParam || '無標題任務';
+
+                // 將資訊寫入 Debug 面板供查錯
+                document.getElementById('debugPanel').innerHTML = `
+                    <b>【除錯記錄】</b><br>
+                    <b>Raw Title:</b> ${rawTitle}<br>
+                    <b>Decoded Title:</b> ${titleParam}<br>
+                    <b>Raw Text Length:</b> ${rawText ? rawText.length : 0}<br>
+                    <b>Decoded Text:</b><br>${textParam.replace(/
+/g, '<br>')}
+                `;
+
+                // 1. 解析時間並自動加入左側鬧鐘
+                const timeMatch = titleParam.match(/(\d{1,2}\/\d{1,2}).*?(\d{1,2}[:：]\d{2})/);
+                let tDate = new Date(); 
+                if (timeMatch) {
+                    const [m, d] = timeMatch[1].split('/');
+                    const [h, minute] = timeMatch[2].replace('：', ':').split(':');
+                    tDate = new Date(new Date().getFullYear(), parseInt(m)-1, parseInt(d), parseInt(h), parseInt(minute));
+                    if (tDate < new Date(new Date().getTime() - 86400000)) { tDate.setFullYear(tDate.getFullYear() + 1); }
+                    
+                    alarms.push({ title: titleParam, alarmTime: timeMatch[2].replace('：', ':'), id: "ID_" + Date.now() });
+                    renderAlarms();
+                }
+
+                // 2. 智慧解析頻道與 YouTube 網址
+                let channels = [];
+                // 處理所有可能的斷行，並移除空白
+                const lines = textParam.replace(/\n/g, '
+').split(/?
+/).map(l => l.trim()).filter(l => l !== '');
+                
+                for (let i = 0; i < lines.length; i++) {
+                    // 正則放寬：支援 youtube.com/live, youtube.com/watch?v=, youtu.be/
+                    const ytMatch = lines[i].match(/(?:youtube\.com\/(?:live\/|watch\?v=)|youtu\.be\/|v=)([\w-]+)/i);
+                    if (ytMatch) {
+                        const vId = ytMatch[1];
+                        let cName = '未知頻道';
+                        
+                        // 往回找最近的「非網址、非YT標籤」字串作為頻道名稱
+                        for (let j = i - 1; j >= 0; j--) {
+                            if (!lines[j].match(/youtube\.com|youtu\.be|http|YT:/i)) {
+                                cName = lines[j];
+                                break;
+                            }
+                        }
+                        
+                        // 避免重複加入相同頻道
+                        if (!channels.find(c => c.id === vId)) {
+                            channels.push({ name: cName, id: vId, status: 'waiting', stop: false });
+                        }
+                    }
+                }
+
+                if (channels.length > 0) {
+                    multiviewTask = { active: true, targetDate: tDate, channels: channels, lastCheckedTime: 0 };
+                    renderMultiviewGrid();
+                    document.getElementById('inputText').value = textParam;
+                    checkYouTubeAPI();
+                } else {
+                    document.getElementById('mvGrid').innerHTML = `
+                        <div style='padding: 20px; color: #e74c3c; width: 100%; text-align: left;'>
+                            <b>❌ 解析失敗：未偵測到 YouTube 直播連結。</b><br><br>
+                            請點擊標題旁邊的 🐞 (小瓢蟲) 檢查系統實際接收到的文字。<br>
+                            這可能是捷徑傳送時格式異常所導致。
+                        </div>`;
+                }
+
+            } catch (err) {
+                // 如果真的發生崩潰，彈出清楚的警告視窗
+                showMessage("啟動面板時發生錯誤，請截圖此畫面：
+
+" + err.name + ": " + err.message);
+                document.getElementById('debugPanel').innerHTML += `<br><br><b style="color:red">Error:</b> ${err.message}`;
+            }
+        }
+
+        // ==========================================
+        // UI 與 API 模組
+        // ==========================================
+        function renderMultiviewGrid() {
+            const grid = document.getElementById('mvGrid');
+            grid.innerHTML = '';
+            
+            multiviewTask.channels.forEach(ch => {
+                let badgeClass = 'status-waiting';
+                let badgeText = '🟡 等待中';
+                if (ch.status === 'live') { badgeClass = 'status-live'; badgeText = '🔴 直播中'; }
+                else if (ch.status === 'none') { badgeClass = 'status-none'; badgeText = '⚪ 已結束'; }
+
+                const watchLink = ch.status === 'live' 
+                    ? `<a href="https://youtube.com/live/${ch.id}" target="_blank" class="btn-watch">📺 點擊觀看</a>`
+                    : ``;
+
+                const thumbHtml = ch.status === 'live' || ch.status === 'waiting'
+                    ? `<img src="https://img.youtube.com/vi/${ch.id}/mqdefault.jpg" class="yt-thumb">`
+                    : `<div style="height: 90px; display:flex; align-items:center; justify-content:center; color:#999;">頻道無畫面</div>`;
+
+                grid.innerHTML += `
+                    <div class="channel-card" id="card-${ch.id}">
+                        <div class="card-header">
+                            <span class="card-name">${ch.name}</span>
+                            <span class="status-badge ${badgeClass}">${badgeText}</span>
+                        </div>
+                        <div class="card-body">
+                            ${thumbHtml}
+                            ${watchLink}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function checkYouTubeAPI() {
+            const activeChannels = multiviewTask.channels.filter(ch => !ch.stop);
+            if (activeChannels.length === 0) {
+                document.getElementById('mvStatusInfo').innerText = '✅ 所有頻道已結束或停止監測';
+                return;
+            }
+
+            const ids = activeChannels.map(ch => ch.id).join(',');
+            const url = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${ids}&key=${ytApiKey}`;
+
+            try {
+                document.getElementById('mvStatusInfo').innerText = '🔄 API 查詢中...';
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    document.getElementById('mvStatusInfo').innerText = `❌ API 錯誤: ${data.error.message}`;
+                    return;
+                }
+
+                const nowTime = new Date().toLocaleTimeString('zh-TW', {hour12: false});
+                document.getElementById('mvStatusInfo').innerText = `✅ 最後更新: ${nowTime}`;
+                multiviewTask.lastCheckedTime = Date.now();
+
+                let statusChanged = false;
+                const itemsMap = {};
+                data.items.forEach(item => { itemsMap[item.id] = item; });
+
+                multiviewTask.channels.forEach(ch => {
+                    if (ch.stop) return;
+                    
+                    const item = itemsMap[ch.id];
+                    let newStatus = 'none'; 
+                    
+                    if (item && item.snippet && item.snippet.liveBroadcastContent) {
+                        const content = item.snippet.liveBroadcastContent;
+                        if (content === 'upcoming') newStatus = 'waiting';
+                        else if (content === 'live') newStatus = 'live';
+                        else newStatus = 'none';
+                    }
+
+                    if (ch.status !== newStatus) {
+                        ch.status = newStatus;
+                        statusChanged = true;
+                        if (newStatus === 'none') { ch.stop = true; } 
+                    }
+                });
+
+                if (statusChanged) renderMultiviewGrid();
+
+            } catch (err) {
+                document.getElementById('mvStatusInfo').innerText = '❌ 網路錯誤，稍後重試';
+            }
+        }
+
+        // ==========================================
+        // 基礎控制與鬧鐘模組
+        // ==========================================
+        function ensureAudioInit() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
+
+        async function toggleSystem() {
+            ensureAudioInit();
+            const btn = document.getElementById('masterBtn'), silentAudio = document.getElementById('silentAudio');
+            if (isSystemActive) {
+                if (wakeLock !== null) { await wakeLock.release(); wakeLock = null; }
+                silentAudio.pause(); isSystemActive = false;
+                btn.innerText = "1. 點擊啟動防熄屏與背景鬧鐘"; btn.classList.remove('active');
+            } else {
+                silentAudio.play().catch(e => console.log(e)); isSystemActive = true;
+                if ('wakeLock' in navigator) { try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {} }
+                btn.innerText = "✅ 防熄屏與背景鬧鐘已啟動"; btn.classList.add('active');
+            }
+        }
+
+        function testSound() { ensureAudioInit(); playBeep(); }
+        function playBeep() {
+            ensureAudioInit();
+            const osc = audioCtx.createOscillator(), g = audioCtx.createGain();
+            osc.connect(g); g.connect(audioCtx.destination);
+            osc.frequency.value = 800; g.gain.value = 0.3;
+            osc.start(); setTimeout(() => osc.stop(), 250);
+        }
+
+        function adjustEarly(d) {
+            const el = document.getElementById('earlyMinsText');
+            el.innerText = Math.max(0, parseInt(el.innerText) + d);
+        }
+
+        function parseAndAdd() {
+            const text = document.getElementById('inputText').value;
+            if (!text.trim()) return;
+            alarms.push({ title: "手動新增", alarmTime: "12:00", id: "ID_" + Date.now() });
+            renderAlarms();
+        }
+
+        function renderAlarms() {
+            const container = document.getElementById('alarmListContainer');
+            container.innerHTML = '';
+            alarms.forEach(a => {
+                container.innerHTML += `
+                    <div class="alarm-item">
+                        <div class="alarm-info">
+                            <span class="alarm-title">${a.title}</span>
+                            <div class="time-text">${a.alarmTime}</div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+        function stopAlarm() { closeModal('alarmModal'); if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; } }
+
+        // 主系統計時器 (每秒執行)
+        setInterval(() => {
+            const now = new Date();
+            
+            // 鬧鐘檢查
+            alarms.forEach(a => {
+                const [h,m] = a.alarmTime.split(':').map(Number);
+                if (h === now.getHours() && m === now.getMinutes() && !a.rang && now.getSeconds() === 0) {
+                    a.rang = true;
+                    document.getElementById('alarmModalText').innerHTML = "🔔 鬧鐘提醒：" + a.title;
+                    document.getElementById('alarmModal').style.display = 'flex';
+                    if (!alarmInterval) { playBeep(); alarmInterval = setInterval(playBeep, 1000); }
+                }
+            });
+
+            // V7.2 輪詢機制
+            if (multiviewTask.active && multiviewTask.targetDate) {
+                const diffSeconds = (multiviewTask.targetDate.getTime() - now.getTime()) / 1000;
+                
+                // 進入倒數 60 秒內，且在開播後兩小時內
+                if (diffSeconds <= 60 && diffSeconds > -7200) {
+                    // 每 30 秒更新一次
+                    if (now.getTime() - multiviewTask.lastCheckedTime >= 30000) {
+                        checkYouTubeAPI();
+                    }
+                }
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
