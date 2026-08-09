@@ -124,14 +124,15 @@
         .modal-box {
             background: #222; padding: 25px; border-radius: 12px; width: 100%; max-width: 400px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column;
+            max-height: 90vh; overflow-y: auto; /* 內容過多時可滾動 */
         }
-        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #fff; }
-        .modal-label { font-size: 14px; color: #ccc; margin-bottom: 5px; display: block; }
+        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #fff; flex-shrink: 0;}
+        .modal-label { font-size: 14px; color: #ccc; margin-bottom: 5px; display: block; flex-shrink: 0;}
         .modal-input {
             width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px;
-            border: 1px solid #555; background: #111; color: #fff; box-sizing: border-box;
+            border: 1px solid #555; background: #111; color: #fff; box-sizing: border-box; flex-shrink: 0;
         }
-        .modal-btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 10px; flex-shrink: 0;}
         .btn-save { flex: 2; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;}
         .btn-cancel { flex: 1; padding: 12px; background: #555; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;}
         
@@ -139,8 +140,8 @@
         .prompt-label { display: block; font-size: 18px; color: #fff; margin-bottom: 12px; cursor: pointer; }
         .prompt-label input { transform: scale(1.3); margin-right: 10px; }
         #prompt-output { 
-            flex: 1; min-height: 150px; width: 100%; padding: 12px; border-radius: 8px; 
-            border: 1px solid #555; background: #111; color: #4fc3f7; font-size: 16px; 
+            flex: 1; min-height: 200px; width: 100%; padding: 12px; border-radius: 8px; 
+            border: 1px solid #555; background: #111; color: #4fc3f7; font-size: 15px; 
             resize: none; box-sizing: border-box; line-height: 1.5; margin-top: 10px;
         }
     </style>
@@ -186,14 +187,23 @@
         </div>
     </div>
 
-    <!-- 設定視窗 -->
+    <!-- 設定視窗 (已整合所有設定項目) -->
     <div id="settings-modal" class="overlay-modal">
         <div class="modal-box">
             <div class="modal-title">⚙️ 系統設定</div>
+            
             <label class="modal-label">1. Google 試算表資料庫網址 (讀取用)</label>
             <input type="text" id="sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
+            
             <label class="modal-label">2. Apps Script 網址 (盤點寫入用)</label>
             <input type="text" id="gas-url-input" class="modal-input" placeholder="https://script.google.com/macros/s/.../exec">
+            
+            <label class="modal-label">3. 雲端硬碟網址 (上傳照片位置)</label>
+            <input type="text" id="drive-url-input" class="modal-input" placeholder="https://drive.google.com/drive/folders/...">
+
+            <label class="modal-label">4. Telegram 認證資訊 (換行輸入 Token 與 Chat ID)</label>
+            <textarea id="tg-info-input" class="modal-input" style="height: 70px; resize: none; font-family: monospace;" placeholder="const TG_TOKEN = '...';&#10;const TG_CHAT_ID = '...';"></textarea>
+
             <div class="modal-btn-group">
                 <button class="btn-cancel" onclick="closeSettings()">取消</button>
                 <button class="btn-save" onclick="saveSettings()">儲存並載入</button>
@@ -208,7 +218,7 @@
             <div style="display: flex; flex-direction: column;">
                 <label class="prompt-label"><input type="checkbox" id="chk-sheet" onchange="updatePromptText()"> 1. 試算表網址</label>
                 <label class="prompt-label"><input type="checkbox" id="chk-location" onchange="handleLocationCheck()"> 2. 更改置放位置</label>
-                <label class="prompt-label"><input type="checkbox" id="chk-image" onchange="updatePromptText()"> 3. 更新圖片</label>
+                <label class="prompt-label"><input type="checkbox" id="chk-image" onchange="handleImageCheck()"> 3. 更新圖片</label>
                 <label class="prompt-label"><input type="checkbox" id="chk-tg" onchange="handleTgCheck()"> 4. Telegram確認</label>
             </div>
             <textarea id="prompt-output" readonly></textarea>
@@ -219,7 +229,7 @@
         </div>
     </div>
 
-    <!-- 自訂輸入視窗 (供位置與TG使用，支援 Enter 送出) -->
+    <!-- 自訂輸入視窗 (供位置使用，支援 Enter 送出) -->
     <div id="custom-input-modal" class="overlay-modal" style="z-index: 200;">
         <div class="modal-box">
             <div class="modal-title" id="custom-input-title">輸入</div>
@@ -237,9 +247,12 @@
         const infoSection = document.getElementById('info-section');
         const manualDisplay = document.getElementById('manual-display');
         const manualResults = document.getElementById('manual-results-section');
+        
         const settingsModal = document.getElementById('settings-modal');
         const sheetUrlInput = document.getElementById('sheet-url-input');
         const gasUrlInput = document.getElementById('gas-url-input');
+        const driveUrlInput = document.getElementById('drive-url-input');
+        const tgInfoInput = document.getElementById('tg-info-input');
         
         let assetsArray = []; 
         let lastScannedCode = "";
@@ -250,7 +263,6 @@
         // --- 提示詞相關變數 ---
         let currentPromptAssetId = "";
         let savedPromptLocation = "";
-        let savedPromptTg = "";
         let activeInputCallback = null;
         let activeInputCancelCallback = null;
 
@@ -327,10 +339,10 @@
 
         // ================= 設定視窗 UI 控制 =================
         function openSettings() {
-            const savedSheetUrl = localStorage.getItem('sng_sheet_url_raw') || "";
-            const savedGasUrl = localStorage.getItem('sng_gas_url') || "";
-            sheetUrlInput.value = savedSheetUrl;
-            gasUrlInput.value = savedGasUrl;
+            sheetUrlInput.value = localStorage.getItem('sng_sheet_url_raw') || "";
+            gasUrlInput.value = localStorage.getItem('sng_gas_url') || "";
+            driveUrlInput.value = localStorage.getItem('sng_drive_url') || "";
+            tgInfoInput.value = localStorage.getItem('sng_tg_info') || "";
             settingsModal.style.display = 'flex';
         }
 
@@ -341,10 +353,15 @@
         function saveSettings() {
             const newSheetUrl = sheetUrlInput.value.trim();
             const newGasUrl = gasUrlInput.value.trim();
+            const newDriveUrl = driveUrlInput.value.trim();
+            const newTgInfo = tgInfoInput.value.trim();
             
             if (newSheetUrl) {
                 localStorage.setItem('sng_sheet_url_raw', newSheetUrl);
                 localStorage.setItem('sng_gas_url', newGasUrl);
+                localStorage.setItem('sng_drive_url', newDriveUrl);
+                localStorage.setItem('sng_tg_info', newTgInfo);
+                
                 closeSettings();
                 loadDatabase(newSheetUrl); 
             } else {
@@ -493,7 +510,7 @@
             document.getElementById('prompt-modal').style.display = 'none';
         }
 
-        // --- 自訂輸入視窗功能 ---
+        // --- 自訂輸入視窗功能 (僅供位置輸入使用) ---
         function openCustomInput(title, defaultText, callback, cancelCallback) {
             document.getElementById('custom-input-title').innerText = title;
             const ta = document.getElementById('custom-input-textarea');
@@ -519,7 +536,7 @@
             activeInputCancelCallback = null;
         }
 
-        // --- Checkbox 事件處理 ---
+        // --- Checkbox 事件處理與防呆 ---
         function handleLocationCheck() {
             const chk = document.getElementById('chk-location');
             if (chk.checked) {
@@ -539,53 +556,65 @@
             }
         }
 
+        function handleImageCheck() {
+            const chk = document.getElementById('chk-image');
+            if (chk.checked) {
+                const driveUrl = localStorage.getItem('sng_drive_url');
+                if (!driveUrl) {
+                    alert("請先至右上角 ⚙️ 系統設定內輸入「雲端硬碟網址」才能使用此功能！");
+                    chk.checked = false;
+                    openSettings();
+                    return;
+                }
+            }
+            updatePromptText();
+        }
+
         function handleTgCheck() {
             const chk = document.getElementById('chk-tg');
             if (chk.checked) {
-                const savedTg = localStorage.getItem('sng_tg_info') || "";
-                openCustomInput("請輸入 Telegram 資訊 (Token與Chat ID)", savedTg, 
-                    (val) => { 
-                        savedPromptTg = val; 
-                        localStorage.setItem('sng_tg_info', val); // 自動儲存下次使用
-                        updatePromptText(); 
-                    },
-                    () => { 
-                        chk.checked = false; 
-                        updatePromptText(); 
-                    }
-                );
-            } else {
-                savedPromptTg = "";
-                updatePromptText();
+                const tgInfo = localStorage.getItem('sng_tg_info');
+                if (!tgInfo) {
+                    alert("請先至右上角 ⚙️ 系統設定內輸入「Telegram 認證資訊」才能使用此功能！");
+                    chk.checked = false;
+                    openSettings();
+                    return;
+                }
             }
+            updatePromptText();
         }
 
         function updatePromptText() {
             const sheetUrl = localStorage.getItem('sng_sheet_url_raw') || "";
+            const driveUrl = localStorage.getItem('sng_drive_url') || "";
+            const tgInfo = localStorage.getItem('sng_tg_info') || "";
+
             const chkSheet = document.getElementById('chk-sheet').checked;
             const chkLocation = document.getElementById('chk-location').checked;
             const chkImage = document.getElementById('chk-image').checked;
             const chkTg = document.getElementById('chk-tg').checked;
 
             let result = "";
+            let stepCounter = 1;
             
             if (chkSheet && sheetUrl) {
-                result += `"${sheetUrl}"以上是試算表網址，`;
+                result += `【資料庫網址】：\n${sheetUrl}\n\n`;
             }
             
-            result += `將資產"${currentPromptAssetId}"`;
+            result += `請協助我更新資產編號為「${currentPromptAssetId}」的設備資訊：\n`;
             
             if (chkLocation) {
-                result += `置放位置改為"${savedPromptLocation}"`;
+                result += `${stepCounter}. 將該設備的置放位置更改為：「${savedPromptLocation}」。\n`;
+                stepCounter++;
             }
             
             if (chkImage) {
-                if (chkLocation) result += `並`;
-                result += `更新上傳圖片到google drive，且更新照片連結`;
+                result += `${stepCounter}. 將新照片上傳至以下雲端硬碟資料夾，並將取得的照片直連網址更新回試算表中：\n"${driveUrl}"\n`;
+                stepCounter++;
             }
             
             if (chkTg) {
-                result += `，完成後利用\n"${savedPromptTg}"\n傳送Telegram給我，內容是更改資產完成`;
+                result += `\n完成上述所有動作後，請使用以下參數傳送 Telegram 通知給我，內容請註明「更改資產完成」：\n${tgInfo}`;
             }
 
             document.getElementById('prompt-output').value = result;
