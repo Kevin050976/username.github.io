@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>資產管理系統 v8.0</title>
+    <title>SNG 資產盤點系統 v8.0</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
@@ -61,23 +61,23 @@
             flex-shrink: 0; 
         }
         #manual-display {
-            font-size: 32px; font-weight: bold; font-family: monospace;
-            text-align: center; padding: 15px; color: #fff; letter-spacing: 2px;
-            min-height: 40px; background: #111; margin: 15px; border-radius: 8px;
+            font-size: 26px; font-weight: bold; font-family: monospace;
+            text-align: center; padding: 10px; color: #fff; letter-spacing: 2px;
+            min-height: 30px; background: #111; margin: 10px; border-radius: 8px;
             border: 2px solid #555;
         }
-        .display-placeholder { color: #666; font-size: 18px; line-height: 40px; letter-spacing: normal; }
+        .display-placeholder { color: #666; font-size: 16px; line-height: 30px; letter-spacing: normal; }
         #custom-keyboard {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 0 15px 15px 15px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 10px 10px 10px;
         }
         .key {
-            background: #444; color: white; font-size: 26px; font-weight: bold;
-            padding: 15px 0; text-align: center; border-radius: 8px; user-select: none;
+            background: #444; color: white; font-size: 22px; font-weight: bold;
+            padding: 10px 0; text-align: center; border-radius: 8px; user-select: none; cursor: pointer;
         }
         .key:active { background: #666; }
-        .key-confirm { background: #1a73e8; font-size: 20px;}
+        .key-confirm { background: #1a73e8; font-size: 18px;}
         .key-confirm:active { background: #1557b0; }
-        .key-delete { background: #d32f2f; font-size: 20px;}
+        .key-delete { background: #d32f2f; font-size: 18px;}
         .key-delete:active { background: #9a0007; }
 
         #manual-results-section {
