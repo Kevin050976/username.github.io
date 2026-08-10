@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNG 資產盤點系統 v7.0</title>
+    <title>資產管理系統 v8.0</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
@@ -152,7 +152,7 @@
             <div id="reader"></div>
         </div>
         <div id="info-section">
-            <div style="margin-top: 60px; color: #aaa; font-size: 18px;">系統就緒 (v7.0)</div>
+            <div style="margin-top: 60px; color: #aaa; font-size: 18px;">系統就緒 (v8.0)</div>
         </div>
     </div>
 
@@ -182,7 +182,7 @@
     <!-- 簡化後的設定視窗 -->
     <div id="settings-modal" class="overlay-modal">
         <div class="modal-box">
-            <div class="modal-title">⚙️ 系統設定 (v7.0)</div>
+            <div class="modal-title">⚙️ 系統設定 (v8.0)</div>
             
             <label class="modal-label">Google 試算表資料庫網址 (讀取用)</label>
             <input type="text" id="sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
@@ -254,7 +254,7 @@
                                 assetId: assetId,
                                 scanCode: scanCode,
                                 name: row["資產名稱"] || "未命名設備",
-                                location: row["放置位置"] || row["置放位置"] || row["位置"] || "未提供", // 兼容多種常見命名
+                                location: row["置放地點"] || row["放置位置"] || row["置放位置"] || row["位置"] || "未提供", // 優先讀取「置放地點」
                                 image: getDirectImageUrl(row["照片.http"] || row["照片"]) 
                             });
                             count++;
@@ -353,7 +353,7 @@
                 <div class="asset-id">資產編號: ${asset.assetId}</div>
                 <div class="asset-id" style="font-size:12px; margin-bottom:10px;">掃描條碼: ${asset.scanCode || '無'}</div>
                 <div class="asset-name">${asset.name}</div>
-                <div class="asset-location">📍 放置位置: ${asset.location}</div>
+                <div class="asset-location">📍 置放地點: ${asset.location}</div>
                 ${btnHtml}
             `;
         }
