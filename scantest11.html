@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>資產管理系統v11</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { 
+            margin: 0; padding: 0; font-family: -apple-system, sans-serif; 
+            background: #000; display: flex; flex-direction: column; 
+            height: 100dvh; color: white; overflow: hidden; 
+        }
+        
+        /* === 頂部切換開關 & 設定按鈕 === */
+        #mode-switch-bar { display: flex; background: #222; padding: 10px; gap: 8px; align-items: center; }
+        .mode-btn { flex: 1; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; background: #444; color: white; }
+        .mode-btn.active { background: #1a73e8; }
+        #btn-settings { padding: 12px; background: #555; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+        #btn-settings:active { background: #777; }
+
+        /* === 掃描模式容器 === */
+        #scan-container { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+        #camera-section { flex: 1; position: relative; overflow: hidden; background: #111; display: flex; align-items: center; justify-content: center; min-height: 0; }
+        #reader { width: 100%; border: none; }
+        #status-bar { position: absolute; top: 10px; left: 10px; right: 10px; background: rgba(0,0,0,0.8); color: #fff; padding: 10px; text-align: center; border-radius: 8px; z-index: 10; font-size: 14px; }
+        #info-section { flex: 1; background: #f8f9fa; color: #333; padding: 20px; box-sizing: border-box; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; border-top: 4px solid #1a73e8; transition: background-color 0.2s ease; }
+        
+        /* === 手動模式容器 (縮小按鍵版) === */
+        #manual-container { flex: 1; display: none; flex-direction: column; background: #111; min-height: 0; }
+        #manual-input-section { display: flex; flex-direction: column; background: #222; border-bottom: 4px solid #1a73e8; flex-shrink: 0; }
+        #manual-display { font-size: 26px; font-weight: bold; font-family: monospace; text-align: center; padding: 10px; color: #fff; letter-spacing: 2px; min-height: 35px; background: #111; margin: 10px; border-radius: 8px; border: 2px solid #555; }
+        .display-placeholder { color: #666; font-size: 18px; line-height: 35px; letter-spacing: normal; }
+        #custom-keyboard { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 10px 10px 10px; }
+        .key { background: #444; color: white; font-size: 22px; font-weight: bold; padding: 10px 0; text-align: center; border-radius: 8px; user-select: none; }
+        .key:active { background: #666; }
+        .key-confirm { background: #1a73e8; font-size: 20px;}
+        .key-confirm:active { background: #1557b0; }
+        .key-delete { background: #d32f2f; font-size: 20px;}
+        .key-delete:active { background: #9a0007; }
+
+        #manual-results-section { flex: 1; background: #f8f9fa; color: #333; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 15px; box-sizing: border-box; min-height: 0; }
+        
+        .list-item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-left: 5px solid #1a73e8; }
+        .list-item:active { background: #e8f0fe; }
+        .list-id { font-family: monospace; color: #666; font-size: 14px; margin-bottom: 5px; }
+        .list-name { font-size: 18px; font-weight: bold; color: #333; }
+        
+        /* === 設備資訊卡片樣式 === */
+        .asset-img-container { width: 100%; max-height: 200px; display: flex; justify-content: center; margin-bottom: 15px; }
+        .asset-img-container img { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .asset-id { font-size: 16px; color: #666; margin-bottom: 5px; font-family: monospace; }
+        .asset-name { font-size: 24px; font-weight: bold; color: #1a73e8; text-align: center; line-height: 1.3; }
+        .asset-location { font-size: 16px; color: #888; margin-top: 5px; font-weight: bold; }
+        .error-msg { color: #d32f2f; font-size: 20px; font-weight: bold; text-align: center; margin-top: 20px; }
+        .hint-msg { color: #888; font-size: 16px; text-align: center; margin-top: 20px; }
+        .success-flash { background-color: #d4edda !important; }
+
+        /* === 動作按鈕樣式 (排版優化) === */
+        .action-btn-group { display: flex; gap: 8px; margin-top: 20px; width: 100%; max-width: 400px; }
+        .action-btn { flex: 1; padding: 12px 4px; font-size: 14px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; text-align: center; line-height: 1.2; }
+        .action-btn:active { opacity: 0.8; }
+        .btn-more { background: #607d8b; flex: 1.2; } 
+        .btn-check { background: #4caf50; }
+        .btn-clear { background: #d32f2f; }
+        .btn-disabled { background: #aaa !important; cursor: not-allowed; }
+
+        /* === 設定/提示視窗 === */
+        .overlay-modal { display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        .modal-box { background: #222; padding: 25px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); display: flex; flex-direction: column; max-height: 90vh; overflow-y: auto; }
+        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #fff; text-align: center; }
+        .modal-label { font-size: 14px; color: #ccc; margin-bottom: 5px; display: block; }
+        .modal-input { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #555; background: #111; color: #fff; box-sizing: border-box; }
+        .modal-btn-group { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-save { flex: 2; padding: 12px; background: #1a73e8; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;}
+        .btn-cancel { flex: 1; padding: 12px; background: #555; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer;}
+        
+        #custom-alert-box { display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #323232; color: #fff; padding: 15px 25px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 999; font-size: 16px; font-weight: bold; text-align: center; width: 80%; max-width: 300px; }
+    </style>
+</head>
+<body>
+
+    <!-- 自訂提示框 -->
+    <div id="custom-alert-box"></div>
+
+    <div id="mode-switch-bar">
+        <button id="btn-scan" class="mode-btn active" onclick="switchMode('scan')">📷 掃描模式</button>
+        <button id="btn-manual" class="mode-btn" onclick="switchMode('manual')">⌨️ 手動模式</button>
+        <button id="btn-settings" onclick="openSettings()">⚙️</button>
+    </div>
+
+    <!-- 掃描模式畫面 -->
+    <div id="scan-container">
+        <div id="camera-section">
+            <div id="status-bar">正在準備系統，請稍候...</div>
+            <div id="reader"></div>
+        </div>
+        <div id="info-section">
+            <div style="margin-top: 60px; color: #aaa; font-size: 18px;">系統就緒</div>
+        </div>
+    </div>
+
+    <!-- 手動模式畫面 -->
+    <div id="manual-container">
+        <div id="manual-input-section">
+            <div id="manual-display"><span class="display-placeholder">請輸入資產編號</span></div>
+            <div id="custom-keyboard">
+                <div class="key" onclick="pressKey('1')">1</div>
+                <div class="key" onclick="pressKey('2')">2</div>
+                <div class="key" onclick="pressKey('3')">3</div>
+                <div class="key" onclick="pressKey('4')">4</div>
+                <div class="key" onclick="pressKey('5')">5</div>
+                <div class="key" onclick="pressKey('6')">6</div>
+                <div class="key" onclick="pressKey('7')">7</div>
+                <div class="key" onclick="pressKey('8')">8</div>
+                <div class="key" onclick="pressKey('9')">9</div>
+                <div class="key key-delete" onclick="pressKey('delete')">刪除</div>
+                <div class="key" onclick="pressKey('0')">0</div>
+                <div class="key key-confirm" onclick="pressKey('confirm')">確認</div>
+            </div>
+        </div>
+        <div id="manual-results-section">
+            <div class="hint-msg">輸入前 4 碼開始篩選</div>
+        </div>
+    </div>
+
+    <!-- 設定視窗 -->
+    <div id="settings-modal" class="overlay-modal">
+        <div class="modal-box">
+            <div class="modal-title">⚙️ 系統設定 v11</div>
+            
+            <label class="modal-label">管理員密碼 (解鎖進階功能)</label>
+            <!-- 替換為 type="text" 避免螢幕錄影變黑，並使用 inputmode 喚起數字鍵盤 -->
+            <input type="text" inputmode="numeric" id="admin-pwd-input" class="modal-input" placeholder="請輸入密碼以解鎖">
+            
+            <div id="admin-settings-section" style="display: none;">
+                <label class="modal-label">Google 試算表資料庫網址</label>
+                <input type="text" id="fake-sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
+            </div>
+            
+            <label class="modal-label">Roomcord 的房間連結</label>
+            <input type="text" id="roomcord-url-input" class="modal-input" placeholder="roomcord://...">
+
+            <div class="modal-btn-group">
+                <button class="btn-cancel" onclick="closeSettings()">取消</button>
+                <button class="btn-save" onclick="saveSettings()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ================= 寫死的 API，徹底防呆，供讀取與寫入使用 =================
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzEmNyv23Bo1uKktmeyk7kTaM_9p3leGKeLMs0CWrhu8WsjkgantnyHCT2aaYwYGU_V/exec";
+
+        const statusBar = document.getElementById('status-bar');
+        const infoSection = document.getElementById('info-section');
+        const manualDisplay = document.getElementById('manual-display');
+        const manualResults = document.getElementById('manual-results-section');
+        
+        const settingsModal = document.getElementById('settings-modal');
+        const fakeSheetUrlInput = document.getElementById('fake-sheet-url-input');
+        const roomcordUrlInput = document.getElementById('roomcord-url-input');
+        const adminPwdInput = document.getElementById('admin-pwd-input');
+        const adminSettingsSection = document.getElementById('admin-settings-section');
+        
+        let isAdminUnlocked = (localStorage.getItem('sng_admin_pwd') === "01234567");
+        
+        let assetsArray = []; 
+        let lastScannedCode = "";
+        let lastScanTime = 0;
+        let manualInputString = "";
+        let html5QrcodeScanner = null;
+
+        function showAlert(msg, duration = 3000) {
+            const box = document.getElementById('custom-alert-box');
+            box.innerText = msg;
+            box.style.display = 'block';
+            setTimeout(() => { box.style.display = 'none'; }, duration);
+        }
+
+        // 圖片直連轉換器 (防止 Google Drive 照片破圖)
+        function getDirectImageUrl(url) {
+            if (!url) return "";
+            url = String(url).trim();
+            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+            return url;
+        }
+
+        // ================= 雲端腳本載入邏輯 =================
+        function loadDatabase() {
+            statusBar.style.display = 'block';
+            statusBar.innerHTML = "🔄 正在透過雲端讀取所有工作表...";
+            statusBar.style.background = "rgba(0,0,0,0.8)";
+            
+            assetsArray = []; 
+            
+            // 加入強制防快取參數 ?t=... 避免讀到舊資料
+            const requestUrl = GAS_API_URL + "?t=" + new Date().getTime();
+            
+            fetch(requestUrl, { redirect: "follow" })
+                .then(response => {
+                    return response.text(); // 先轉成文字，避免 JSON.parse 碰到 HTML 崩潰
+                })
+                .then(text => {
+                    // 攔截並判斷是否抓到了 HTML (代表 API 有錯或是要求登入)
+                    if (text.trim().startsWith("<html") || text.trim().startsWith("<!DOCTYPE")) {
+                        console.error("API 回傳了網頁內容:", text);
+                        throw new Error("取得網頁而非資料，請確認 Apps Script 部署權限是否有設為『所有人 (Anyone)』！");
+                    }
+                    
+                    let data = JSON.parse(text);
+                    
+                    // 處理圖片網址轉換
+                    assetsArray = data.map(asset => {
+                        return {
+                            ...asset,
+                            image: getDirectImageUrl(asset.image)
+                        };
+                    });
+                    
+                    if (assetsArray.length > 0) {
+                        statusBar.innerHTML = `✅ 資料載入完成 (共載入 ${assetsArray.length} 筆跨表資料)`;
+                        setTimeout(() => statusBar.style.display = 'none', 3000);
+                        if (!html5QrcodeScanner) startScanner(); 
+                    } else {
+                        statusBar.innerHTML = `⚠️ 載入成功，但表單似乎沒有資料`;
+                        statusBar.style.background = "rgba(255, 152, 0, 0.9)";
+                    }
+                })
+                .catch(err => {
+                    statusBar.innerHTML = "❌ 載入失敗！" + err.message;
+                    statusBar.style.background = "rgba(211, 47, 47, 0.9)";
+                    console.error("載入錯誤詳情:", err);
+                });
+        }
+
+        // ================= 設定視窗 UI 控制 =================
+        function openSettings() {
+            adminPwdInput.value = localStorage.getItem('sng_admin_pwd') || "";
+            fakeSheetUrlInput.value = localStorage.getItem('sng_fake_sheet_url') || "";
+            roomcordUrlInput.value = localStorage.getItem('sng_roomcord_url') || "";
+            
+            if (adminPwdInput.value === "01234567") {
+                adminSettingsSection.style.display = 'block';
+            } else {
+                adminSettingsSection.style.display = 'none';
+            }
+            
+            settingsModal.style.display = 'flex';
+        }
+
+        adminPwdInput.addEventListener('input', (e) => {
+            if (e.target.value === "01234567") {
+                adminSettingsSection.style.display = 'block';
+            } else {
+                adminSettingsSection.style.display = 'none';
+            }
+        });
+
+        function closeSettings() {
+            settingsModal.style.display = 'none';
+        }
+
+        function saveSettings() {
+            const newFakeUrl = fakeSheetUrlInput.value.trim();
+            const newRoomcordUrl = roomcordUrlInput.value.trim();
+            const pwd = adminPwdInput.value.trim();
+            
+            localStorage.setItem('sng_admin_pwd', pwd);
+            isAdminUnlocked = (pwd === "01234567");
+            
+            // 存起用來「裝飾畫面」的假試算表網址
+            localStorage.setItem('sng_fake_sheet_url', newFakeUrl);
+            localStorage.setItem('sng_roomcord_url', newRoomcordUrl);
+            
+            closeSettings();
+            
+            // 重新渲染畫面以更新盤點按鈕鎖定狀態
+            if (document.getElementById('manual-container').style.display !== 'none' && manualInputString !== "") {
+                updateManualResults(true);
+            } else if (lastScannedCode) {
+                lastScanTime = 0; 
+            }
+            
+            showAlert("✅ 設定已儲存");
+        }
+
+        window.onload = function() {
+            // 不管設定什麼，系統啟動時一律執行寫死的連線
+            loadDatabase();
+        };
+
+        function playBeep(isSuccess) {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = isSuccess ? 'sine' : 'sawtooth';
+            osc.frequency.setValueAtTime(isSuccess ? 1500 : 250, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + (isSuccess ? 0.1 : 0.3));
+            osc.stop(audioCtx.currentTime + (isSuccess ? 0.1 : 0.3));
+        }
+
+        // ================= 渲染與按鈕邏輯 =================
+        function renderAssetDetail(asset, mode) {
+            const imgHtml = asset.image 
+                ? `<img src="${asset.image}" alt="資產照片">` 
+                : `<div style="width:100%; height:150px; background:#e0e0e0; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#888;">無提供照片</div>`;
+            
+            const btnClear = mode === 'manual' ? `<button class="action-btn btn-clear" onclick="clickClear()">清除</button>` : '';
+
+            // 根據是否解鎖來決定盤點按鈕的樣式與可點擊性
+            const checkBtnClass = isAdminUnlocked ? "action-btn btn-check" : "action-btn btn-check btn-disabled";
+            const checkBtnAttr = isAdminUnlocked ? "" : "disabled";
+            const checkBtnText = isAdminUnlocked ? "盤點" : "🔒 盤點<br>(需密碼)";
+
+            const btnHtml = `
+            <div class="action-btn-group">
+                ${btnClear}
+                <button class="${checkBtnClass}" id="btn-check-${asset.assetId}" onclick="clickCheck('${asset.assetId}')" ${checkBtnAttr}>${checkBtnText}</button>
+                <button class="action-btn btn-more" onclick="clickCopyAndOpen('${asset.assetId}')">複製後<br>開啟房間</button>
+            </div>`;
+
+            return `
+                <div class="asset-img-container">${imgHtml}</div>
+                <div class="asset-id">資產編號: ${asset.assetId}</div>
+                <div class="asset-id" style="font-size:12px; margin-bottom:10px;">掃描條碼: ${asset.scanCode || '無'}</div>
+                <div class="asset-name">${asset.name}</div>
+                <div class="asset-location">📍 置放地點: ${asset.location || '未提供'}</div>
+                ${btnHtml}
+            `;
+        }
+
+        function clickClear() {
+            manualInputString = "";
+            manualDisplay.innerHTML = '<span class="display-placeholder">請輸入資產編號</span>';
+            manualResults.innerHTML = '<div class="hint-msg">輸入前 4 碼開始篩選</div>';
+        }
+
+        // ================= v11 盤點寫入功能 (極速樂觀更新) =================
+        function clickCheck(assetId) {
+            if (!isAdminUnlocked) {
+                showAlert("⚠️ 需在設定中輸入正確密碼才能使用盤點功能", 2000);
+                return;
+            }
+
+            const now = new Date();
+            const timeString = now.toLocaleString('zh-TW', { hour12: false });
+            
+            const btn = document.getElementById(`btn-check-${assetId}`);
+            
+            // 【樂觀更新】瞬間改變 UI，不用等伺服器回應，使用者可立刻往下做
+            if (btn) {
+                btn.innerText = "✅ 已盤點";
+                btn.style.background = "#2e7d32";
+                btn.classList.add('btn-disabled');
+                btn.disabled = true;
+            }
+            playBeep(true);
+            showAlert("✅ 盤點已發送，系統背景處理中...", 1500);
+
+            // 在背景偷偷發送 API，絕不卡頓主執行緒
+            const requestUrl = `${GAS_API_URL}?action=updateTime&assetId=${encodeURIComponent(assetId)}&time=${encodeURIComponent(timeString)}`;
+
+            fetch(requestUrl, { redirect: "follow" })
+                .then(response => response.text())
+                .then(data => {
+                    if (data.trim() !== "Success") {
+                        console.error("背景寫入回傳異常:", data);
+                    }
+                })
+                .catch(error => {
+                    console.error("背景寫入連線失敗:", error.message);
+                });
+        }
+
+        // ================= 複製與開啟 Roomcord =================
+        function clickCopyAndOpen(assetId) {
+            const textToCopy = `資產ID：${assetId}，位置：`;
+            
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showAlert("✅ 已複製，正在開啟 Roomcord...");
+                
+                const roomcordUrl = localStorage.getItem('sng_roomcord_url');
+                if (roomcordUrl) {
+                    setTimeout(() => {
+                        window.location.href = roomcordUrl;
+                    }, 800); 
+                } else {
+                    setTimeout(() => {
+                        showAlert("⚠️ 尚未設定 Roomcord 連結，僅完成複製");
+                    }, 1000);
+                }
+            } catch (err) {
+                showAlert("❌ 複製失敗，請檢查瀏覽器權限");
+            }
+            document.body.removeChild(textArea);
+        }
+
+        // ================= 掃描與手動邏輯 =================
+        function onScanSuccess(decodedText) {
+            if (document.getElementById('scan-container').style.display === 'none' || assetsArray.length === 0) return;
+
+            const currentTime = new Date().getTime();
+            if (decodedText === lastScannedCode && (currentTime - lastScanTime) < 1500) return; 
+            lastScannedCode = decodedText;
+            lastScanTime = currentTime;
+
+            const scanIdStr = String(decodedText).trim();
+            const asset = assetsArray.find(a => a.scanCode === scanIdStr);
+
+            infoSection.classList.add('success-flash');
+            setTimeout(() => infoSection.classList.remove('success-flash'), 300);
+
+            if (asset) {
+                playBeep(true);
+                infoSection.innerHTML = renderAssetDetail(asset, 'scan');
+            } else {
+                playBeep(false);
+                infoSection.innerHTML = `
+                    <div class="error-msg">❌ 查無此設備</div>
+                    <div class="asset-id" style="margin-top:10px; text-align:center;">未知掃描內容: ${scanIdStr}</div>
+                `;
+            }
+        }
+
+        function startScanner() {
+            html5QrcodeScanner = new Html5QrcodeScanner(
+                "reader", { fps: 15, qrbox: { width: 280, height: 120 }, aspectRatio: 1.0, videoConstraints: { facingMode: "environment" } }, false
+            );
+            html5QrcodeScanner.render(onScanSuccess);
+        }
+
+        function switchMode(mode) {
+            if (mode === 'scan') {
+                document.getElementById('btn-scan').classList.add('active');
+                document.getElementById('btn-manual').classList.remove('active');
+                document.getElementById('scan-container').style.display = 'flex';
+                document.getElementById('manual-container').style.display = 'none';
+            } else {
+                document.getElementById('btn-manual').classList.add('active');
+                document.getElementById('btn-scan').classList.remove('active');
+                document.getElementById('manual-container').style.display = 'flex';
+                document.getElementById('scan-container').style.display = 'none';
+                clickClear(); 
+            }
+        }
+
+        function pressKey(key) {
+            if (assetsArray.length === 0) return showAlert("資料庫未載入，請確認網路狀態");
+            if (key === 'delete') {
+                manualInputString = manualInputString.slice(0, -1);
+            } else if (key === 'confirm') {
+                updateManualResults(true); return;
+            } else {
+                if (manualInputString.length < 12) manualInputString += key;
+            }
+            if (manualInputString.length === 0) {
+                manualDisplay.innerHTML = '<span class="display-placeholder">請輸入資產編號</span>';
+            } else {
+                manualDisplay.innerText = manualInputString;
+            }
+            updateManualResults(false);
+        }
+
+        function updateManualResults(isConfirm) {
+            if (manualInputString.length < 4) {
+                manualResults.innerHTML = '<div class="hint-msg">輸入前 4 碼開始篩選</div>';
+                manualResults.classList.remove('success-flash');
+                return;
+            }
+            const matches = assetsArray.filter(a => a.assetId.startsWith(manualInputString));
+            if (matches.length === 0) {
+                manualResults.innerHTML = '<div class="error-msg">❌ 查無字首相符的設備</div>';
+                return;
+            }
+            const exactMatch = matches.find(a => a.assetId === manualInputString);
+            if (exactMatch && (isConfirm || manualInputString.length === 12)) {
+                playBeep(true);
+                manualResults.classList.add('success-flash');
+                setTimeout(() => manualResults.classList.remove('success-flash'), 300);
+                manualResults.innerHTML = `<div style="padding-top:10px; display:flex; flex-direction:column; align-items:center;">${renderAssetDetail(exactMatch, 'manual')}</div>`;
+            } else {
+                let html = matches.map(asset => `
+                    <div class="list-item" onclick="selectFromList('${asset.assetId}')">
+                        <div class="list-id">${asset.assetId}</div>
+                        <div class="list-name">${asset.name}</div>
+                    </div>
+                `).join('');
+                manualResults.innerHTML = html;
+                manualResults.classList.remove('success-flash');
+            }
+        }
+
+        function selectFromList(assetId) {
+            manualInputString = assetId; 
+            manualDisplay.innerText = manualInputString;
+            updateManualResults(true); 
+        }
+    </script>
+</body>
+</html>
