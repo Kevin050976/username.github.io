@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>資產管理系統 v10.1</title>
+    <title>SNG 資產管理系統 v10.1</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { 
@@ -128,7 +128,7 @@
             <label class="modal-label">1. Google 試算表資料庫網址</label>
             <input type="text" id="sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
             
-            <label class="modal-label">2. Roomcord 的房間連結</label>
+            <label class="modal-label">2. Roomcord 的房間連結 (iOS 啟動用)</label>
             <input type="text" id="roomcord-url-input" class="modal-input" placeholder="roomcord://...">
 
             <div class="modal-btn-group">
@@ -157,6 +157,15 @@
         let manualInputString = "";
         let html5QrcodeScanner = null;
 
+        // 重新加入遺失的照片網址轉換器
+        function getDirectImageUrl(url) {
+            if (!url) return "";
+            url = String(url).trim();
+            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+            return url;
+        }
+
         function showAlert(msg, duration = 3000) {
             const box = document.getElementById('custom-alert-box');
             box.innerText = msg;
@@ -179,7 +188,12 @@
                     return response.json();
                 })
                 .then(data => {
-                    assetsArray = data; // 直接套用後端整理好的 JSON
+                    // 修正照片讀取問題：將雲端腳本傳來的原始網址轉換為縮圖直連網址
+                    assetsArray = data.map(asset => {
+                        asset.image = getDirectImageUrl(asset.image);
+                        return asset;
+                    });
+                    
                     if (assetsArray.length > 0) {
                         statusBar.innerHTML = `✅ 資料載入完成 (共載入 ${assetsArray.length} 筆跨表資料)`;
                         setTimeout(() => statusBar.style.display = 'none', 3000);
