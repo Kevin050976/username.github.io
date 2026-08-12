@@ -3,30 +3,51 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>終極跳轉測試</title>
+    <title>開啟 Roomcord</title>
     <style>
-        body { text-align: center; padding: 30px; font-family: sans-serif; background: #f4f7f6; }
-        .btn { display: block; width: 100%; padding: 18px; margin-bottom: 15px; color: white; text-decoration: none; font-size: 18px; font-weight: bold; border-radius: 10px; box-sizing: border-box; }
-        .btn-1 { background: #3498db; }
-        .btn-2 { background: #9b59b6; }
-        .btn-3 { background: #e67e22; }
+        /* 讓畫面內容置中，並設定簡單的背景 */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f4;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 按鈕樣式設計 (仿 iOS 風格) */
+        .app-btn {
+            padding: 16px 32px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #007AFF;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0, 122, 255, 0.3);
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        /* 按下按鈕時的回饋效果 */
+        .app-btn:active {
+            background-color: #005bb5;
+            transform: scale(0.96);
+        }
     </style>
 </head>
 <body>
-    <h2>🔍 終極尋標測試</h2>
-    <p>請依序點擊，只要有一個成功跳轉，請告訴我是哪一顆！</p>
 
-    <a href="intent://#Intent;package=appinventor.ai_gygy4466.LiveAlarm;end;" class="btn btn-1">
-        測試 1：標準 LiveAlarm
-    </a>
+    <!-- 點擊按鈕後觸發 JavaScript 更改網址，喚醒 App -->
+    <button class="app-btn" onclick="openRoomcord()">開啟 Roomcord</button>
 
-    <a href="intent://#Intent;component=appinventor.ai_gygy4466.LiveAlarm/appinventor.ai_gygy4466.LiveAlarm.Screen1;end;" class="btn btn-2">
-        測試 2：深度呼叫 LiveAlarm
-    </a>
-
-    <a href="intent://#Intent;package=edu.mit.appinventor.aicompanion3;end;" class="btn btn-3">
-        測試 3：我正在用 Companion 預覽
-    </a>
+    <script>
+        function openRoomcord() {
+            // 在此填入 Roomcord 專屬的 URL Scheme
+            window.location.href = "roomcord://";
+        }
+    </script>
 
 </body>
 </html>
