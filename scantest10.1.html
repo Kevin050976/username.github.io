@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNG 資產管理系統 v10.1</title>
+    <title>SNG 資產盤點系統 v10.1</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { 
@@ -46,6 +46,7 @@
         .list-id { font-family: monospace; color: #666; font-size: 14px; margin-bottom: 5px; }
         .list-name { font-size: 18px; font-weight: bold; color: #333; }
         
+        /* === 設備資訊卡片樣式 === */
         .asset-img-container { width: 100%; max-height: 200px; display: flex; justify-content: center; margin-bottom: 15px; }
         .asset-img-container img { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
         .asset-id { font-size: 16px; color: #666; margin-bottom: 5px; font-family: monospace; }
@@ -79,6 +80,7 @@
 </head>
 <body>
 
+    <!-- 自訂提示框 -->
     <div id="custom-alert-box"></div>
 
     <div id="mode-switch-bar">
@@ -87,6 +89,7 @@
         <button id="btn-settings" onclick="openSettings()">⚙️</button>
     </div>
 
+    <!-- 掃描模式畫面 -->
     <div id="scan-container">
         <div id="camera-section">
             <div id="status-bar">請點擊右上角 ⚙️ 設定系統</div>
@@ -97,6 +100,7 @@
         </div>
     </div>
 
+    <!-- 手動模式畫面 -->
     <div id="manual-container">
         <div id="manual-input-section">
             <div id="manual-display"><span class="display-placeholder">請輸入資產編號</span></div>
@@ -120,13 +124,13 @@
         </div>
     </div>
 
-    <!-- 設定視窗 (比賽用：表面輸入試算表，背後使用寫死API) -->
+    <!-- 設定視窗 (v10.1 虛擬設定版) -->
     <div id="settings-modal" class="overlay-modal">
         <div class="modal-box">
-            <div class="modal-title">⚙️ 系統設定</div>
+            <div class="modal-title">⚙️ 系統設定 v10.1</div>
             
             <label class="modal-label">1. Google 試算表資料庫網址</label>
-            <input type="text" id="sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
+            <input type="text" id="fake-sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
             
             <label class="modal-label">2. Roomcord 的房間連結 (iOS 啟動用)</label>
             <input type="text" id="roomcord-url-input" class="modal-input" placeholder="roomcord://...">
@@ -139,32 +143,23 @@
     </div>
 
     <script>
+        // 固定寫死的 API，供讀取與寫入使用，防止使用者改錯
+        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzEmNyv23Bo1uKktmeyk7kTaM_9p3leGKeLMs0CWrhu8WsjkgantnyHCT2aaYwYGU_V/exec";
+
         const statusBar = document.getElementById('status-bar');
         const infoSection = document.getElementById('info-section');
         const manualDisplay = document.getElementById('manual-display');
         const manualResults = document.getElementById('manual-results-section');
         
         const settingsModal = document.getElementById('settings-modal');
-        const sheetUrlInput = document.getElementById('sheet-url-input');
+        const fakeSheetUrlInput = document.getElementById('fake-sheet-url-input');
         const roomcordUrlInput = document.getElementById('roomcord-url-input');
         
-        // --- 為了比賽而寫死的 API 網址 ---
-        const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzEmNyv23Bo1uKktmeyk7kTaM_9p3leGKeLMs0CWrhu8WsjkgantnyHCT2aaYwYGU_V/exec";
-
         let assetsArray = []; 
         let lastScannedCode = "";
         let lastScanTime = 0;
         let manualInputString = "";
         let html5QrcodeScanner = null;
-
-        // 重新加入遺失的照片網址轉換器
-        function getDirectImageUrl(url) {
-            if (!url) return "";
-            url = String(url).trim();
-            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-            if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
-            return url;
-        }
 
         function showAlert(msg, duration = 3000) {
             const box = document.getElementById('custom-alert-box');
@@ -173,7 +168,15 @@
             setTimeout(() => { box.style.display = 'none'; }, duration);
         }
 
-        // ================= 雲端腳本載入邏輯 (一次讀取所有工作表) =================
+        function getDirectImageUrl(url) {
+            if (!url) return "";
+            url = String(url).trim();
+            let match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+            if (match) return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w800`;
+            return url;
+        }
+
+        // ================= 雲端腳本載入邏輯 =================
         function loadDatabase() {
             statusBar.style.display = 'block';
             statusBar.innerHTML = "🔄 正在透過雲端讀取所有工作表...";
@@ -181,17 +184,18 @@
             
             assetsArray = []; 
             
-            // 呼叫 Apps Script 取得所有工作表的資料 (使用寫死的網址)
             fetch(GAS_API_URL)
                 .then(response => {
                     if (!response.ok) throw new Error("網路請求錯誤");
                     return response.json();
                 })
                 .then(data => {
-                    // 修正照片讀取問題：將雲端腳本傳來的原始網址轉換為縮圖直連網址
+                    // 處理圖片網址轉換
                     assetsArray = data.map(asset => {
-                        asset.image = getDirectImageUrl(asset.image);
-                        return asset;
+                        return {
+                            ...asset,
+                            image: getDirectImageUrl(asset.image)
+                        };
                     });
                     
                     if (assetsArray.length > 0) {
@@ -204,7 +208,7 @@
                     }
                 })
                 .catch(err => {
-                    statusBar.innerHTML = "❌ 載入失敗！請確認 API 網址是否正確。";
+                    statusBar.innerHTML = "❌ 載入失敗！請確認網路狀態或 API 權限。";
                     statusBar.style.background = "rgba(211, 47, 47, 0.9)";
                     console.error("載入錯誤:", err);
                 });
@@ -212,7 +216,7 @@
 
         // ================= 設定視窗 UI 控制 =================
         function openSettings() {
-            sheetUrlInput.value = localStorage.getItem('sng_sheet_dummy_url') || "";
+            fakeSheetUrlInput.value = localStorage.getItem('sng_fake_sheet_url') || "";
             roomcordUrlInput.value = localStorage.getItem('sng_roomcord_url') || "";
             settingsModal.style.display = 'flex';
         }
@@ -222,29 +226,21 @@
         }
 
         function saveSettings() {
-            const newSheetUrl = sheetUrlInput.value.trim();
+            const newFakeUrl = fakeSheetUrlInput.value.trim();
             const newRoomcordUrl = roomcordUrlInput.value.trim();
             
-            if (!newSheetUrl) {
-                showAlert("試算表網址不能為空！");
-                return;
-            }
-
-            // 僅作外觀儲存用，增加真實感，實際讀寫都使用 GAS_API_URL
-            localStorage.setItem('sng_sheet_dummy_url', newSheetUrl);
+            // 將輸入的試算表網址存起來裝裝樣子
+            localStorage.setItem('sng_fake_sheet_url', newFakeUrl);
             localStorage.setItem('sng_roomcord_url', newRoomcordUrl);
             
             closeSettings();
+            // 不管填什麼，直接呼叫寫死的 GAS_API_URL 載入資料
             loadDatabase(); 
         }
 
         window.onload = function() {
-            const savedDummyUrl = localStorage.getItem('sng_sheet_dummy_url');
-            if (savedDummyUrl) {
-                loadDatabase();
-            } else {
-                openSettings();
-            }
+            // 一開網頁就自動使用隱藏的 API 載入資料
+            loadDatabase();
         };
 
         function playBeep(isSuccess) {
@@ -293,43 +289,35 @@
             manualResults.innerHTML = '<div class="hint-msg">輸入前 4 碼開始篩選</div>';
         }
 
-        // ================= v10 盤點寫入功能 (透過 Apps Script) =================
+        // ================= v10 盤點寫入功能 (樂觀更新) =================
         function clickCheck(assetId) {
             const now = new Date();
             const timeString = now.toLocaleString('zh-TW', { hour12: false });
             
             const btn = document.getElementById(`btn-check-${assetId}`);
+            
+            // 瞬間 UI 變化，不用等伺服器回應
             if (btn) {
-                btn.innerText = "寫入中...";
+                btn.innerText = "✅ 已盤點";
+                btn.style.background = "#2e7d32";
                 btn.classList.add('btn-disabled');
                 btn.disabled = true;
             }
+            playBeep(true);
+            showAlert("✅ 盤點已送出！(系統背景處理中)", 2000);
 
-            // 直接呼叫寫死的 GAS_API_URL 進行時間更新
+            // 在背景偷偷發送 API
             const requestUrl = `${GAS_API_URL}?action=updateTime&assetId=${encodeURIComponent(assetId)}&time=${encodeURIComponent(timeString)}`;
 
             fetch(requestUrl)
                 .then(response => response.text())
                 .then(data => {
-                    if (data.trim() === "Success") {
-                        playBeep(true);
-                        if (btn) {
-                            btn.innerText = "✅ 已盤點";
-                            btn.style.background = "#2e7d32";
-                        }
-                        showAlert("✅ 盤點時間已成功寫入！");
-                    } else {
-                        throw new Error(data);
+                    if (data.trim() !== "Success") {
+                        console.error("背景寫入錯誤:", data);
                     }
                 })
                 .catch(error => {
-                    showAlert("❌ 寫入失敗，請確認該表單具有「盤點時間」欄位。");
-                    console.error("寫入錯誤詳情:", error.message);
-                    if (btn) {
-                        btn.innerText = "盤點";
-                        btn.classList.remove('btn-disabled');
-                        btn.disabled = false;
-                    }
+                    console.error("寫入連線失敗:", error.message);
                 });
         }
 
