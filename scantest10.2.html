@@ -60,7 +60,7 @@
         .action-btn-group { display: flex; gap: 8px; margin-top: 20px; width: 100%; max-width: 400px; }
         .action-btn { flex: 1; padding: 12px 4px; font-size: 14px; font-weight: bold; color: white; border: none; border-radius: 8px; cursor: pointer; text-align: center; line-height: 1.2; }
         .action-btn:active { opacity: 0.8; }
-        .btn-more { background: #607d8b; flex: 1.2; } /* 讓 Roomcord 按鈕稍微寬一點 */
+        .btn-more { background: #607d8b; flex: 1.2; } 
         .btn-check { background: #4caf50; }
         .btn-clear { background: #d32f2f; }
         .btn-disabled { background: #aaa !important; cursor: not-allowed; }
@@ -92,7 +92,7 @@
     <!-- 掃描模式畫面 -->
     <div id="scan-container">
         <div id="camera-section">
-            <div id="status-bar">請點擊右上角 ⚙️ 設定系統</div>
+            <div id="status-bar">正在準備系統，請稍候...</div>
             <div id="reader"></div>
         </div>
         <div id="info-section">
@@ -133,7 +133,7 @@
             <input type="password" id="admin-pwd-input" class="modal-input" placeholder="請輸入密碼以解鎖">
             
             <div id="admin-settings-section" style="display: none;">
-                <label class="modal-label">Google 試算表資料庫網址</label>
+                <label class="modal-label">Google 試算表資料庫網址 (純展示用)</label>
                 <input type="text" id="fake-sheet-url-input" class="modal-input" placeholder="https://docs.google.com/spreadsheets/d/...">
             </div>
             
@@ -142,13 +142,13 @@
 
             <div class="modal-btn-group">
                 <button class="btn-cancel" onclick="closeSettings()">取消</button>
-                <button class="btn-save" onclick="saveSettings()">儲存並載入</button>
+                <button class="btn-save" onclick="saveSettings()">儲存</button>
             </div>
         </div>
     </div>
 
     <script>
-        // 固定寫死的 API，供讀取與寫入使用，防止使用者改錯
+        // ================= 寫死的 API，徹底防呆，供讀取與寫入使用 =================
         const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzEmNyv23Bo1uKktmeyk7kTaM_9p3leGKeLMs0CWrhu8WsjkgantnyHCT2aaYwYGU_V/exec";
 
         const statusBar = document.getElementById('status-bar');
@@ -162,7 +162,6 @@
         const adminPwdInput = document.getElementById('admin-pwd-input');
         const adminSettingsSection = document.getElementById('admin-settings-section');
         
-        // 讀取之前輸入過的密碼，確認是否解鎖
         let isAdminUnlocked = (localStorage.getItem('sng_admin_pwd') === "01234567");
         
         let assetsArray = []; 
@@ -178,6 +177,7 @@
             setTimeout(() => { box.style.display = 'none'; }, duration);
         }
 
+        // 圖片直連轉換器 (防止 Google Drive 照片破圖)
         function getDirectImageUrl(url) {
             if (!url) return "";
             url = String(url).trim();
@@ -194,12 +194,22 @@
             
             assetsArray = []; 
             
-            fetch(GAS_API_URL)
+            // 加入強制防快取參數 ?t=... 避免讀到舊資料
+            const requestUrl = GAS_API_URL + "?t=" + new Date().getTime();
+            
+            fetch(requestUrl, { redirect: "follow" })
                 .then(response => {
-                    if (!response.ok) throw new Error("網路請求錯誤");
-                    return response.json();
+                    return response.text(); // 先轉成文字，避免 JSON.parse 碰到 HTML 崩潰
                 })
-                .then(data => {
+                .then(text => {
+                    // 攔截並判斷是否抓到了 HTML (代表 API 有錯或是要求登入)
+                    if (text.trim().startsWith("<html") || text.trim().startsWith("<!DOCTYPE")) {
+                        console.error("API 回傳了網頁內容:", text);
+                        throw new Error("取得網頁而非資料，請確認 Apps Script 部署權限是否有設為『所有人 (Anyone)』！");
+                    }
+                    
+                    let data = JSON.parse(text);
+                    
                     // 處理圖片網址轉換
                     assetsArray = data.map(asset => {
                         return {
@@ -218,9 +228,9 @@
                     }
                 })
                 .catch(err => {
-                    statusBar.innerHTML = "❌ 載入失敗！請確認網路狀態或 API 權限。";
+                    statusBar.innerHTML = "❌ 載入失敗！" + err.message;
                     statusBar.style.background = "rgba(211, 47, 47, 0.9)";
-                    console.error("載入錯誤:", err);
+                    console.error("載入錯誤詳情:", err);
                 });
         }
 
@@ -230,7 +240,6 @@
             fakeSheetUrlInput.value = localStorage.getItem('sng_fake_sheet_url') || "";
             roomcordUrlInput.value = localStorage.getItem('sng_roomcord_url') || "";
             
-            // 根據密碼決定是否顯示進階設定
             if (adminPwdInput.value === "01234567") {
                 adminSettingsSection.style.display = 'block';
             } else {
@@ -240,7 +249,6 @@
             settingsModal.style.display = 'flex';
         }
 
-        // 即時監聽密碼輸入，密碼對了就直接顯示
         adminPwdInput.addEventListener('input', (e) => {
             if (e.target.value === "01234567") {
                 adminSettingsSection.style.display = 'block';
@@ -258,28 +266,27 @@
             const newRoomcordUrl = roomcordUrlInput.value.trim();
             const pwd = adminPwdInput.value.trim();
             
-            // 儲存密碼與解鎖狀態
             localStorage.setItem('sng_admin_pwd', pwd);
             isAdminUnlocked = (pwd === "01234567");
             
-            // 將輸入的試算表網址存起來裝裝樣子
+            // 存起用來「裝飾畫面」的假試算表網址
             localStorage.setItem('sng_fake_sheet_url', newFakeUrl);
             localStorage.setItem('sng_roomcord_url', newRoomcordUrl);
             
             closeSettings();
-            // 不管填什麼，直接呼叫寫死的 GAS_API_URL 載入資料
-            loadDatabase(); 
             
             // 重新渲染畫面以更新盤點按鈕鎖定狀態
             if (document.getElementById('manual-container').style.display !== 'none' && manualInputString !== "") {
                 updateManualResults(true);
             } else if (lastScannedCode) {
-                lastScanTime = 0; // 重置防止防連刷，讓使用者可以再次掃描同一條碼
+                lastScanTime = 0; 
             }
+            
+            showAlert("✅ 設定已儲存");
         }
 
         window.onload = function() {
-            // 一開網頁就自動使用隱藏的 API 載入資料
+            // 不管設定什麼，系統啟動時一律執行寫死的連線
             loadDatabase();
         };
 
@@ -334,7 +341,7 @@
             manualResults.innerHTML = '<div class="hint-msg">輸入前 4 碼開始篩選</div>';
         }
 
-        // ================= v10 盤點寫入功能 (樂觀更新) =================
+        // ================= v10 盤點寫入功能 (極速樂觀更新) =================
         function clickCheck(assetId) {
             if (!isAdminUnlocked) {
                 showAlert("⚠️ 需在設定中輸入正確密碼才能使用盤點功能", 2000);
@@ -346,7 +353,7 @@
             
             const btn = document.getElementById(`btn-check-${assetId}`);
             
-            // 瞬間 UI 變化，不用等伺服器回應
+            // 【樂觀更新】瞬間改變 UI，不用等伺服器回應，使用者可立刻往下做
             if (btn) {
                 btn.innerText = "✅ 已盤點";
                 btn.style.background = "#2e7d32";
@@ -354,20 +361,20 @@
                 btn.disabled = true;
             }
             playBeep(true);
-            showAlert("✅ 盤點已送出！(系統背景處理中)", 2000);
+            showAlert("✅ 盤點已發送，系統背景處理中...", 1500);
 
-            // 在背景偷偷發送 API
+            // 在背景偷偷發送 API，絕不卡頓主執行緒
             const requestUrl = `${GAS_API_URL}?action=updateTime&assetId=${encodeURIComponent(assetId)}&time=${encodeURIComponent(timeString)}`;
 
-            fetch(requestUrl)
+            fetch(requestUrl, { redirect: "follow" })
                 .then(response => response.text())
                 .then(data => {
                     if (data.trim() !== "Success") {
-                        console.error("背景寫入錯誤:", data);
+                        console.error("背景寫入回傳異常:", data);
                     }
                 })
                 .catch(error => {
-                    console.error("寫入連線失敗:", error.message);
+                    console.error("背景寫入連線失敗:", error.message);
                 });
         }
 
@@ -450,7 +457,7 @@
         }
 
         function pressKey(key) {
-            if (assetsArray.length === 0) return showAlert("資料庫未載入，請確認設定");
+            if (assetsArray.length === 0) return showAlert("資料庫未載入，請確認網路狀態");
             if (key === 'delete') {
                 manualInputString = manualInputString.slice(0, -1);
             } else if (key === 'confirm') {
