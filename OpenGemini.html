@@ -3,24 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SNG 控制台</title>
+    <title>SNG 直播連續播放控制台</title>
+    <!-- 🔥 已經完全拔除有 BUG 的繪圖套件，改用最穩定的雲端圖片 API -->
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-        
-        #video-wrapper { 
-            position: relative; 
-            width: 100%; 
-            height: 0; 
-            padding-bottom: 56.25%; 
-            background: #000; 
-            flex-shrink: 0; 
-            z-index: 10; 
-        }
-        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        
+        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
+        iframe { width: 100%; height: 100%; border: none; }
         #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
         #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
-        #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+        #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; }
         #vid-desc { background: #222; padding: 12px; border-radius: 8px; font-size: 14px; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
         #controls { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; height: 90px; background: #1c1c1e; box-sizing: border-box; padding: 0 15px; padding-bottom: env(safe-area-inset-bottom); gap: 15px; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
         button { flex: 1; height: 55px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 12px; background: #0a84ff; color: white; touch-action: manipulation; }
@@ -42,23 +33,12 @@
         #qr-btn:active { background: #d08107; }
         #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
         
+        /* QR Code 視窗樣式 */
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
         #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; width: 250px; height: 250px; display: flex; align-items: center; justify-content: center; } 
         #qr-image { display: block; width: 250px; height: 250px; }
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; line-height: 1.4; }
         #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
-
-        /* 🎨 頻道與狀態標籤樣式設定 */
-        .tag-orange { color: #ff9f0a; font-weight: bold; }
-        .tag-blue { color: #0a84ff; font-weight: bold; }
-        .tag-skyblue { color: #64d2ff; font-weight: bold; }
-        .tag-live { color: #ff453a; border: 1px solid #ff453a; padding: 1px 5px; border-radius: 4px; font-size: 12px; margin-left: 4px; }
-        .tag-replay { color: #98989d; border: 1px solid #98989d; padding: 1px 5px; border-radius: 4px; font-size: 12px; margin-left: 4px; }
-
-        @media (orientation: landscape) {
-            #controls, #info-section, #swipe-hint { display: none !important; }
-            #video-wrapper { padding-bottom: 0 !important; height: 100dvh !important; }
-        }
     </style>
 </head>
 <body>
@@ -70,7 +50,7 @@
 
     <div id="info-section">
         <h3 id="vid-title">載入影片資訊中...</h3>
-        <div id="vid-channel">頻道名稱</div>
+        <p id="vid-channel">頻道名稱</p>
         <div id="vid-desc">載入內文中...</div>
     </div>
 
@@ -85,7 +65,6 @@
             <h3>📝 發稿比對設定</h3>
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
-
         <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
         
         <div class="btn-group">
@@ -96,6 +75,7 @@
 
     <div id="qr-modal">
         <div id="qrcode-container">
+            <!-- 直接用 img 標籤接收雲端畫好的 QR Code -->
             <img id="qr-image" src="" alt="QR Code 載入中...">
         </div>
         <div id="qr-text-display"></div>
@@ -111,33 +91,36 @@
         let allChannelNames = [];
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
+        
         let formattedLiveEventInfo = ""; 
 
+        // 🧠 智慧格式化引擎：將輸入字串統整為「MM/DD 【標題】 HH:MM」
         function parseSNGTitle(rawTitle) {
             let decodedTitle = decodeURIComponent(rawTitle).trim();
             let parts = decodedTitle.split(/\s+/);
             
+            // 確保至少有「日期」、「內容」、「時間」三個段落
             if (parts.length >= 3) {
-                let datePart = parts.shift(); 
-                let timePart = parts.pop();   
-                let titlePart = parts.join(' '); 
+                let datePart = parts.shift(); // 抓出第一個 (日期)
+                let timePart = parts.pop();   // 抓出最後一個 (時間)
+                let titlePart = parts.join(' '); // 中間剩下的全部當作內容
 
+                // 防呆：去除內容本來就帶有的【】括號，避免變成【【內容】】
                 titlePart = titlePart.replace(/[【】]/g, '');
 
+                // 處理日期：如果是 0727 這種 4 碼數字，自動補上斜線變成 07/27
                 if (/^\d{4}$/.test(datePart)) {
                     datePart = datePart.substring(0, 2) + '/' + datePart.substring(2, 4);
                 }
                 
+                // 處理時間：如果是 1400 這種 4 碼數字，自動補上冒號變成 14:00
                 if (/^\d{4}$/.test(timePart)) {
                     timePart = timePart.substring(0, 2) + ':' + timePart.substring(2, 4);
                 }
                 
-                document.title = `${datePart} 【${titlePart}】`;
-                
                 return `${datePart} 【${titlePart}】 ${timePart}`;
             }
-            
-            document.title = decodedTitle;
+            // 如果格式不符三段式，就原封不動回傳，避免報錯
             return decodedTitle;
         }
 
@@ -175,9 +158,16 @@
 
         function showQRCode() {
             if (!formattedLiveEventInfo) return;
+
             document.getElementById('qr-modal').style.display = 'flex';
+            
+            // 🎯 使用 URL 安全編碼處理格式化後的字串
             const encodedText = encodeURIComponent(formattedLiveEventInfo);
+            
+            // 🌐 直接呼叫穩定的 QuickChart 伺服器產生圖片 (ecLevel=M 讓點陣圖保持稀疏好掃)
             const qrUrl = `https://quickchart.io/qr?text=${encodedText}&size=250&margin=2&ecLevel=M`;
+            
+            // 把拿到的純圖片網址塞進畫面
             document.getElementById('qr-image').src = qrUrl;
             document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
         }
@@ -191,9 +181,8 @@
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
             
-            let ytUrl = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
-            
-            document.getElementById('yt-player').src = ytUrl;
+            const player = document.getElementById('yt-player');
+            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
             
             document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
@@ -211,28 +200,7 @@
                     if (data.items && data.items.length > 0) {
                         const snippet = data.items[0].snippet;
                         document.getElementById('vid-title').innerText = snippet.title;
-                        
-                        // 🎯 處理頻道名稱與顏色標籤
-                        let channelTitle = snippet.channelTitle;
-                        let channelHtml = `<span>${channelTitle}</span>`;
-                        
-                        if (channelTitle.includes('TVBS NEWS')) {
-                            channelHtml += ' <span class="tag-orange">橘標</span>';
-                        } else if (channelTitle.includes('TVBS選新聞')) {
-                            channelHtml += ' <span class="tag-blue">藍標</span>';
-                        } else if (channelTitle.includes('TVBS新聞網')) {
-                            channelHtml += ' <span class="tag-skyblue">天藍</span>';
-                        }
-
-                        // 🎯 處理直播/重播狀態標籤
-                        let liveStatus = snippet.liveBroadcastContent;
-                        if (liveStatus === 'live') {
-                            channelHtml += '<span class="tag-live">直播</span>';
-                        } else {
-                            channelHtml += '<span class="tag-replay">重播</span>';
-                        }
-                        
-                        document.getElementById('vid-channel').innerHTML = channelHtml;
+                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
                         document.getElementById('vid-desc').innerText = snippet.description ? snippet.description : '（此影片無提供內文）';
                     }
                 })
@@ -280,14 +248,11 @@
         function copyToGemini() {
             const requirement = document.getElementById('requirement-input').value.trim();
             const reqText = requirement ? requirement : '（未輸入發稿需求）';
-            
-            // 複製時使用 .innerText，它會自動去掉 HTML 標籤，保留如 "TVBS NEWS 橘標 直播" 的純淨文字，完美適合餵給 AI
-            const currentChannelText = document.getElementById('vid-channel').innerText;
-            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : currentChannelText;
+            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : document.getElementById('vid-channel').innerText;
             const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : document.getElementById('vid-title').innerText;
             const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : document.getElementById('vid-desc').innerText;
 
-            const finalPrompt = `你現在是一位嚴格的發稿與轉播品管編輯。\n\n請根據下方的【發稿需求單】，嚴格比對這場直播的【標題】與【內文】。\n你的唯一任務是：檢查是否有遺漏需求中的關鍵字、格式錯誤，或不合邏輯的地方。\n\n⚠️ 絕對禁止：\n1. 不要對新聞內容做任何總結或摘要！\n2. 如果完全符合規範，請直接回覆「符合規範，無須修改」，不用廢話。\n3. 如果有錯，請直接明確指出哪裡不符合需求。\n\n====================\n【發稿需求單】：\n${reqText}\n\n====================\n【頻道】：${currentChannelText}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
+            const finalPrompt = `你現在是一位嚴格的發稿與轉播品管編輯。\n\n請根據下方的【發稿需求單】，嚴格比對這場直播的【標題】與【內文】。\n你的唯一任務是：檢查是否有遺漏需求中的關鍵字、格式錯誤，或不合邏輯的地方。\n\n⚠️ 絕對禁止：\n1. 不要對新聞內容做任何總結或摘要！\n2. 如果完全符合規範，請直接回覆「符合規範，無須修改」，不用廢話。\n3. 如果有錯，請直接明確指出哪裡不符合需求。\n\n====================\n【發稿需求單】：\n${reqText}\n\n====================\n【頻道】：${channelsString}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
 
             navigator.clipboard.writeText(finalPrompt).then(() => {
                 const btn = document.getElementById('copy-prompt-btn');
@@ -301,11 +266,9 @@
                 // 執行跳轉到 iOS 捷徑 OpenGemini
                 window.location.href = "shortcuts://run-shortcut?name=OpenGemini";
 
-                // 2 秒後將按鈕恢復原狀（避免使用者按上一頁回來時按鈕卡在跳轉狀態）
+                // 2 秒後將按鈕恢復原狀（避免使用者按上一頁回來時，按鈕卡在跳轉狀態）
                 setTimeout(() => { btn.innerText = originalText; btn.style.background = originalBg; }, 2000);
-            }).catch(err => { 
-                alert('剪貼簿權限遭阻擋，請手動全選文字複製。'); 
-            });
+            }).catch(err => { alert('剪貼簿權限遭阻擋，請手動全選文字複製。'); });
         }
 
         init();
