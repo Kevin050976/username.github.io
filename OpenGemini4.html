@@ -94,20 +94,24 @@
         
         let formattedLiveEventInfo = ""; 
 
-        // 🧠 安全的 UTF-8 Base64 解碼器 (加強防呆版)
-        function decodeBase64UTF8(b64) {
+        // 🧠 全能 Base64 解碼器 (自動支援 Apple UTF-16 與標準 UTF-8)
+        function decodeBase64Advanced(b64) {
             try {
-                // 自動強制濾除所有非 Base64 的合法字元 (解決捷徑偷塞換行或空白的問題)
                 const cleanB64 = b64.replace(/[^A-Za-z0-9+/=]/g, "");
                 const binString = atob(cleanB64);
                 const bytes = new Uint8Array(binString.length);
                 for (let i = 0; i < binString.length; i++) {
                     bytes[i] = binString.charCodeAt(i);
                 }
+                // 檢查是否包含 UTF-16 LE 的 BOM 特徵 (FF FE)
+                if (bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 254) {
+                    return new TextDecoder('utf-16le').decode(bytes);
+                }
+                // 否則使用標準 UTF-8 解碼
                 return new TextDecoder('utf-8').decode(bytes);
             } catch (e) {
                 console.error("Base64 解析錯誤", e);
-                return "（文字解析失敗，請確認捷徑的 Base64 換行已設為無）";
+                return "（文字解析失敗，請確認捷徑編碼設定）";
             }
         }
 
@@ -130,10 +134,10 @@
             const rawText = urlParams.get('text');    
             const rawTitle = urlParams.get('title');  
             
-            // 👇 讀取 Base64 格式的需求單並安全解碼
+            // 👇 讀取 Base64 格式的需求單並使用進階安全解碼
             const rawReqB64 = urlParams.get('reqb64');
             if (rawReqB64) {
-                document.getElementById('requirement-input').value = decodeBase64UTF8(decodeURIComponent(rawReqB64));
+                document.getElementById('requirement-input').value = decodeBase64Advanced(decodeURIComponent(rawReqB64));
             }
 
             if (rawTitle) {
