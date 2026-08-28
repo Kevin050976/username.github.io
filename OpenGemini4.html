@@ -94,10 +94,12 @@
         
         let formattedLiveEventInfo = ""; 
 
-        // 🧠 安全的 UTF-8 Base64 解碼器 (解決特殊符號與中文問題)
+        // 🧠 安全的 UTF-8 Base64 解碼器 (加強防呆版)
         function decodeBase64UTF8(b64) {
             try {
-                const binString = atob(b64);
+                // 自動強制濾除所有非 Base64 的合法字元 (解決捷徑偷塞換行或空白的問題)
+                const cleanB64 = b64.replace(/[^A-Za-z0-9+/=]/g, "");
+                const binString = atob(cleanB64);
                 const bytes = new Uint8Array(binString.length);
                 for (let i = 0; i < binString.length; i++) {
                     bytes[i] = binString.charCodeAt(i);
