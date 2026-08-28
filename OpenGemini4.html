@@ -94,24 +94,36 @@
         
         let formattedLiveEventInfo = ""; 
 
-        // 🧠 全能 Base64 解碼器 (自動支援 Apple UTF-16 與標準 UTF-8)
+        // 🧠 終極版 Base64 解碼器 (自動修復 URL 造成的加號遺失 + 支援 UTF-16/UTF-8)
         function decodeBase64Advanced(b64) {
             try {
-                const cleanB64 = b64.replace(/[^A-Za-z0-9+/=]/g, "");
+                // 1. 致命傷修復：把被網址誤判成「空白」的字元，全部強制還原回「+」號
+                let fixedB64 = b64.replace(/ /g, "+");
+                
+                // 2. 過濾掉所有非 Base64 的合法字元
+                let cleanB64 = fixedB64.replace(/[^A-Za-z0-9+/=]/g, "");
+                
+                // 3. 自動補齊 = 號，防止字串長度因網址截斷導致 atob 崩潰
+                while (cleanB64.length % 4 !== 0) {
+                    cleanB64 += "=";
+                }
+
                 const binString = atob(cleanB64);
                 const bytes = new Uint8Array(binString.length);
                 for (let i = 0; i < binString.length; i++) {
                     bytes[i] = binString.charCodeAt(i);
                 }
-                // 檢查是否包含 UTF-16 LE 的 BOM 特徵 (FF FE)
+                
+                // 4. 偵測蘋果系統特有的 UTF-16 LE BOM (FF FE)
                 if (bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 254) {
                     return new TextDecoder('utf-16le').decode(bytes);
                 }
-                // 否則使用標準 UTF-8 解碼
+                
+                // 5. 預設 UTF-8 解碼
                 return new TextDecoder('utf-8').decode(bytes);
             } catch (e) {
                 console.error("Base64 解析錯誤", e);
-                return "（文字解析失敗，請確認捷徑編碼設定）";
+                return "（文字解析失敗：" + e.message + "）";
             }
         }
 
@@ -134,7 +146,7 @@
             const rawText = urlParams.get('text');    
             const rawTitle = urlParams.get('title');  
             
-            // 👇 讀取 Base64 格式的需求單並使用進階安全解碼
+            // 👇 讀取 Base64 格式的需求單並使用終極安全解碼
             const rawReqB64 = urlParams.get('reqb64');
             if (rawReqB64) {
                 document.getElementById('requirement-input').value = decodeBase64Advanced(decodeURIComponent(rawReqB64));
