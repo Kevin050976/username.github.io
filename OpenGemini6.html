@@ -6,25 +6,30 @@
     <title>直播控制台v5</title>
     <style>
         body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
-        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
-        iframe { width: 100%; height: 100%; border: none; }
+        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; position: relative; }
+        #yt-player { width: 100%; height: 100%; border: none; }
+        
         #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
         #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
         #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; display: flex; align-items: center; }
         #vid-desc { background: #222; padding: 12px; border-radius: 8px; font-size: 14px; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
+        
         #controls { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; height: 90px; background: #1c1c1e; box-sizing: border-box; padding: 0 15px; padding-bottom: env(safe-area-inset-bottom); gap: 15px; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
         button { flex: 1; height: 55px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 12px; background: #0a84ff; color: white; touch-action: manipulation; }
         button:active { background: #0060d1; }
         button:disabled { background: #3a3a3c; color: #8e8e93; cursor: not-allowed; }
         
+        /* 中央播放暫停按鈕的樣式 */
         #status { font-size: 18px; font-weight: bold; color: #ebebf5; background: #3a3a3c; flex: 0.8; display: flex; justify-content: center; align-items: center; border-radius: 12px; height: 55px; cursor: pointer; transition: all 0.3s; }
         #status:active { transform: scale(0.95); }
         #status.active { background: #ff453a; color: white; box-shadow: 0 0 12px rgba(255,69,58,0.5); }
         
-        #prompt-panel { position: fixed; top: 0; right: -100%; width: 85%; height: 100dvh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: -5px 0 20px rgba(0,0,0,0.7); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 200; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; padding-top: env(safe-area-inset-top, 20px); padding-bottom: env(safe-area-inset-bottom, 20px); cursor: pointer; }
-        .panel-header, #requirement-input, .btn-group { cursor: default; }
+        /* 隱形遮罩：用於點擊主畫面收合面板 */
+        #panel-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: transparent; z-index: 150; display: none; }
         
+        #prompt-panel { position: fixed; top: 0; right: -100%; width: 85%; height: 100dvh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: -5px 0 20px rgba(0,0,0,0.7); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 200; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; padding-top: env(safe-area-inset-top, 20px); padding-bottom: env(safe-area-inset-bottom, 20px); }
         #prompt-panel.open { right: 0; }
+        
         .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .panel-header h3 { margin: 0; font-size: 20px; }
         .close-btn { background: #3a3a3c; height: 40px; flex: 0 0 80px; font-size: 16px; }
@@ -37,6 +42,7 @@
         #paste-btn:active { background: #4b49b8; }
         #qr-btn { background: #ff9f0a; flex: 1; }
         #qr-btn:active { background: #d08107; }
+        
         #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
         
         #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
@@ -44,29 +50,12 @@
         #qr-image { display: block; width: 250px; height: 250px; }
         #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; line-height: 1.4; }
         #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
-
-        @media screen and (orientation: landscape) {
-            #controls, #swipe-hint, #info-section, #prompt-panel { display: none !important; }
-            body { justify-content: center; background: #000; }
-            #video-wrapper {
-                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-                display: flex; justify-content: center; align-items: center;
-                background: #000; z-index: 9999;
-                padding-left: env(safe-area-inset-left);
-                padding-right: env(safe-area-inset-right);
-                box-sizing: border-box;
-            }
-            #video-wrapper iframe {
-                width: 100%; height: 100%;
-                max-width: calc(100vh * 16 / 9);
-                max-height: calc(100vw * 9 / 16);
-            }
-        }
     </style>
 </head>
 <body>
     <div id="video-wrapper">
-        <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+        <!-- 改為 div 讓 YouTube API 接管 -->
+        <div id="yt-player"></div>
     </div>
     
     <div id="swipe-hint" onclick="togglePanel(true)">◀ 品管</div>
@@ -79,18 +68,23 @@
 
     <div id="controls">
         <button id="prev-btn" onclick="changeVideo(-1)">◄ 上一部</button>
-        <div id="status" onclick="activateAutoplay()">等待中</div>
+        <!-- 中央播放暫停按鈕 -->
+        <div id="status" onclick="togglePlayPause()">讀取中...</div>
         <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
     </div>
 
-    <div id="prompt-panel" onclick="togglePanel(false)">
-        <div class="panel-header" onclick="event.stopPropagation()">
+    <!-- 新增：點擊這個遮罩就會收合面板 -->
+    <div id="panel-overlay" onclick="togglePanel(false)"></div>
+
+    <div id="prompt-panel">
+        <div class="panel-header">
             <h3>📝 發稿比對設定</h3>
             <button class="close-btn" onclick="togglePanel(false)">收合</button>
         </div>
-        <textarea id="requirement-input" onclick="event.stopPropagation()" placeholder="請貼上您的品管需求單..."></textarea>
+        <!-- 這裡不再需要 stopPropagation，因為點擊事件移到了 overlay 上 -->
+        <textarea id="requirement-input" placeholder="請貼上您的品管需求單..."></textarea>
         
-        <div class="btn-group" onclick="event.stopPropagation()">
+        <div class="btn-group">
             <button id="qr-btn" onclick="showQRCode()">🔲 QR Code</button>
             <button id="paste-btn" onclick="pasteFromClipboard()">📋 貼上</button>
             <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製並開啟AI</button>
@@ -109,14 +103,31 @@
 
         let videoIds = [];
         let currentIndex = 0;
-        let isAutoplayActive = false; // 🌟 記錄使用者是否已經啟動了自動播放功能
         
         let allChannelNames = [];
         let sampleTitle = '（無標題）';
         let sampleDesc = '（無內文）';
         let formattedLiveEventInfo = ""; 
 
-        // 🧠 終極版 Base64 解碼器
+        // 🌟 新增：YouTube API 播放器變數
+        let ytPlayer = null;
+        let isYtApiReady = false;
+
+        // 🌟 動態載入 YouTube IFrame API (這是精準控制播放/暫停的關鍵)
+        const tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // API 準備好時會自動呼叫這個函數
+        function onYouTubeIframeAPIReady() {
+            isYtApiReady = true;
+            // 如果網址已經解析出影片 ID，就立刻載入第一支
+            if (videoIds.length > 0) {
+                loadVideoIndex(0);
+            }
+        }
+
         function decodeBase64Advanced(b64) {
             try {
                 let fixedB64 = b64.replace(/ /g, "+");
@@ -128,7 +139,6 @@
                 if (bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 254) { return new TextDecoder('utf-16le').decode(bytes); }
                 return new TextDecoder('utf-8').decode(bytes);
             } catch (e) {
-                console.error("Base64 解析錯誤", e);
                 return "（文字解析失敗：" + e.message + "）";
             }
         }
@@ -151,8 +161,8 @@
             const urlParams = new URLSearchParams(window.location.search);
             const rawText = urlParams.get('text');    
             const rawTitle = urlParams.get('title');  
-            
             const rawReqB64 = urlParams.get('reqb64');
+            
             if (rawReqB64) {
                 document.getElementById('requirement-input').value = decodeBase64Advanced(decodeURIComponent(rawReqB64));
             }
@@ -171,7 +181,8 @@
                 videoIds = [...new Set(videoIds)];
 
                 if (videoIds.length > 0) {
-                    loadVideo(0); 
+                    // 如果 API 已經準備好，就載入影片 (通常 API 會比較慢，會由 onYouTubeIframeAPIReady 觸發)
+                    if (isYtApiReady) loadVideoIndex(0);
                     silentFetchAllData(); 
                     setupSwipeGestures(); 
                 } else {
@@ -197,38 +208,71 @@
 
         function closeQRCode() { document.getElementById('qr-modal').style.display = 'none'; }
 
-        // 🌟 優化 2：點擊中央狀態列，啟動有聲自動播放
-        function activateAutoplay() {
-            if (isAutoplayActive) return; 
-            isAutoplayActive = true;
-            document.getElementById('status').classList.add('active'); 
-            loadVideo(currentIndex); 
+        // 🌟 Bug 2：利用 YouTube API 進行播放/暫停控制
+        function togglePlayPause() {
+            if (!ytPlayer) return;
+            const state = ytPlayer.getPlayerState();
+            if (state === YT.PlayerState.PLAYING) {
+                ytPlayer.pauseVideo();
+            } else {
+                ytPlayer.playVideo();
+            }
         }
 
-        function loadVideo(index) {
+        // 🌟 YouTube API 狀態改變時觸發，連動中央按鈕的文字與顏色
+        function onPlayerStateChange(event) {
+            const statusBtn = document.getElementById('status');
+            if (event.data === YT.PlayerState.PLAYING) {
+                statusBtn.innerText = '⏸ 暫停';
+                statusBtn.classList.add('active'); // 啟動顏色
+            } else {
+                statusBtn.innerText = '▶ 播放';
+                statusBtn.classList.remove('active'); // 恢復預設顏色
+            }
+        }
+
+        function loadVideoIndex(index) {
             if (index < 0 || index >= videoIds.length) return;
             currentIndex = index;
             const currentVideoId = videoIds[currentIndex];
-            const player = document.getElementById('yt-player');
             
-            // 每次載入影片，都會透過 autoplay=1 嘗試播放
-            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
-            
-            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
             document.getElementById('prev-btn').disabled = (currentIndex === 0);
             document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
+            
+            // 如果播放器還沒建立，就新建一個；如果已經存在，就替換影片 ID
+            if (!ytPlayer) {
+                ytPlayer = new YT.Player('yt-player', {
+                    videoId: currentVideoId,
+                    playerVars: { 'playsinline': 1, 'autoplay': 1 },
+                    events: {
+                        'onReady': (event) => { event.target.playVideo(); },
+                        'onStateChange': onPlayerStateChange
+                    }
+                });
+            } else {
+                ytPlayer.loadVideoById(currentVideoId); // 載入新影片並強制自動播放
+            }
+            
+            updateVideoInfo(currentVideoId);
+        }
+
+        function changeVideo(direction) {
+            loadVideoIndex(currentIndex + direction); 
+        }
+
+        // 獨立出更新文字資訊的函數
+        function updateVideoInfo(videoId) {
             document.getElementById('vid-title').innerText = '載入影片資訊中...';
-            document.getElementById('vid-channel').innerHTML = ''; // 清空準備重繪
+            document.getElementById('vid-channel').innerHTML = '';
             document.getElementById('vid-desc').innerText = '抓取內文中...';
 
-            fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`)
+            fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${videoId}&key=${API_KEY}`)
                 .then(response => response.json())
                 .then(data => {
                     if (data.items && data.items.length > 0) {
                         const snippet = data.items[0].snippet;
                         document.getElementById('vid-title').innerText = snippet.title;
 
-                        // 🌟 優化 4：判斷直播狀態並組合 HTML
                         const liveStatus = snippet.liveBroadcastContent;
                         let statusHtml = '';
                         if (liveStatus === 'live') {
@@ -246,19 +290,17 @@
                 .catch(error => console.error("API 請求錯誤: ", error));
         }
 
-        function changeVideo(direction) {
-            // 🌟 如果使用者直接點擊了上一部/下一部，也視同取得了互動權限
-            if (!isAutoplayActive) {
-                isAutoplayActive = true;
-                document.getElementById('status').classList.add('active');
-            }
-            loadVideo(currentIndex + direction); 
-        }
-
+        // 🌟 Bug 1：修改收合面板邏輯，同步控制隱形遮罩
         function togglePanel(show) {
             const panel = document.getElementById('prompt-panel');
-            if (show) panel.classList.add('open');
-            else panel.classList.remove('open');
+            const overlay = document.getElementById('panel-overlay');
+            if (show) {
+                panel.classList.add('open');
+                overlay.style.display = 'block'; // 顯示遮罩，阻絕後方點擊
+            } else {
+                panel.classList.remove('open');
+                overlay.style.display = 'none';  // 隱藏遮罩
+            }
         }
 
         function setupSwipeGestures() {
