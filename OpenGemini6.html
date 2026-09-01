@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>直播控制台v5</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; }
+        iframe { width: 100%; height: 100%; border: none; }
+        #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; touch-action: pan-y; }
+        #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
+        #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; display: flex; align-items: center; }
+        #vid-desc { background: #222; padding: 12px; border-radius: 8px; font-size: 14px; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
+        #controls { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; height: 90px; background: #1c1c1e; box-sizing: border-box; padding: 0 15px; padding-bottom: env(safe-area-inset-bottom); gap: 15px; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        button { flex: 1; height: 55px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 12px; background: #0a84ff; color: white; touch-action: manipulation; }
+        button:active { background: #0060d1; }
+        button:disabled { background: #3a3a3c; color: #8e8e93; cursor: not-allowed; }
+        
+        #status { font-size: 18px; font-weight: bold; color: #ebebf5; background: #3a3a3c; flex: 0.8; display: flex; justify-content: center; align-items: center; border-radius: 12px; height: 55px; cursor: pointer; transition: all 0.3s; }
+        #status:active { transform: scale(0.95); }
+        #status.active { background: #ff453a; color: white; box-shadow: 0 0 12px rgba(255,69,58,0.5); }
+        
+        #prompt-panel { position: fixed; top: 0; right: -100%; width: 85%; height: 100dvh; background: rgba(28, 28, 30, 0.98); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: -5px 0 20px rgba(0,0,0,0.7); transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); z-index: 200; display: flex; flex-direction: column; padding: 20px; box-sizing: border-box; padding-top: env(safe-area-inset-top, 20px); padding-bottom: env(safe-area-inset-bottom, 20px); cursor: pointer; }
+        .panel-header, #requirement-input, .btn-group { cursor: default; }
+        
+        #prompt-panel.open { right: 0; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .panel-header h3 { margin: 0; font-size: 20px; }
+        .close-btn { background: #3a3a3c; height: 40px; flex: 0 0 80px; font-size: 16px; }
+        #requirement-input { flex-grow: 1; margin-bottom: 15px; background: #000; color: #fff; border: 1px solid #3a3a3c; border-radius: 12px; padding: 15px; font-size: 16px; line-height: 1.5; resize: none; outline: none; font-family: inherit; }
+        
+        .btn-group { display: flex; gap: 10px; }
+        #copy-prompt-btn { background: #32d74b; flex: 2; }
+        #copy-prompt-btn:active { background: #28a745; }
+        #paste-btn { background: #5e5ce6; flex: 1; }
+        #paste-btn:active { background: #4b49b8; }
+        #qr-btn { background: #ff9f0a; flex: 1; }
+        #qr-btn:active { background: #d08107; }
+        #swipe-hint { position: fixed; right: 0; top: 50%; transform: translateY(-50%); background: rgba(50, 50, 50, 0.7); color: #fff; padding: 15px 5px; border-radius: 8px 0 0 8px; z-index: 50; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 2px; }
+        
+        #qr-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 300; flex-direction: column; justify-content: center; align-items: center; }
+        #qrcode-container { background: #fff; padding: 20px; border-radius: 12px; width: 250px; height: 250px; display: flex; align-items: center; justify-content: center; } 
+        #qr-image { display: block; width: 250px; height: 250px; }
+        #qr-text-display { color: #fff; margin-top: 25px; font-size: 20px; font-weight: bold; text-align: center; padding: 0 20px; line-height: 1.4; }
+        #close-qr-btn { flex: none; margin-top: 30px; background: #ff453a; width: 150px; height: 50px; }
+
+        @media screen and (orientation: landscape) {
+            #controls, #swipe-hint, #info-section, #prompt-panel { display: none !important; }
+            body { justify-content: center; background: #000; }
+            #video-wrapper {
+                position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                display: flex; justify-content: center; align-items: center;
+                background: #000; z-index: 9999;
+                padding-left: env(safe-area-inset-left);
+                padding-right: env(safe-area-inset-right);
+                box-sizing: border-box;
+            }
+            #video-wrapper iframe {
+                width: 100%; height: 100%;
+                max-width: calc(100vh * 16 / 9);
+                max-height: calc(100vw * 9 / 16);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="video-wrapper">
+        <iframe id="yt-player" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    </div>
+    
+    <div id="swipe-hint" onclick="togglePanel(true)">◀ 品管</div>
+
+    <div id="info-section">
+        <h3 id="vid-title">載入影片資訊中...</h3>
+        <p id="vid-channel">頻道名稱</p>
+        <div id="vid-desc">載入內文中...</div>
+    </div>
+
+    <div id="controls">
+        <button id="prev-btn" onclick="changeVideo(-1)">◄ 上一部</button>
+        <div id="status" onclick="activateAutoplay()">等待中</div>
+        <button id="next-btn" onclick="changeVideo(1)">下一部 ►</button>
+    </div>
+
+    <div id="prompt-panel" onclick="togglePanel(false)">
+        <div class="panel-header" onclick="event.stopPropagation()">
+            <h3>📝 發稿比對設定</h3>
+            <button class="close-btn" onclick="togglePanel(false)">收合</button>
+        </div>
+        <textarea id="requirement-input" onclick="event.stopPropagation()" placeholder="請貼上您的品管需求單..."></textarea>
+        
+        <div class="btn-group" onclick="event.stopPropagation()">
+            <button id="qr-btn" onclick="showQRCode()">🔲 QR Code</button>
+            <button id="paste-btn" onclick="pasteFromClipboard()">📋 貼上</button>
+            <button id="copy-prompt-btn" onclick="copyToGemini()">📋 複製並開啟AI</button>
+        </div>
+    </div>
+
+    <div id="qr-modal">
+        <div id="qrcode-container">
+            <img id="qr-image" src="" alt="QR Code 載入中...">
+        </div>
+        <div id="qr-text-display"></div>
+        <button id="close-qr-btn" onclick="closeQRCode()">關閉</button>
+    </div>
+    <script>
+        const API_KEY = 'AIzaSyCD8fnx7T0aEpPG2Co5p4QDqshIgB_ix1Y'; 
+
+        let videoIds = [];
+        let currentIndex = 0;
+        let isAutoplayActive = false; // 🌟 記錄使用者是否已經啟動了自動播放功能
+        
+        let allChannelNames = [];
+        let sampleTitle = '（無標題）';
+        let sampleDesc = '（無內文）';
+        let formattedLiveEventInfo = ""; 
+
+        // 🧠 終極版 Base64 解碼器
+        function decodeBase64Advanced(b64) {
+            try {
+                let fixedB64 = b64.replace(/ /g, "+");
+                let cleanB64 = fixedB64.replace(/[^A-Za-z0-9+/=]/g, "");
+                while (cleanB64.length % 4 !== 0) { cleanB64 += "="; }
+                const binString = atob(cleanB64);
+                const bytes = new Uint8Array(binString.length);
+                for (let i = 0; i < binString.length; i++) { bytes[i] = binString.charCodeAt(i); }
+                if (bytes.length >= 2 && bytes[0] === 255 && bytes[1] === 254) { return new TextDecoder('utf-16le').decode(bytes); }
+                return new TextDecoder('utf-8').decode(bytes);
+            } catch (e) {
+                console.error("Base64 解析錯誤", e);
+                return "（文字解析失敗：" + e.message + "）";
+            }
+        }
+
+        function parseSNGTitle(rawTitle) {
+            let decodedTitle = decodeURIComponent(rawTitle).trim();
+            let parts = decodedTitle.split(/\s+/);
+            if (parts.length >= 3) {
+                let datePart = parts.shift(); 
+                let timePart = parts.pop();   
+                let titlePart = parts.join(' ').replace(/[【】]/g, '');
+                if (/^\d{4}$/.test(datePart)) datePart = datePart.substring(0, 2) + '/' + datePart.substring(2, 4);
+                if (/^\d{4}$/.test(timePart)) timePart = timePart.substring(0, 2) + ':' + timePart.substring(2, 4);
+                return `${datePart} 【${titlePart}】 ${timePart}`;
+            }
+            return decodedTitle;
+        }
+
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawText = urlParams.get('text');    
+            const rawTitle = urlParams.get('title');  
+            
+            const rawReqB64 = urlParams.get('reqb64');
+            if (rawReqB64) {
+                document.getElementById('requirement-input').value = decodeBase64Advanced(decodeURIComponent(rawReqB64));
+            }
+
+            if (rawTitle) {
+                formattedLiveEventInfo = parseSNGTitle(rawTitle);
+            } else {
+                formattedLiveEventInfo = "未提供標題資訊";
+            }
+
+            if (rawText) {
+                const rawTextDecoded = decodeURIComponent(rawText);
+                const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
+                const matches = [...rawTextDecoded.matchAll(regExp)];
+                videoIds = matches.map(match => match[1]);
+                videoIds = [...new Set(videoIds)];
+
+                if (videoIds.length > 0) {
+                    loadVideo(0); 
+                    silentFetchAllData(); 
+                    setupSwipeGestures(); 
+                } else {
+                    document.getElementById('status').innerText = '無效網址';
+                    document.getElementById('vid-title').innerText = '找不到 YouTube 影片';
+                }
+            } else {
+                document.getElementById('status').innerText = '無輸入';
+                document.getElementById('vid-title').innerText = '請透過捷徑傳入網址';
+            }
+
+            setTimeout(() => { togglePanel(true); }, 300);
+        }
+
+        function showQRCode() {
+            if (!formattedLiveEventInfo) return;
+            document.getElementById('qr-modal').style.display = 'flex';
+            const encodedText = encodeURIComponent(formattedLiveEventInfo);
+            const qrUrl = `https://quickchart.io/qr?text=${encodedText}&size=250&margin=2&ecLevel=M`;
+            document.getElementById('qr-image').src = qrUrl;
+            document.getElementById('qr-text-display').innerText = formattedLiveEventInfo;
+        }
+
+        function closeQRCode() { document.getElementById('qr-modal').style.display = 'none'; }
+
+        // 🌟 優化 2：點擊中央狀態列，啟動有聲自動播放
+        function activateAutoplay() {
+            if (isAutoplayActive) return; 
+            isAutoplayActive = true;
+            document.getElementById('status').classList.add('active'); 
+            loadVideo(currentIndex); 
+        }
+
+        function loadVideo(index) {
+            if (index < 0 || index >= videoIds.length) return;
+            currentIndex = index;
+            const currentVideoId = videoIds[currentIndex];
+            const player = document.getElementById('yt-player');
+            
+            // 每次載入影片，都會透過 autoplay=1 嘗試播放
+            player.src = `https://www.youtube.com/embed/${currentVideoId}?autoplay=1&playsinline=1`;
+            
+            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
+            document.getElementById('prev-btn').disabled = (currentIndex === 0);
+            document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
+            document.getElementById('vid-title').innerText = '載入影片資訊中...';
+            document.getElementById('vid-channel').innerHTML = ''; // 清空準備重繪
+            document.getElementById('vid-desc').innerText = '抓取內文中...';
+
+            fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.items && data.items.length > 0) {
+                        const snippet = data.items[0].snippet;
+                        document.getElementById('vid-title').innerText = snippet.title;
+
+                        // 🌟 優化 4：判斷直播狀態並組合 HTML
+                        const liveStatus = snippet.liveBroadcastContent;
+                        let statusHtml = '';
+                        if (liveStatus === 'live') {
+                            statusHtml = '<span style="color: #ff453a; font-weight: bold; margin-left: 10px; background: rgba(255,69,58,0.2); padding: 2px 8px; border-radius: 4px;">🔴 直播</span>';
+                        } else if (liveStatus === 'upcoming') {
+                            statusHtml = '<span style="color: #ff9f0a; font-weight: bold; margin-left: 10px; background: rgba(255,159,10,0.2); padding: 2px 8px; border-radius: 4px;">🟠 等待</span>';
+                        } else {
+                            statusHtml = '<span style="color: #8e8e93; font-weight: bold; margin-left: 10px; background: rgba(142,142,147,0.2); padding: 2px 8px; border-radius: 4px;">⚪ 重播</span>';
+                        }
+                        
+                        document.getElementById('vid-channel').innerHTML = snippet.channelTitle + statusHtml;
+                        document.getElementById('vid-desc').innerText = snippet.description ? snippet.description : '（此影片無提供內文）';
+                    }
+                })
+                .catch(error => console.error("API 請求錯誤: ", error));
+        }
+
+        function changeVideo(direction) {
+            // 🌟 如果使用者直接點擊了上一部/下一部，也視同取得了互動權限
+            if (!isAutoplayActive) {
+                isAutoplayActive = true;
+                document.getElementById('status').classList.add('active');
+            }
+            loadVideo(currentIndex + direction); 
+        }
+
+        function togglePanel(show) {
+            const panel = document.getElementById('prompt-panel');
+            if (show) panel.classList.add('open');
+            else panel.classList.remove('open');
+        }
+
+        function setupSwipeGestures() {
+            let touchStartX = 0;
+            let touchEndX = 0;
+            const swipeArea = document.getElementById('info-section');
+            swipeArea.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].screenX; }, false);
+            swipeArea.addEventListener('touchend', e => {
+                touchEndX = e.changedTouches[0].screenX;
+                const swipeDistance = touchStartX - touchEndX;
+                if (swipeDistance > 50) togglePanel(true);
+                if (swipeDistance < -50) togglePanel(false);
+            }, false);
+        }
+
+        async function silentFetchAllData() {
+            const idsString = videoIds.join(',');
+            try {
+                const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${idsString}&key=${API_KEY}`);
+                const data = await response.json();
+                if (data.items && data.items.length > 0) {
+                    allChannelNames = data.items.map(item => item.snippet.channelTitle);
+                    sampleTitle = data.items[0].snippet.title;
+                    sampleDesc = data.items[0].snippet.description;
+                }
+            } catch (error) { console.error("背景抓取失敗", error); }
+        }
+
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const textarea = document.getElementById('requirement-input');
+                if (textarea.value) textarea.value += '\n' + text;
+                else textarea.value = text;
+            } catch (err) {
+                alert('剪貼簿讀取失敗，請確認是否已允許網頁存取剪貼簿權限。');
+            }
+        }
+
+        function copyToGemini() {
+            const requirement = document.getElementById('requirement-input').value.trim();
+            const reqText = requirement ? requirement : '（未輸入發稿需求）';
+            const channelsString = allChannelNames.length > 0 ? allChannelNames.join('，') : document.getElementById('vid-channel').innerText;
+            const finalTitle = sampleTitle !== '（無標題）' ? sampleTitle : document.getElementById('vid-title').innerText;
+            const finalDesc = sampleDesc !== '（無內文）' ? sampleDesc : document.getElementById('vid-desc').innerText;
+
+            const finalPrompt = `請根據Gem的指示。\n\n====================\n【發稿需求單】：\n${reqText}\n\n====================\n【頻道】：${channelsString}\n\n【標題】：${finalTitle}\n\n【內文】：\n${finalDesc}`;
+
+            navigator.clipboard.writeText(finalPrompt).then(() => {
+                const btn = document.getElementById('copy-prompt-btn');
+                const originalText = btn.innerText;
+                const originalBg = btn.style.background;
+                btn.innerText = '✅ 複製成功！跳轉中...';
+                btn.style.background = '#0a84ff';
+                
+                setTimeout(() => {
+                    togglePanel(false); 
+                    window.location.href = "shortcuts://run-shortcut?name=OpenGemini";
+                }, 500);
+
+                setTimeout(() => { btn.innerText = originalText; btn.style.background = originalBg; }, 2500);
+            }).catch(err => { alert('剪貼簿權限遭阻擋，請手動全選文字複製。'); });
+        }
+
+        init();
+    </script>
+</body>
+</html>
