@@ -1,0 +1,10 @@
+<button onclick="enterFullScreen()">進入全螢幕</button>
+
+<script>
+function enterFullScreen() {
+  let elem = document.documentElement;
+  if (elem.requestFullscreen) {
+    elem.requestFullscreen();
+  }
+}
+</script>
