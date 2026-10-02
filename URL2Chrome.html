@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>載入中...</title>
+    <style>
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #000; color: white; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+        #video-wrapper { width: 100%; aspect-ratio: 16 / 9; background: #000; flex-shrink: 0; z-index: 10; display: flex; justify-content: center; align-items: center; }
+        #yt-player { width: 100%; height: 100%; border: none; max-width: 640px; max-height: 360px; }
+        #info-section { flex-grow: 1; padding: 15px; padding-bottom: 110px; background: #111; overflow-y: auto; }
+        #vid-title { margin: 0 0 5px 0; font-size: 18px; line-height: 1.3; }
+        #vid-channel { margin: 0 0 15px 0; font-size: 14px; color: #aaa; }
+        #vid-desc { background: #222; padding: 12px; border-radius: 8px; font-size: 14px; color: #ccc; line-height: 1.5; white-space: pre-wrap; }
+        #controls { position: fixed; bottom: 0; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: center; height: 90px; background: #1c1c1e; box-sizing: border-box; padding: 0 15px; padding-bottom: env(safe-area-inset-bottom); gap: 15px; z-index: 100; box-shadow: 0 -5px 15px rgba(0,0,0,0.5); }
+        button { flex: 1; height: 55px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; border-radius: 12px; background: #0a84ff; color: white; touch-action: manipulation; }
+        button:active { background: #0060d1; }
+        button:disabled { background: #3a3a3c; color: #8e8e93; cursor: not-allowed; }
+        #status { font-size: 15px; font-weight: 500; color: #ebebf5; white-space: nowrap; text-align: center; min-width: 80px; }
+    </style>
+</head>
+<body>
+    <div id="video-wrapper">
+        <div id="yt-player"></div>
+    </div>
+    
+    <div id="info-section">
+        <h3 id="vid-title">等待載入...</h3>
+        <p id="vid-channel"></p>
+        <div id="vid-desc"></div>
+    </div>
+
+    <div id="controls">
+        <button id="prev-btn" onclick="changeVideo(-1)" disabled>◄ 上一部</button>
+        <div id="status">等待中</div>
+        <button id="next-btn" onclick="changeVideo(1)" disabled>下一部 ►</button>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyCD8fnx7T0aEpPG2Co5p4QDqshIgB_ix1Y'; 
+
+        let videoIds = [];
+        let currentIndex = 0;
+        let player;
+        let progressInterval;
+
+        function init() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const rawText = urlParams.get('text');    
+
+            if (rawText) {
+                const rawTextDecoded = decodeURIComponent(rawText);
+                const regExp = /(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/|shorts\/)([a-zA-Z0-9_-]{11})/g;
+                const matches = [...rawTextDecoded.matchAll(regExp)];
+                videoIds = matches.map(match => match[1]);
+                videoIds = [...new Set(videoIds)];
+
+                if (videoIds.length > 0) {
+                    // 載入 YouTube IFrame API
+                    const tag = document.createElement('script');
+                    tag.src = "https://www.youtube.com/iframe_api";
+                    const firstScriptTag = document.getElementsByTagName('script')[0];
+                    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+                } else {
+                    showError('無效網址', '找不到 YouTube 影片');
+                }
+            } else {
+                showError('無輸入', '請透過捷徑傳入網址');
+            }
+        }
+
+        function showError(statusText, titleText) {
+            document.getElementById('status').innerText = statusText;
+            document.getElementById('vid-title').innerText = titleText;
+        }
+
+        // YouTube API 載入完成後自動呼叫此函數
+        window.onYouTubeIframeAPIReady = function() {
+            const currentVid = videoIds[currentIndex];
+            let savedTime = localStorage.getItem('yt_progress_' + currentVid);
+            let startSec = savedTime ? parseFloat(savedTime) : 0;
+
+            player = new YT.Player('yt-player', {
+                height: '360',
+                width: '640',
+                videoId: currentVid,
+                playerVars: {
+                    'playsinline': 0, // 3. 一按播放就全螢幕 (iOS 原生機制)
+                    'vq': 'small',    // 1. 暗示 YouTube 給予 360p 畫質
+                    'start': Math.floor(startSec) // 2. 初始載入時跳轉至上次儲存的時間
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        function onPlayerReady(event) {
+            updateUIAndFetchMetadata();
+        }
+
+        function onPlayerStateChange(event) {
+            const currentVid = videoIds[currentIndex];
+            
+            if (event.data == YT.PlayerState.PLAYING) {
+                // 1. 播放時再次暗示給予低畫質
+                event.target.setPlaybackQuality('small');
+
+                // 2. 每 3 秒儲存一次播放進度
+                clearInterval(progressInterval);
+                progressInterval = setInterval(() => {
+                    let currentTime = player.getCurrentTime();
+                    if (currentTime > 0) {
+                        localStorage.setItem('yt_progress_' + currentVid, currentTime);
+                    }
+                }, 3000);
+
+            } else {
+                clearInterval(progressInterval);
+                
+                // 暫停時存檔
+                if (event.data == YT.PlayerState.PAUSED) {
+                    localStorage.setItem('yt_progress_' + currentVid, player.getCurrentTime());
+                }
+                
+                // 播完時清除紀錄
+                if (event.data == YT.PlayerState.ENDED) {
+                    localStorage.removeItem('yt_progress_' + currentVid);
+                }
+            }
+        }
+
+        function updateUIAndFetchMetadata() {
+            const currentVideoId = videoIds[currentIndex];
+            
+            document.getElementById('status').innerText = `${currentIndex + 1} / ${videoIds.length}`;
+            document.getElementById('prev-btn').disabled = (currentIndex === 0);
+            document.getElementById('next-btn').disabled = (currentIndex === videoIds.length - 1);
+
+            document.getElementById('vid-title').innerText = '載入影片資訊中...';
+            document.getElementById('vid-channel').innerText = '';
+            document.getElementById('vid-desc').innerText = '抓取內文中...';
+
+            const apiUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=${currentVideoId}&key=${API_KEY}`;
+
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.items && data.items.length > 0) {
+                        const snippet = data.items[0].snippet;
+                        const fullTitle = snippet.title;
+                        
+                        document.getElementById('vid-title').innerText = fullTitle;
+                        document.getElementById('vid-channel').innerText = snippet.channelTitle;
+                        document.getElementById('vid-desc').innerText = snippet.description ? snippet.description : '（此影片無提供內文）';
+                        
+                        // 4. 分頁顯示名稱為 youtube 標題前 10 個字
+                        document.title = fullTitle.length > 10 ? fullTitle.substring(0, 10) + '...' : fullTitle;
+                    }
+                })
+                .catch(error => console.error("API 請求錯誤: ", error));
+        }
+
+        function changeVideo(direction) {
+            if (!player) return;
+            
+            currentIndex += direction;
+            if (currentIndex < 0) currentIndex = 0;
+            if (currentIndex >= videoIds.length) currentIndex = videoIds.length - 1;
+            
+            const nextVid = videoIds[currentIndex];
+            
+            // 清除前一個影片的計時器
+            clearInterval(progressInterval);
+            
+            // 讀取下一個影片的進度
+            let savedTime = localStorage.getItem('yt_progress_' + nextVid);
+            let startSec = savedTime ? parseFloat(savedTime) : 0;
+
+            // 載入新影片並指定開始時間與畫質
+            player.loadVideoById({
+                'videoId': nextVid,
+                'startSeconds': startSec,
+                'suggestedQuality': 'small'
+            });
+            
+            updateUIAndFetchMetadata();
+        }
+
+        // 執行初始化
+        init();
+    </script>
+</body>
+</html>
