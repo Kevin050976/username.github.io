@@ -1,3 +1,4 @@
+這是因為在 iPhone 等行動裝置上，影片播放時預設會強制進入全螢幕。要解決這個問題，必須將 YouTube IFrame API 參數中的 playsinline 數值從 0 改為 1，強制影片在網頁內嵌（Inline）播放，這樣您就能連續點擊按鈕了。
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
@@ -129,7 +130,7 @@
                 width: '640',
                 videoId: currentVid,
                 playerVars: {
-                    'playsinline': 0, 
+                    'playsinline': 1, 
                     'vq': 'small',    
                     'start': Math.floor(initialStartSeconds) 
                 },
@@ -203,10 +204,8 @@
                 const skipSeconds = parseInt(skipSelect.value, 10);
                 const currentTime = player.getCurrentTime();
                 
-                // 跳轉至目標時間
                 player.seekTo(currentTime + (direction * skipSeconds), true);
                 
-                // 強制保持播放狀態
                 player.playVideo();
             }
         }
